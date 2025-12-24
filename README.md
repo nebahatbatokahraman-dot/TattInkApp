@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # TattInk Flutter Uygulaması
 
 TattInk, dövme artistleri ile müşterileri bir araya getiren bir mobil uygulamadır.
@@ -157,3 +158,7 @@ firebase emulators:start
 ## Lisans
 
 Bu proje özel bir projedir.
+=======
+# TattInkApp
+Second Version
+>>>>>>> faa91363c3b931bf76e48dfdd185df714909edf8
