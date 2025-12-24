@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "9143554156",
+    "project_id": "tattinkapp",
+    "storage_bucket": "tattinkapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:9143554156:android:fe49563b766384ea1e0849",
+        "android_client_info": {
+          "package_name": "com.example.tattoo_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBTuAUomoVFT_mHVDkL14S1iwfUSR8kLFg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
