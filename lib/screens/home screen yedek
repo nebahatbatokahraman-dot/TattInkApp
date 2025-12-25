@@ -1,32 +1,33 @@
-import '../post_detail_screen.dart'; // <--- IMPORT EKLENDİ
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 
 // --- SERVICE & MODEL IMPORTS ---
-import '../../services/auth_service.dart';
-import '../../services/image_service.dart';
-import '../../services/notification_service.dart';
-import '../../models/user_model.dart';
-import '../../models/post_model.dart';
-import '../../utils/constants.dart';
-import '../../utils/slide_route.dart';
-import '../../theme/app_theme.dart';
+// DİKKAT: Dosya yapına göre bu yolların doğruluğundan emin ol.
+// Eğer bu dosya lib/screens/profile/ içindeyse:
+import '../services/auth_service.dart';
+import '../services/image_service.dart';
+import '../services/notification_service.dart'; // NotificationService burada
+import '../models/user_model.dart';
+import '../models/post_model.dart';
+import '../utils/constants.dart';
+import '../utils/slide_route.dart';
+import '../theme/app_theme.dart';
 
 // --- WIDGET & SCREEN IMPORTS ---
-import '../../widgets/login_required_dialog.dart';
-import '../chat_screen.dart';
-import '../appointments_screen.dart';
-import '../create_post_screen.dart';
-import '../messages_screen.dart';
+import '../widgets/login_required_dialog.dart';
+import 'chat_screen.dart';
+import 'appointments_screen.dart';
+import 'create_post_screen.dart';
+import 'messages_screen.dart';
 
 // --- AYAR SAYFALARI ---
-import '../settings/artist_settings_screen.dart';      
-import '../settings/artist_edit_profile_screen.dart';  
+import 'settings/artist_settings_screen.dart';      
+import 'settings/artist_edit_profile_screen.dart'; 
 
 class ArtistProfileScreen extends StatefulWidget {
   final String userId;
@@ -45,8 +46,7 @@ class ArtistProfileScreen extends StatefulWidget {
 class _ArtistProfileScreenState extends State<ArtistProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  UserModel? _user; 
-  UserModel? _currentUserModel;
+  UserModel? _user;
   bool _isFollowing = false;
   final ImagePicker _picker = ImagePicker();
 
@@ -55,7 +55,6 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
     super.initState();
     _tabController = TabController(length: widget.isOwnProfile ? 3 : 2, vsync: this);
     _loadUser();
-    _loadCurrentUser();
     _checkFollowing();
   }
 
@@ -65,17 +64,22 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
     super.dispose();
   }
 
-  // --- KULLANICI DURUM KONTROLÜ ---
+  // --- EKLENEN BÖLÜM: KULLANICI DURUM KONTROLÜ ---
   bool _checkUserStatus() {
     final user = FirebaseAuth.instance.currentUser;
+    
+    // 1. Giriş Kontrolü
     if (user == null) {
       LoginRequiredDialog.show(context);
       return false;
     }
+    
+    // 2. E-posta Onay Kontrolü
     if (!user.emailVerified) {
       _showVerificationRequired();
       return false;
     }
+    
     return true;
   }
 
@@ -111,19 +115,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
       ),
     );
   }
-
-  Future<void> _loadCurrentUser() async {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final uid = authService.currentUser?.uid;
-    if (uid != null) {
-      final userModel = await authService.getUserModel(uid);
-      if (mounted) {
-        setState(() {
-          _currentUserModel = userModel;
-        });
-      }
-    }
-  }
+  // ------------------------------------------------
 
   Future<void> _loadUser() async {
     final authService = Provider.of<AuthService>(context, listen: false);
@@ -157,7 +149,9 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
     }
   }
 
+  // --- GÜNCELLENEN TAKİP FONKSİYONU ---
   Future<void> _toggleFollow() async {
+    // 1. GÜVENLİK KONTROLÜ
     if (!_checkUserStatus()) return;
 
     final authService = Provider.of<AuthService>(context, listen: false);
@@ -171,33 +165,42 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
 
     try {
       if (_isFollowing) {
+        // Takipten Çıkma
         await followDocRef.delete();
       } else {
+        // Takip Etme
         await followDocRef.set({
           'followerId': currentUserId,
           'followingId': widget.userId,
           'createdAt': FieldValue.serverTimestamp(),
         });
 
+        // 2. BİLDİRİM GÖNDERME KODU (EKLENDİ)
+        // Bildirim göndermek için önce kendi (takip edenin) bilgilerimizi çekiyoruz
         final currentUserModel = await authService.getUserModel(currentUserId);
         
         if (currentUserModel != null) {
           await NotificationService.sendFollowNotification(
             currentUserId, 
-            currentUserModel.fullName, 
+            currentUserModel.fullName, // Veya username
             currentUserModel.profileImageUrl, 
-            widget.userId 
+            widget.userId // Takip edilen (Artist) ID
           );
         }
+        // -------------------------------------
       }
       
-      setState(() {
-        _isFollowing = !_isFollowing;
-      });
+      if (mounted) {
+        setState(() {
+          _isFollowing = !_isFollowing;
+        });
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('İşlem başarısız: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('İşlem başarısız: $e')),
+        );
+      }
     }
   }
 
@@ -308,7 +311,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
                     ),
 
                     // --- GERİ BUTONU ---
-                    if (canPop && !isOwnProfile)
+                    if (canPop)
                       Positioned(
                         top: 40,
                         left: 16,
@@ -369,8 +372,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
                     // --- PROFİL FOTO & BİLGİLER ---
                     Positioned(
                       left: 16,
-                      // TASARIM DÜZELTME: -60 yerine -75 yapıldı (Daha aşağı kaydırıldı)
-                      bottom: -85, 
+                      bottom: -60,
                       right: 16,
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
@@ -387,8 +389,8 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
                                 ),
                                 child: ClipOval(
                                   child: Container(
-                                    width: 130,
-                                    height: 130,
+                                    width: 100,
+                                    height: 100,
                                     color: const Color(0xFF757575),
                                     child: _user!.profileImageUrl != null
                                         ? CachedNetworkImage(
@@ -396,7 +398,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
                                             fit: BoxFit.cover,
                                             errorWidget: (context, url, error) => const Icon(Icons.person, size: 50),
                                           )
-                                        : const Icon(Icons.person, size: 60),
+                                        : const Icon(Icons.person, size: 50),
                                   ),
                                 ),
                               ),
@@ -467,8 +469,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
                     ),
                   ],
                 ),
-                // TASARIM DÜZELTME: Profil aşağı kaydığı için alt boşluk artırıldı (60 -> 80)
-                const SizedBox(height: 80), 
+                const SizedBox(height: 60),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                   child: Row(
@@ -536,7 +537,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildPortfolioTab(), // Artık detay sayfasına gidiyor
+                _buildPortfolioTab(),
                 if (isOwnProfile) _buildFavoritesTab(),
                 _buildAboutTab(isOwnProfile),
               ],
@@ -547,25 +548,13 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
     );
   }
 
-  // ... (Geri kalanlar aynı) ...
   Widget _buildFollowAndMessageButtons(BuildContext context) {
-    if (_currentUserModel == null || _user == null) {
-      return const SizedBox.shrink(); 
-    }
-
-    final bool amIArtist = _currentUserModel!.role == 'artist' || _currentUserModel!.role == AppConstants.roleArtistApproved;
-    final bool isTargetCustomer = _user!.role == 'customer';
-
-    if (amIArtist && isTargetCustomer) {
-      return const SizedBox.shrink();
-    }
-
     return Row(
       children: [
         Expanded(
           child: _isFollowing 
             ? ElevatedButton(
-                onPressed: _toggleFollow,
+                onPressed: _toggleFollow, // Kontrol ve Bildirim burada
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -573,7 +562,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
                 child: const Text('Takibi Bırak', style: TextStyle(color: Colors.white)),
               )
             : OutlinedButton(
-                onPressed: _toggleFollow,
+                onPressed: _toggleFollow, // Kontrol ve Bildirim burada
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: AppTheme.primaryColor),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -585,7 +574,9 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
         Expanded(
           child: ElevatedButton(
             onPressed: () {
+              // GÜNCELLENDİ: Mesaj atarken de kontrol yap
               if (!_checkUserStatus()) return;
+
               Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(receiverId: widget.userId, receiverName: _user!.fullName)));
             },
             style: ElevatedButton.styleFrom(
@@ -621,47 +612,39 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
     );
   }
 
-  // --- GÜNCELLENEN PORTFOLYO KISMI ---
-Widget _buildPortfolioTab() {
+  Widget _buildPortfolioTab() {
     return StreamBuilder<QuerySnapshot>(
-      // ... (Burası aynı kalıyor)
       stream: FirebaseFirestore.instance
           .collection(AppConstants.collectionPosts)
           .where('artistId', isEqualTo: widget.userId)
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
-        // ... (Burası aynı)
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text('Henüz paylaşım yok', style: TextStyle(color: Colors.white70)));
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(child: Text('Henüz paylaşım yok', style: TextStyle(color: Colors.white70)));
+        }
 
         final posts = snapshot.data!.docs
             .map((doc) => PostModel.fromFirestore(doc))
             .toList();
 
         return GridView.builder(
-          // ... (Burası aynı)
           padding: const EdgeInsets.all(2),
           physics: const BouncingScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 2, mainAxisSpacing: 2),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 2,
+            mainAxisSpacing: 2,
+          ),
           itemCount: posts.length,
           itemBuilder: (context, index) {
             final post = posts[index];
             return GestureDetector(
-              onTap: () {
-                // --- İŞTE DÜZELTİLEN KISIM ---
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => PostDetailScreen(
-                      posts: posts,           // TÜM LİSTEYİ GÖNDER
-                      initialIndex: index,    // TIKLANAN SIRAYI GÖNDER
-                      isOwner: widget.isOwnProfile, 
-                    ),
-                  ),
-                );
-                // -----------------------------
-              },
+              onTap: () { /* Post Detayına Git */ },
               child: CachedNetworkImage( 
                 imageUrl: post.imageUrls.isNotEmpty ? post.imageUrls[0] : '',
                 fit: BoxFit.cover,
@@ -675,46 +658,46 @@ Widget _buildPortfolioTab() {
     );
   }
 
-// ... 2. DÜZELTME: FAVORİLER TAB ...
   Widget _buildFavoritesTab() {
     return StreamBuilder<QuerySnapshot>(
-      // ... (Stream kısımları aynı)
-      stream: FirebaseFirestore.instance.collection(AppConstants.collectionLikes).where('userId', isEqualTo: widget.userId).snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection(AppConstants.collectionLikes)
+          .where('userId', isEqualTo: widget.userId)
+          .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text('Henüz favori yok', style: TextStyle(color: Colors.white70)));
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Center(child: Text('Henüz favori yok', style: TextStyle(color: Colors.white70)));
+        }
+
         final likedPostIds = snapshot.data!.docs.map((doc) => doc['postId'] as String).toList();
 
         return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection(AppConstants.collectionPosts).where(FieldPath.documentId, whereIn: likedPostIds).snapshots(),
+          stream: FirebaseFirestore.instance
+              .collection(AppConstants.collectionPosts)
+              .where(FieldPath.documentId, whereIn: likedPostIds)
+              .snapshots(),
           builder: (context, postSnapshot) {
+            if (postSnapshot.connectionState == ConnectionState.waiting) return const SizedBox();
             if (!postSnapshot.hasData || postSnapshot.data!.docs.isEmpty) return const SizedBox();
-            
+
             final posts = postSnapshot.data!.docs.map((doc) => PostModel.fromFirestore(doc)).toList();
 
             return GridView.builder(
               padding: const EdgeInsets.all(2),
               physics: const BouncingScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 2, mainAxisSpacing: 2),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 2,
+                mainAxisSpacing: 2,
+              ),
               itemCount: posts.length,
               itemBuilder: (context, index) {
                 final post = posts[index];
-                return GestureDetector(
-                  onTap: () {
-                     // --- DÜZELTİLEN KISIM ---
-                     Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PostDetailScreen(
-                          posts: posts,        // TÜM FAVORİLERİ LİSTE OLARAK GÖNDER
-                          initialIndex: index, // TIKLANAN SIRA
-                          isOwner: false
-                        ),
-                      ),
-                    );
-                    // ------------------------
-                  },
-                  child: Image.network(post.imageUrls.isNotEmpty ? post.imageUrls[0] : '', fit: BoxFit.cover)
-                );
+                return Image.network(post.imageUrls.isNotEmpty ? post.imageUrls[0] : '', fit: BoxFit.cover);
               },
             );
           },
@@ -788,10 +771,7 @@ Widget _buildPortfolioTab() {
     );
   }
 
-  void _handleAppointments() {
-    if (!_checkUserStatus()) return; 
-    Navigator.push(context, MaterialPageRoute(builder: (context) => const AppointmentsScreen()));
-  }
+  void _handleAppointments() => Navigator.push(context, MaterialPageRoute(builder: (context) => const AppointmentsScreen()));
   
   void _handleMessages() {
     Navigator.push(

@@ -8,7 +8,7 @@ import '../utils/constants.dart';
 class AuthService with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(); // YENİ EKLENDİ
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   // Get current user
   User? get currentUser => _auth.currentUser;
@@ -16,40 +16,31 @@ class AuthService with ChangeNotifier {
   // Auth state stream
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  // --- GOOGLE İLE GİRİŞ (YENİ VE DÜZELTİLMİŞ) ---
+  // --- GOOGLE İLE GİRİŞ ---
   Future<UserModel?> signInWithGoogle() async {
     try {
-      // 1. Google Giriş Penceresini Aç
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return null; // Kullanıcı vazgeçti
+      if (googleUser == null) return null;
 
-      // 2. Google'dan Kimlik Bilgilerini Al
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      // 3. Firebase'e Giriş Yap
       UserCredential userCredential = await _auth.signInWithCredential(credential);
       User? user = userCredential.user;
 
       if (user != null) {
-        // 4. Kullanıcı veritabanında var mı kontrol et
         DocumentSnapshot doc = await _firestore.collection(AppConstants.collectionUsers).doc(user.uid).get();
 
         if (!doc.exists) {
-          // YOKSA: Yeni Müşteri Olarak Kaydet
-          
-          // --- İSİM PARÇALAMA MANTIĞI (fullName hatası için) ---
           String displayName = user.displayName ?? 'Google Kullanıcısı';
           List<String> names = displayName.split(' ');
           String firstName = names.isNotEmpty ? names.first : 'Google';
           String lastName = names.length > 1 ? names.sublist(1).join(' ') : '';
           
-          // Kullanıcı adı oluşturma
           String baseUsername = user.displayName?.replaceAll(' ', '').toLowerCase() ?? 'user';
-          // Türkçe karakterleri temizle (opsiyonel basit temizlik)
           baseUsername = baseUsername.replaceAll('ğ', 'g').replaceAll('ü', 'u').replaceAll('ş', 's').replaceAll('ı', 'i').replaceAll('ö', 'o').replaceAll('ç', 'c');
           String username = '${baseUsername}_${user.uid.substring(0, 5)}';
 
@@ -57,27 +48,27 @@ class AuthService with ChangeNotifier {
             uid: user.uid,
             email: user.email!,
             username: username,
-            firstName: firstName, // fullName yerine firstName
-            lastName: lastName,   // ve lastName
-            role: AppConstants.roleCustomer, // Google ile gelenler varsayılan Müşteridir
+            firstName: firstName,
+            lastName: lastName,
+            role: AppConstants.roleCustomer,
             profileImageUrl: user.photoURL,
             createdAt: DateTime.now(),
-            isApproved: true, // Müşteriler onaylıdır
-            emailVerified: true, // Google mailleri onaylı sayılır
+            isApproved: true,
+            emailVerified: true,
             
-            // Zorunlu alanları boş string ile dolduruyoruz ki hata vermesin
+            // Zorunlu alanları boş string ile dolduruyoruz
             phoneNumber: "", 
             studioAddress: "",
             instagramUsername: "",
             portfolioImages: [],
             applications: [],
             applicationStyles: [],
+            studioName: "", // Müşteride stüdyo adı boştur
           );
           
           await _firestore.collection(AppConstants.collectionUsers).doc(user.uid).set(newUser.toMap());
           return newUser;
         } else {
-          // VARSA: Mevcut veriyi döndür
           return UserModel.fromFirestore(doc);
         }
       }
@@ -116,17 +107,39 @@ class AuthService with ChangeNotifier {
       );
 
       if (credential.user != null) {
-        // Send email verification
         await credential.user!.sendEmailVerification();
 
-        // Create user document in Firestore
+        // --- GÜNCELLEME: İsim Oluşturma Mantığı ---
+        // Mail adresinden isim türetiyoruz (ali.veli@gmail.com -> Ali.veli)
+        String generatedName = email.split('@')[0];
+        if (generatedName.isNotEmpty) {
+          // Baş harfi büyüt
+          generatedName = generatedName[0].toUpperCase() + generatedName.substring(1);
+        } else {
+          generatedName = "Müşteri";
+        }
+        // ------------------------------------------
+
         final userModel = UserModel(
           uid: credential.user!.uid,
           email: email,
+          // Türetilen ismi Ad alanına atıyoruz
+          firstName: generatedName, 
+          lastName: "", // Soyadı boş bırakabiliriz
+          username: generatedName.toLowerCase(), // Username de dolu olsun
+          
           role: AppConstants.roleCustomer,
           emailVerified: false,
           createdAt: DateTime.now(),
-          // Customer kaydında diğer alanlar null veya boş olabilir, modeline bağlı
+          
+          // Null safety için diğer alanları da boş gönderiyoruz (Google girişteki gibi)
+          phoneNumber: "",
+          studioAddress: "",
+          instagramUsername: "",
+          portfolioImages: [],
+          applications: [],
+          applicationStyles: [],
+          studioName: "",
         );
 
         await _firestore
@@ -145,7 +158,7 @@ class AuthService with ChangeNotifier {
   Future<UserCredential?> registerApprovedArtist({
     required String email,
     required String password,
-    required String username,
+    required String username, // UI'dan gelen "Stüdyo Adı" buraya geliyor
     required String firstName,
     required String lastName,
     required String phoneNumber,
@@ -168,7 +181,8 @@ class AuthService with ChangeNotifier {
         final userModel = UserModel(
           uid: credential.user!.uid,
           email: email,
-          username: username,
+          username: username, // Kullanıcı adı olarak stüdyo adını kullanıyoruz
+          studioName: username, // [DÜZELTME] Stüdyo adını veritabanına kaydediyoruz
           firstName: firstName,
           lastName: lastName,
           phoneNumber: phoneNumber,
@@ -196,6 +210,7 @@ class AuthService with ChangeNotifier {
           'userId': credential.user!.uid,
           'email': email,
           'username': username,
+          'studioName': username, // [DÜZELTME] Admin paneli için de ekledik
           'firstName': firstName,
           'lastName': lastName,
           'phoneNumber': phoneNumber,
@@ -222,7 +237,7 @@ class AuthService with ChangeNotifier {
   Future<UserCredential?> registerUnapprovedArtist({
     required String email,
     required String password,
-    required String username,
+    required String username, // UI'dan gelen "Stüdyo Adı"
     required String firstName,
     required String lastName,
     required String phoneNumber,
@@ -245,6 +260,7 @@ class AuthService with ChangeNotifier {
           uid: credential.user!.uid,
           email: email,
           username: username,
+          studioName: username, // [DÜZELTME] Stüdyo adını ekledik
           firstName: firstName,
           lastName: lastName,
           phoneNumber: phoneNumber,
@@ -271,6 +287,7 @@ class AuthService with ChangeNotifier {
           'userId': credential.user!.uid,
           'email': email,
           'username': username,
+          'studioName': username, // [DÜZELTME] Admin paneli için ekledik
           'firstName': firstName,
           'lastName': lastName,
           'phoneNumber': phoneNumber,
@@ -293,9 +310,9 @@ class AuthService with ChangeNotifier {
     }
   }
 
-  // Sign out (GÜNCELLENDİ)
+  // Sign out
   Future<void> signOut() async {
-    await _googleSignIn.signOut(); // Google oturumunu da kapat
+    await _googleSignIn.signOut();
     await _auth.signOut();
   }
 
@@ -350,7 +367,7 @@ class AuthService with ChangeNotifier {
   String _handleAuthException(FirebaseAuthException e) {
     switch (e.code) {
       case 'weak-password':
-        return 'Şifre çok zayıf';
+        return 'Minimum 6 karakter olmalıdır';
       case 'email-already-in-use':
         return 'Bu email adresi zaten kullanılıyor';
       case 'user-not-found':

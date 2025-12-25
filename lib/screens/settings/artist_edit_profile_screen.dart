@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/auth_service.dart';
 import '../../services/image_service.dart';
 import '../../models/user_model.dart';
-import '../../utils/constants.dart';
+import '../../utils/constants.dart'; // Master Data buradan geliyor
 import '../../utils/validators.dart';
 import '../../utils/turkey_locations.dart';
 import '../../theme/app_theme.dart';
@@ -20,8 +20,11 @@ class ArtistEditProfileScreen extends StatefulWidget {
 
 class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
+  
+  // Controllerlar
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
+  final _studioNameController = TextEditingController();
   final _cityController = TextEditingController(); 
   final _districtController = TextEditingController(); 
   final _biographyController = TextEditingController();
@@ -29,16 +32,13 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
   final ImagePicker _picker = ImagePicker();
   File? _selectedImage;
   UserModel? _currentUser;
+  
   bool _isLoading = false;
   bool _isUploading = false;
 
-  // Artist'e özel etiket listeleri
+  // Seçilen etiketler
   List<String> _selectedApplications = [];
   List<String> _selectedStyles = [];
-
-  // Sabit Seçenekler
-  final List<String> _applicationOptions = ['Dövme', 'Piercing', 'Geçici Dövme', 'Rasta', 'Makyaj', 'Kına'];
-  final List<String> _styleOptions = ['Minimal', 'Old School', 'Dot Work', 'Realist', 'Tribal', 'Blackwork', 'Watercolor', 'Trash Polka', 'Fine Line', 'Traditional'];
 
   @override
   void initState() {
@@ -50,6 +50,7 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
+    _studioNameController.dispose();
     _cityController.dispose();
     _districtController.dispose();
     _biographyController.dispose();
@@ -64,17 +65,31 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
       if (mounted && userModel != null) {
         setState(() {
           _currentUser = userModel;
-          _firstNameController.text = userModel.firstName ?? '';
-          _lastNameController.text = userModel.lastName ?? '';
+          
+          if (userModel.firstName != null && userModel.firstName!.isNotEmpty) {
+            _firstNameController.text = userModel.firstName!;
+            _lastNameController.text = userModel.lastName ?? '';
+          } else {
+            var names = userModel.fullName.split(' ');
+            if (names.isNotEmpty) {
+               _firstNameController.text = names.first;
+               _lastNameController.text = names.length > 1 ? names.sublist(1).join(' ') : '';
+            }
+          }
+
+          _studioNameController.text = userModel.studioName ?? '';
           _biographyController.text = userModel.biography ?? '';
           
-          // Etiketleri yükle
-          _selectedApplications = List<String>.from(userModel.applications);
-          _selectedStyles = List<String>.from(userModel.applicationStyles);
-
-          // Lokasyon bilgilerini yükle
           _cityController.text = userModel.city ?? '';
           _districtController.text = userModel.district ?? '';
+
+          _selectedApplications = List<String>.from(userModel.applications)
+              .where((item) => AppConstants.applications.contains(item))
+              .toList();
+          
+          _selectedStyles = List<String>.from(userModel.applicationStyles)
+              .where((item) => AppConstants.styles.contains(item))
+              .toList();
         });
       }
     }
@@ -125,15 +140,25 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
         setState(() => _isUploading = false);
       }
 
+      final String firstName = _firstNameController.text.trim();
+      final String lastName = _lastNameController.text.trim();
+      final String fullName = "$firstName $lastName"; 
+      final String city = _cityController.text.trim();
+      final String district = _districtController.text.trim();
+      final String locationString = "$district, $city"; 
+
       await FirebaseFirestore.instance
           .collection(AppConstants.collectionUsers)
           .doc(_currentUser!.uid)
           .update({
-        'firstName': _firstNameController.text.trim(),
-        'lastName': _lastNameController.text.trim(),
+        'firstName': firstName,
+        'lastName': lastName,
+        'fullName': fullName, 
+        'studioName': _studioNameController.text.trim(),
         'biography': _biographyController.text.trim(),
-        'city': _cityController.text.trim(),
-        'district': _districtController.text.trim(),
+        'city': city,
+        'district': district,
+        'locationString': locationString, 
         'applications': _selectedApplications,
         'applicationStyles': _selectedStyles,
         if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
@@ -158,7 +183,16 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
     if (_currentUser == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Sanatçı Profilini Düzenle')),
+      backgroundColor: const Color(0xFF161616), // Dark tema
+      appBar: AppBar(
+        title: const Text('Profili Düzenle', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -166,109 +200,145 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Fotoğraf Bölümü
+              // --- PROFİL FOTOĞRAFI ---
               Center(
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 60,
-                      backgroundImage: _selectedImage != null
-                          ? FileImage(_selectedImage!)
-                          : (_currentUser!.profileImageUrl != null
-                              ? NetworkImage(_currentUser!.profileImageUrl!)
-                              : null) as ImageProvider?,
-                      child: _selectedImage == null && _currentUser!.profileImageUrl == null
-                          ? const Icon(Icons.person, size: 60)
-                          : null,
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: CircleAvatar(
-                        radius: 20,
-                        backgroundColor: AppTheme.primaryColor,
-                        child: IconButton(
-                          icon: const Icon(Icons.camera_alt, size: 20, color: Colors.white),
-                          onPressed: _pickImage,
+                child: GestureDetector( // DÜZELTME: Tıklanabilir hale getirdik
+                  onTap: _pickImage, // Tıklayınca galeri açılır
+                  child: Stack(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppTheme.primaryColor, width: 2),
+                        ),
+                        child: CircleAvatar(
+                          radius: 50,
+                          backgroundColor: Colors.grey[800],
+                          backgroundImage: _selectedImage != null
+                              ? FileImage(_selectedImage!)
+                              : (_currentUser!.profileImageUrl != null
+                                  ? NetworkImage(_currentUser!.profileImageUrl!)
+                                  : null) as ImageProvider?,
+                          child: _selectedImage == null && _currentUser!.profileImageUrl == null
+                              ? const Icon(Icons.person, size: 50, color: Colors.white)
+                              : null,
                         ),
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: AppTheme.primaryColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              if (_isUploading) const LinearProgressIndicator(),
+              if (_isUploading) 
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16.0),
+                  child: LinearProgressIndicator(color: AppTheme.primaryColor),
+                ),
               const SizedBox(height: 24),
               
-              TextFormField(
-                controller: _firstNameController,
-                decoration: const InputDecoration(labelText: 'Ad', prefixIcon: Icon(Icons.person)),
-                validator: (value) => Validators.validateRequired(value, 'Ad'),
+              // --- KİŞİSEL BİLGİLER ---
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildTextField(controller: _firstNameController, label: 'Ad', icon: Icons.person),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildTextField(controller: _lastNameController, label: 'Soyad', icon: Icons.person_outline),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _lastNameController,
-                decoration: const InputDecoration(labelText: 'Soyad', prefixIcon: Icon(Icons.person_outline)),
-                validator: (value) => Validators.validateRequired(value, 'Soyad'),
-              ),
+              
+              _buildTextField(controller: _studioNameController, label: 'Stüdyo Adı', icon: Icons.store),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _biographyController,
-                maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Biyografi', prefixIcon: Icon(Icons.edit_note)),
-              ),
+              
+              _buildTextField(controller: _biographyController, label: 'Biyografi', icon: Icons.edit_note, maxLines: 3),
               const SizedBox(height: 16),
 
-              // Şehir & Semt
-              Autocomplete<String>(
-                optionsBuilder: _getCityOptions,
-                onSelected: (selection) => setState(() {
-                  _cityController.text = selection;
-                  _districtController.clear();
-                }),
-                fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                  if (controller.text.isEmpty && _cityController.text.isNotEmpty) controller.text = _cityController.text;
-                  return TextFormField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    decoration: const InputDecoration(labelText: 'Şehir', prefixIcon: Icon(Icons.location_city)),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              Autocomplete<String>(
-                optionsBuilder: _getDistrictOptions,
-                onSelected: (selection) => setState(() => _districtController.text = selection),
-                fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                  if (controller.text.isEmpty && _districtController.text.isNotEmpty) controller.text = _districtController.text;
-                  return TextFormField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    enabled: _cityController.text.isNotEmpty,
-                    decoration: const InputDecoration(labelText: 'Semt', prefixIcon: Icon(Icons.location_on)),
-                  );
-                },
+              // --- LOKASYON (AUTOCOMPLETE) ---
+              Row(
+                children: [
+                  Expanded(
+                    child: Autocomplete<String>(
+                      optionsBuilder: _getCityOptions,
+                      onSelected: (selection) => setState(() {
+                        _cityController.text = selection;
+                        _districtController.clear();
+                      }),
+                      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                        if (controller.text.isEmpty && _cityController.text.isNotEmpty) controller.text = _cityController.text;
+                        return _buildTextField(
+                          controller: controller, 
+                          label: 'Şehir', 
+                          icon: Icons.location_city,
+                          focusNode: focusNode
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Autocomplete<String>(
+                      optionsBuilder: _getDistrictOptions,
+                      onSelected: (selection) => setState(() => _districtController.text = selection),
+                      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                        if (controller.text.isEmpty && _districtController.text.isNotEmpty) controller.text = _districtController.text;
+                        return _buildTextField(
+                          controller: controller, 
+                          label: 'Semt', 
+                          icon: Icons.location_on, 
+                          focusNode: focusNode
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
               
               const SizedBox(height: 32),
-              const Text('Uygulamalar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+
+              // --- DİNAMİK UYGULAMALAR (AppConstants'tan) ---
+              const Text('Hizmetler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: 12),
-              _buildMultiSelectChips(_applicationOptions, _selectedApplications),
+              _buildMultiSelectChips(AppConstants.applications, _selectedApplications),
 
               const SizedBox(height: 24),
-              const Text('Stiller', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+
+              // --- DİNAMİK STİLLER (AppConstants'tan) ---
+              const Text('Uzmanlık Stilleri', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: 12),
-              _buildMultiSelectChips(_styleOptions, _selectedStyles),
+              _buildMultiSelectChips(AppConstants.styles, _selectedStyles),
 
               const SizedBox(height: 48),
+              
+              // --- KAYDET BUTONU ---
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _saveProfile,
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-                  child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('DEĞİŞİKLİKLERİ KAYDET'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: _isLoading 
+                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                    : const Text('DEĞİŞİKLİKLERİ KAYDET', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                 ),
               ),
+              const SizedBox(height: 30),
             ],
           ),
         ),
@@ -276,6 +346,37 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
     );
   }
 
+  // Özel Tasarımlı TextField
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    int maxLines = 1,
+    FocusNode? focusNode,
+  }) {
+    return TextFormField(
+      controller: controller,
+      focusNode: focusNode,
+      maxLines: maxLines,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.grey),
+        prefixIcon: Icon(icon, color: Colors.grey),
+        filled: true,
+        fillColor: const Color(0xFF252525),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.primaryColor),
+        ),
+      ),
+      validator: (value) => Validators.validateRequired(value, label),
+    );
+  }
+
+  // Dinamik Chip Yapısı
   Widget _buildMultiSelectChips(List<String> options, List<String> selectedList) {
     return Wrap(
       spacing: 8,
@@ -290,10 +391,20 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
               selected ? selectedList.add(option) : selectedList.remove(option);
             });
           },
-          selectedColor: AppTheme.primaryColor.withOpacity(0.3),
-          checkmarkColor: AppTheme.primaryColor,
-          backgroundColor: const Color(0xFF212121),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          selectedColor: AppTheme.primaryColor,
+          backgroundColor: const Color(0xFF252525),
+          checkmarkColor: Colors.white,
+          labelStyle: TextStyle(
+            color: isSelected ? Colors.white : Colors.grey[400],
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 13,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(
+              color: isSelected ? AppTheme.primaryColor : Colors.grey[800]!,
+            ),
+          ),
         );
       }).toList(),
     );

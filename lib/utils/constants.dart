@@ -8,13 +8,44 @@ class AppConstants {
   static const String roleArtistUnapproved = 'artist_unapproved';
   static const String roleAdmin = 'admin';
   
-  // Service Types
+  // Service Types (Eski sabitler - Kod içinde kıyaslama yaparken lazım olabilir)
   static const String serviceTattoo = 'dövme';
   static const String servicePiercing = 'piercing';
   static const String serviceTemporaryTattoo = 'geçici_dövme';
   static const String serviceMakeup = 'makyaj';
-  static const String serviceRasta = 'rasta';
+  static const String serviceKina = 'kına';
+  static const String serviceImplant = 'implant';
   
+
+  // --- YENİ EKLENEN MASTER LİSTELER (Filtre ve Profil İçin) ---
+  // Artistin seçebileceği ve müşterinin filtreleyebileceği ana liste
+  static const List<String> applications = [
+    'Dövme',
+    'Piercing',
+    'Geçici dövme',
+    'Makyaj',
+    'Kına',
+    'Implant',
+  ];
+
+  static const List<String> styles = [
+    'Minimalist',
+    'Dotwork',
+    'Realist',
+    'Tribal',
+    'Blackwork',
+    'Watercolor',
+    'Trash Polka',
+    'Fine Line',
+    'Traditional',
+    'Cover up',
+    'Linework',
+    'Abstract',
+    'Celtic',
+    'Text',
+  ];
+  // -----------------------------------------------------------
+
   // Sort Options
   static const String sortNewest = 'en_yeniler';
   static const String sortDistance = 'mesafe';
@@ -27,6 +58,7 @@ class AppConstants {
   static const String collectionPosts = 'posts';
   static const String collectionAppointments = 'appointments';
   static const String collectionMessages = 'messages';
+  static const String collectionChats = 'chats';
   static const String collectionLikes = 'likes';
   static const String collectionFollows = 'follows';
   static const String collectionArtistApprovals = 'artist_approvals';
@@ -41,7 +73,7 @@ class AppConstants {
   static const String storageDocuments = 'documents';
   static const String storageAppImages = 'app_images';
   
-  // Logo URL - gs:// URL'sini HTTP URL'sine çevirdik
+  // Logo URL
   static const String logoUrl = 'https://firebasestorage.googleapis.com/v0/b/tattinkapp.firebasestorage.app/o/app_images%2Flogo.png?alt=media';
   
   // Image Constraints
@@ -58,4 +90,3 @@ class AppConstants {
     'Diğer',
   ];
 }
-

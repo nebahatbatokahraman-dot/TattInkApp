@@ -7,7 +7,7 @@ import '../utils/constants.dart';
 class ImageService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // 1. Optimize and Smart Crop Image (4:5 Ratio)
+  // 1. Optimize Image (Kırpma İPTAL EDİLDİ, Sadece Boyutlandırma)
   Future<Uint8List> optimizeImage(File imageFile) async {
     final bytes = await imageFile.readAsBytes();
     final originalImage = img.decodeImage(bytes);
@@ -16,34 +16,18 @@ class ImageService {
       throw Exception('Görsel işlenemedi');
     }
 
-    // --- AKILLI KIRPMA (4:5 ORANI ZORLAMASI) ---
-    const double targetAspect = 0.8; // 4/5 oranı
-    int width = originalImage.width;
-    int height = originalImage.height;
-    double currentAspect = width / height;
-
-    img.Image croppedImage;
-
-    if (currentAspect > targetAspect) {
-      // Görsel çok yatay, yanlardan kesiyoruz
-      int newWidth = (height * targetAspect).toInt();
-      int xOffset = (width - newWidth) ~/ 2;
-      croppedImage = img.copyCrop(originalImage, x: xOffset, y: 0, width: newWidth, height: height);
-    } else if (currentAspect < targetAspect) {
-      // Görsel çok dikey, alt ve üstten kesiyoruz
-      int newHeight = (width / targetAspect).toInt();
-      int yOffset = (height - newHeight) ~/ 2;
-      croppedImage = img.copyCrop(originalImage, x: 0, y: yOffset, width: width, height: newHeight);
-    } else {
-      croppedImage = originalImage;
-    }
+    // --- DEĞİŞİKLİK BURADA: ARTIK ZORUNLU KIRPMA YOK ---
+    // Resmi olduğu gibi alıyoruz, sadece çok büyükse küçülteceğiz.
+    img.Image resizedImage = originalImage;
 
     // Resize if needed (Genişliği max limite çek, boy oranla otomatik ayarlanır)
-    img.Image resizedImage = croppedImage;
-    if (croppedImage.width > AppConstants.maxImageWidth) {
+    // Bu sayede resim kesilmez, sadece dosya boyutu optimize edilir.
+    if (originalImage.width > AppConstants.maxImageWidth) {
       resizedImage = img.copyResize(
-        croppedImage,
+        originalImage,
         width: AppConstants.maxImageWidth,
+        // height parametresi vermediğimiz için 'image' paketi 
+        // otomatik olarak en-boy oranını korur (maintainAspect: true).
       );
     }
 
@@ -55,7 +39,7 @@ class ImageService {
     return jpegBytes;
   }
 
-  // 2. Upload image to Firebase Storage (Eksik olan buydu)
+  // 2. Upload image to Firebase Storage
   Future<String> uploadImage({
     required Uint8List imageBytes,
     required String path,
@@ -80,7 +64,7 @@ class ImageService {
     }
   }
 
-  // 3. Upload file (PDF vb. belgeler için, kayıt sayfasında lazım)
+  // 3. Upload file (PDF vb. belgeler için)
   Future<String> uploadFile({
     required File file,
     required String path,

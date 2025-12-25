@@ -27,66 +27,76 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
     super.dispose();
   }
 
-  Future<void> _approveArtist() async {
-    setState(() {
-      _isProcessing = true;
+
+Future<void> _approveArtist() async {
+  setState(() {
+    _isProcessing = true;
+  });
+
+  try {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final adminId = authService.currentUser?.uid;
+
+    // Batch (Toplu İşlem) başlatıyoruz
+    WriteBatch batch = FirebaseFirestore.instance.batch();
+
+    // 1. İşlem: User dokümanını güncellemek için referans al
+    DocumentReference userRef = FirebaseFirestore.instance
+        .collection(AppConstants.collectionUsers)
+        .doc(widget.approval.userId);
+
+    // Batch'e ekle
+    batch.update(userRef, {
+      'isApproved': true,
+      'role': widget.approval.isApprovedArtist
+          ? AppConstants.roleArtistApproved
+          : AppConstants.roleArtistUnapproved,
+      'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final adminId = authService.currentUser?.uid;
+    // 2. İşlem: Onay (Approval) dokümanını güncellemek için referans al
+    DocumentReference approvalRef = FirebaseFirestore.instance
+        .collection(AppConstants.collectionArtistApprovals)
+        .doc(widget.approval.id);
 
-      // Update user document
-      await FirebaseFirestore.instance
-          .collection(AppConstants.collectionUsers)
-          .doc(widget.approval.userId)
-          .update({
-        'isApproved': true,
-        'role': widget.approval.isApprovedArtist
-            ? AppConstants.roleArtistApproved
-            : AppConstants.roleArtistUnapproved,
-        'updatedAt': FieldValue.serverTimestamp(),
+    // Batch'e ekle
+    batch.update(approvalRef, {
+      'status': 'approved',
+      'reviewedAt': FieldValue.serverTimestamp(),
+      'reviewedBy': adminId,
+    });
+
+    // TÜM İŞLEMLERİ TEK SEFERDE GÖNDER (COMMIT)
+    await batch.commit();
+
+    // --- Başarılı Oldu ---
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Artist başarıyla onaylandı ve yetkileri verildi.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context); // Listeye geri dön
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Onay sırasında hata oluştu: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  } finally {
+    if (mounted) {
+      setState(() {
+        _isProcessing = false;
       });
-
-      // Update approval document
-      await FirebaseFirestore.instance
-          .collection(AppConstants.collectionArtistApprovals)
-          .doc(widget.approval.id)
-          .update({
-        'status': 'approved',
-        'reviewedAt': FieldValue.serverTimestamp(),
-        'reviewedBy': adminId,
-      });
-
-      // Send approval email (via Cloud Function)
-      // This would be handled by Cloud Functions
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Artist onaylandı'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Onay sırasında hata: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-        });
-      }
     }
   }
+}
 
   Future<void> _rejectArtist() async {
     if (_selectedRejectionReason == null ||

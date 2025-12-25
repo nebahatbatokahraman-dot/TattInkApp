@@ -1,120 +1,102 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/material.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/constants.dart';
 
 class NotificationService {
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications =
-      FlutterLocalNotificationsPlugin();
+  
+  // GENEL BİLDİRİM GÖNDERME
+  static Future<void> sendNotification({
+    required String currentUserId,      
+    required String currentUserName,    
+    required String? currentUserAvatar, 
+    required String receiverId,         
+    required String type,               
+    required String title,
+    required String body,
+    String? relatedId,                  
+  }) async {
+    try {
+      if (currentUserId == receiverId) return;
 
-  // Initialize notifications
-  Future<void> initialize() async {
-    // Request permission
-    NotificationSettings settings = await _firebaseMessaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      // Initialize local notifications
-      const AndroidInitializationSettings androidSettings =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
-
-      const DarwinInitializationSettings iosSettings =
-          DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
-      );
-
-      const InitializationSettings initSettings = InitializationSettings(
-        android: androidSettings,
-        iOS: iosSettings,
-      );
-
-      await _localNotifications.initialize(
-        initSettings,
-        onDidReceiveNotificationResponse: _onNotificationTapped,
-      );
-
-      // Get FCM token
-      String? token = await _firebaseMessaging.getToken();
-      if (token != null) {
-        // Save token to Firestore for the current user
-        // This should be called after user login
-      }
-
-      // Handle foreground messages
-      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-
-      // Handle background messages (when app is in background)
-      FirebaseMessaging.onMessageOpenedApp.listen(_handleBackgroundMessage);
+      await FirebaseFirestore.instance.collection(AppConstants.collectionNotifications).add({
+        'senderId': currentUserId,
+        'senderName': currentUserName,
+        'senderAvatar': currentUserAvatar,
+        'receiverId': receiverId,
+        'type': type,
+        'title': title,
+        'body': body,
+        'relatedId': relatedId,
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print("Bildirim hatası: $e");
     }
   }
 
-  // Handle notification tap
-  void _onNotificationTapped(NotificationResponse response) {
-    // Handle notification tap
-    // Navigate to appropriate screen based on notification data
+  // TAKİP BİLDİRİMİ
+  static Future<void> sendFollowNotification(String currentUserId, String currentUserName, String? currentUserAvatar, String targetUserId) async {
+     await sendNotification(
+        currentUserId: currentUserId,
+        currentUserName: currentUserName,
+        currentUserAvatar: currentUserAvatar,
+        receiverId: targetUserId,
+        type: 'follow',
+        title: 'Yeni Takipçi',
+        body: '$currentUserName seni takip etmeye başladı.',
+        relatedId: currentUserId, 
+      );
   }
 
-  // Handle foreground message
-  Future<void> _handleForegroundMessage(RemoteMessage message) async {
-    // Show local notification when app is in foreground
-    await _localNotifications.show(
-      message.hashCode,
-      message.notification?.title ?? 'Yeni Bildirim',
-      message.notification?.body ?? '',
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'tattink_channel',
-          'TattInk Bildirimleri',
-          channelDescription: 'TattInk uygulaması bildirimleri',
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-        iOS: DarwinNotificationDetails(),
-      ),
-    );
+// Mesaj Bildirimi Gönderme Fonksiyonu
+  static Future<void> sendMessageNotification(
+    String senderId,
+    String senderName,
+    String? senderAvatar,
+    String receiverId,
+    String chatId,
+  ) async {
+    // Kendi kendine bildirim atmasını engelle
+    if (senderId == receiverId) return;
+
+    try {
+      await FirebaseFirestore.instance.collection(AppConstants.collectionNotifications).add({
+        'receiverId': receiverId,      // Bildirimi alacak kişi
+        'senderId': senderId,          // Gönderen kişi
+        'senderName': senderName,      // Gönderen adı (ChatScreen'de düzelttiğimiz)
+        'senderAvatar': senderAvatar ?? '', // Profil resmi
+        'type': 'message',             // KRİTİK: Listeleme sayfasındaki switch-case buraya bakıyor!
+        'isRead': false,               // Okunmadı olarak işaretle
+        'createdAt': FieldValue.serverTimestamp(), // Sıralama için şart
+        'relatedId': chatId,           // Tıklayınca sohbete gitmek için (Opsiyonel)
+        'body': 'Sana bir mesaj gönderdi.', 
+      });
+    } catch (e) {
+      debugPrint("Bildirim gönderme hatası: $e");
+    }
   }
 
-  // Handle background message
-  void _handleBackgroundMessage(RemoteMessage message) {
-    // Handle notification when app is opened from background
-    // Navigate to appropriate screen
-  }
+  // BEĞENİ BİLDİRİMİ
+  static Future<void> sendLikeNotification(String currentUserId, String currentUserName, String? currentUserAvatar, String postOwnerId, String postId) async {
+    final query = await FirebaseFirestore.instance
+        .collection(AppConstants.collectionNotifications)
+        .where('senderId', isEqualTo: currentUserId)
+        .where('relatedId', isEqualTo: postId)
+        .where('type', isEqualTo: 'like')
+        .get();
 
-  // Save FCM token to Firestore
-  Future<void> saveTokenToFirestore(String userId, String token) async {
-    // This should be implemented to save token to user document
-    // await FirebaseFirestore.instance
-    //     .collection('users')
-    //     .doc(userId)
-    //     .update({'fcmToken': token});
-  }
-
-  // Show local notification
-  Future<void> showLocalNotification({
-    required String title,
-    required String body,
-    Map<String, dynamic>? data,
-  }) async {
-    await _localNotifications.show(
-      DateTime.now().millisecondsSinceEpoch.remainder(100000),
-      title,
-      body,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'tattink_channel',
-          'TattInk Bildirimleri',
-          channelDescription: 'TattInk uygulaması bildirimleri',
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-        iOS: DarwinNotificationDetails(),
-      ),
-      payload: data?.toString(),
-    );
+    if (query.docs.isEmpty) {
+      await sendNotification(
+        currentUserId: currentUserId,
+        currentUserName: currentUserName,
+        currentUserAvatar: currentUserAvatar,
+        receiverId: postOwnerId,
+        type: 'like',
+        title: 'Yeni Beğeni',
+        body: '$currentUserName gönderini beğendi.',
+        relatedId: postId,
+      );
+    }
   }
 }
-

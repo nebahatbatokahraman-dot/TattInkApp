@@ -6,11 +6,11 @@ import '../../utils/slide_route.dart';
 import '../auth/login_screen.dart';
 import 'artist_edit_profile_screen.dart'; // Artist Edit sayfası
 import 'email_password_screen.dart';
-import 'notifications_screen.dart'; // EKSİK OLAN IMPORT BU
+import 'notifications_screen.dart'; // Import yolu doğru
 import 'language_screen.dart';
 import 'help_screen.dart';
 
-// DÜZELTME: Sınıf ismini ArtistSettingsScreen yaptık (Eskiden Customer kalmıştı)
+// DÜZELTME: Sınıf ismini ArtistSettingsScreen yaptık
 class ArtistSettingsScreen extends StatelessWidget {
   const ArtistSettingsScreen({super.key});
 
@@ -36,7 +36,6 @@ class ArtistSettingsScreen extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                // const SİLİNDİ
                 SlideRoute(page: ArtistEditProfileScreen()),
               );
             },
@@ -49,7 +48,6 @@ class ArtistSettingsScreen extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                // const SİLİNDİ
                 SlideRoute(page: EmailPasswordScreen()),
               );
             },
@@ -64,8 +62,8 @@ class ArtistSettingsScreen extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                // const SİLİNDİ (Burada hata veriyordu)
-                SlideRoute(page: NotificationsScreen()),
+                // DÜZELTME: Sınıf ismini NotificationsSettingsScreen yaptık
+                SlideRoute(page: const NotificationsSettingsScreen()),
               );
             },
           ),
@@ -77,7 +75,6 @@ class ArtistSettingsScreen extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                // const SİLİNDİ
                 SlideRoute(page: LanguageScreen()),
               );
             },
@@ -92,7 +89,6 @@ class ArtistSettingsScreen extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                // const SİLİNDİ
                 SlideRoute(page: HelpScreen()),
               );
             },

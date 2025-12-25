@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CLIENT_ID</key>
+	<string>9143554156-pkrg54vmfn75fs8tmgdb265fbaia0mc8.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.9143554156-pkrg54vmfn75fs8tmgdb265fbaia0mc8</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>9143554156-nrb97n5fssv53ms9p8q8eagjcc2a7qro.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyCWa38yCMYv9GRrj5_SPdGgmSYM55BdYBU</string>
 	<key>GCM_SENDER_ID</key>
@@ -9,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.tattooMobile</string>
+	<string>com.tattink.tattinkApp</string>
 	<key>PROJECT_ID</key>
 	<string>tattinkapp</string>
 	<key>STORAGE_BUCKET</key>

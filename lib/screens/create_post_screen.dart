@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/image_service.dart';
 import '../models/user_model.dart';
-import '../utils/constants.dart';
+import '../utils/constants.dart'; // Master Data buradan geliyor
 import '../theme/app_theme.dart';
 
 class CreatePostScreen extends StatefulWidget {
@@ -29,13 +29,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   String? _selectedApplication; 
   final List<String> _selectedStyles = [];
 
-  final List<String> _applicationOptions = [
-    'Dövme', 'Piercing', 'Geçici Dövme', 'Rasta', 'Makyaj', 'Kına'
-  ];
-  final List<String> _styleOptions = [
-    'Minimal', 'Old School', 'Dot Work', 'Realist', 'Tribal', 
-    'Blackwork', 'Watercolor', 'Trash Polka', 'Fine Line', 'Traditional'
-  ];
+  // ESKİ SABİT LİSTELER KALDIRILDI
+  // Artık AppConstants.applications ve AppConstants.styles kullanılıyor.
 
   @override
   void initState() {
@@ -131,32 +126,40 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
       final postRef = FirebaseFirestore.instance.collection(AppConstants.collectionPosts).doc();
 
-      // Yeni "Denormalize" sistemle puanı doğrudan modelden alıyoruz
-      // Not: totalLikes alanının UserModel'de tanımlı olduğundan emin olun.
       double currentArtistScore = (_currentUser!.totalLikes ?? 0).toDouble();
+
+      // Caption'ı hazırla: Filtrelerin %100 çalışması için seçilen etiketleri metnin sonuna görünmez şekilde ekleyebiliriz
+      // Veya olduğu gibi bırakırız. Şimdilik olduğu gibi bırakıyoruz çünkü HomeScreen'i güncelledik.
+      String finalCaption = _captionController.text.trim();
+      
+      // ÖNEMLİ: Seçilen etiketleri caption'a ekleyerek metin tabanlı aramayı güçlendiriyoruz.
+      // Kullanıcı "Dövme" seçtiyse ama metne yazmadıysa bile aramada çıksın diye.
+      String tagsSuffix = "\n\n${_selectedApplication ?? ''} ${_selectedStyles.join(' ')}";
+      finalCaption = "$finalCaption $tagsSuffix".trim();
 
       final postData = {
         'id': postRef.id,
         'artistId': _currentUser!.uid,
-        'artistUsername': _currentUser!.username,
+        'artistUsername': _currentUser!.username ?? _currentUser!.fullName,
         'artistProfileImageUrl': _currentUser!.profileImageUrl,
         'imageUrls': imageUrls,
         'videoUrls': [],
-        'caption': _captionController.text.trim().isEmpty ? null : _captionController.text.trim(),
+        'caption': finalCaption, // Güncellenmiş caption
         'likeCount': 0,
         'likedBy': [],
         'application': _selectedApplication, 
         'styles': _selectedStyles,
         'district': _currentUser!.district,
         'city': _currentUser!.city,
-        'locationString': "${_currentUser!.district}, ${_currentUser!.city}",
+        'locationString': _currentUser!.locationString.isNotEmpty 
+            ? _currentUser!.locationString 
+            : "${_currentUser!.district}, ${_currentUser!.city}",
         'artistScore': currentArtistScore, 
         'createdAt': FieldValue.serverTimestamp(),
       };
 
       await postRef.set(postData);
 
-      // Kullanıcının profilindeki dövme sayısını güncelle
       await FirebaseFirestore.instance
           .collection(AppConstants.collectionUsers)
           .doc(_currentUser!.uid)
@@ -188,14 +191,18 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF161616), // Koyu Tema Arka Plan
       appBar: AppBar(
-        title: const Text('Yeni Paylaşım'),
+        title: const Text('Yeni Paylaşım', style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           TextButton(
             onPressed: _isUploading ? null : _uploadPost,
             child: _isUploading
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Paylaş', style: TextStyle(fontWeight: FontWeight.bold)),
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor))
+                : const Text('Paylaş', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 16)),
           ),
         ],
       ),
@@ -209,7 +216,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               // Medya Önizleme
               if (_selectedImages.isNotEmpty || _selectedVideos.isNotEmpty)
                 SizedBox(
-                  height: 250,
+                  height: 200,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     children: [
@@ -226,29 +233,40 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: _pickImages,
-                      icon: const Icon(Icons.image),
-                      label: const Text('Fotoğraf'),
+                      icon: const Icon(Icons.image, color: Colors.white),
+                      label: const Text('Fotoğraf Ekle', style: TextStyle(color: Colors.white)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.grey[800]!),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: _pickVideo,
-                      icon: const Icon(Icons.videocam),
-                      label: const Text('Video'),
+                      icon: const Icon(Icons.videocam, color: Colors.white),
+                      label: const Text('Video Ekle', style: TextStyle(color: Colors.white)),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.grey[800]!),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
                     ),
                   ),
                 ],
               ),
               
-              const Divider(height: 32),
+              const Divider(height: 32, color: Colors.white12),
 
-              // --- Uygulama Türü ---
-              const Text('Uygulama Türü', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              // --- Uygulama Türü (MASTER DATA) ---
+              const Text('Uygulama Türü', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
-                children: _applicationOptions.map((app) {
+                runSpacing: 8,
+                children: AppConstants.applications.map((app) {
                   final isSelected = _selectedApplication == app;
                   return ChoiceChip(
                     label: Text(app),
@@ -257,22 +275,28 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       setState(() => _selectedApplication = selected ? app : null);
                     },
                     selectedColor: AppTheme.primaryColor,
+                    backgroundColor: const Color(0xFF252525),
                     labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : Colors.grey,
+                      color: isSelected ? Colors.white : Colors.grey[400],
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(color: isSelected ? AppTheme.primaryColor : Colors.transparent),
                     ),
                   );
                 }).toList(),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-              // --- Stiller ---
-              const Text('Stiller', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              // --- Stiller (MASTER DATA) ---
+              const Text('Stiller', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
-                children: _styleOptions.map((style) {
+                runSpacing: 8,
+                children: AppConstants.styles.map((style) {
                   final isSelected = _selectedStyles.contains(style);
                   return FilterChip(
                     label: Text(style),
@@ -286,11 +310,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         }
                       });
                     },
-                    selectedColor: AppTheme.primaryColor.withOpacity(0.8),
-                    checkmarkColor: Colors.white,
+                    selectedColor: AppTheme.primaryColor.withOpacity(0.3),
+                    backgroundColor: const Color(0xFF252525),
+                    checkmarkColor: AppTheme.primaryColor,
                     labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : Colors.grey,
+                      color: isSelected ? Colors.white : Colors.grey[400],
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(color: isSelected ? AppTheme.primaryColor : Colors.transparent),
                     ),
                   );
                 }).toList(),
@@ -302,11 +331,20 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               TextFormField(
                 controller: _captionController,
                 maxLines: 4,
+                style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   labelText: 'Açıklama',
+                  labelStyle: const TextStyle(color: Colors.grey),
                   hintText: 'Paylaşımınız hakkında detay verin...',
+                  hintStyle: TextStyle(color: Colors.grey[700]),
                   alignLabelWithHint: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  filled: true,
+                  fillColor: const Color(0xFF252525),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppTheme.primaryColor),
+                  ),
                 ),
               ),
               const SizedBox(height: 80), 
@@ -319,7 +357,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Widget _buildImagePreview(File image) {
     return Container(
-      width: 180,
+      width: 150,
       margin: const EdgeInsets.only(right: 8),
       child: Stack(
         fit: StackFit.expand,
@@ -347,14 +385,31 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   Widget _buildVideoPreview(File video) {
     return Container(
-      width: 180,
+      width: 150,
       margin: const EdgeInsets.only(right: 8),
       decoration: BoxDecoration(
-        color: Colors.black, 
-        borderRadius: BorderRadius.circular(12)
+        color: const Color(0xFF252525), 
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[800]!)
       ),
-      child: const Center(
-        child: Icon(Icons.play_circle_outline, size: 48, color: Colors.white)
+      child: Stack(
+        children: [
+          const Center(
+            child: Icon(Icons.play_circle_outline, size: 48, color: Colors.white)
+          ),
+           Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedVideos.remove(video)),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                child: const Icon(Icons.close, color: Colors.white, size: 16),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -97,30 +97,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Logo veya Başlık
-                  const Text(
-                    'TattInk',
-                    style: TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
-                      fontFamily: 'Cinzel', // Eğer font eklediysen
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 24.0),
+                      child: CachedNetworkImage(
+                        imageUrl: "https://firebasestorage.googleapis.com/v0/b/tattinkapp.firebasestorage.app/o/app_images%2Flogo.png?alt=media",
+                        height: 40,
+                        placeholder: (context, url) => const CircularProgressIndicator(),
+                        errorWidget: (context, url, error) => const Icon(Icons.brush, size: 50),
+                      ),
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 40),
-                  
-                  const Text(
-                    'Hoş Geldiniz',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 30),
-
                   // Email
                   TextFormField(
                     controller: _emailController,
@@ -218,13 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     height: 50,
                     child: OutlinedButton.icon(
                       onPressed: _isLoading ? null : _loginWithGoogle,
-                      icon: CachedNetworkImage(
-                        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg",
-                        height: 24,
-                        width: 24,
-                        placeholder: (context, url) => const SizedBox(width: 24),
-                        errorWidget: (context, url, error) => const Icon(Icons.g_mobiledata, color: Colors.white),
-                      ),
+                      icon: const Icon(Icons.g_mobiledata, color: Colors.white, size: 24),
                       label: const Text(
                         'Google ile Devam Et',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
@@ -265,6 +246,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
+                  const Text(
+                    'Sanatçı profili için lütfen e-posta ile kayıt olun',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),  
                 ],
               ),
             ),

@@ -1,61 +1,46 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum NotificationType {
-  message,
-  appointment,
-  like,
-  follow,
-  other,
-}
-
 class NotificationModel {
   final String id;
-  final String userId;
-  final NotificationType type;
+  final String senderId;
+  final String senderName;
+  final String? senderAvatar;
+  final String receiverId;
+  final String type; // 'like', 'follow', 'message'
   final String title;
   final String body;
+  final String? relatedId;
   final bool isRead;
-  final String? relatedId; // appointmentId, messageId, etc.
   final DateTime createdAt;
 
   NotificationModel({
     required this.id,
-    required this.userId,
+    required this.senderId,
+    required this.senderName,
+    this.senderAvatar,
+    required this.receiverId,
     required this.type,
     required this.title,
     required this.body,
-    this.isRead = false,
     this.relatedId,
+    this.isRead = false,
     required this.createdAt,
   });
 
-  Map<String, dynamic> toMap() {
-    return {
-      'userId': userId,
-      'type': type.name,
-      'title': title,
-      'body': body,
-      'isRead': isRead,
-      'relatedId': relatedId,
-      'createdAt': Timestamp.fromDate(createdAt),
-    };
-  }
-
   factory NotificationModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return NotificationModel(
       id: doc.id,
-      userId: data['userId'] ?? '',
-      type: NotificationType.values.firstWhere(
-        (e) => e.name == data['type'],
-        orElse: () => NotificationType.other,
-      ),
+      senderId: data['senderId'] ?? '',
+      senderName: data['senderName'] ?? 'Kullanıcı',
+      senderAvatar: data['senderAvatar'],
+      receiverId: data['receiverId'] ?? '',
+      type: data['type'] ?? 'general',
       title: data['title'] ?? '',
       body: data['body'] ?? '',
-      isRead: data['isRead'] ?? false,
       relatedId: data['relatedId'],
+      isRead: data['isRead'] ?? false,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 }
-

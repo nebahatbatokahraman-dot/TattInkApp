@@ -7,12 +7,25 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:9143554156:android:fe49563b766384ea1e0849",
+        "mobilesdk_app_id": "1:9143554156:android:b3f3dad013cf940f1e0849",
         "android_client_info": {
-          "package_name": "com.example.tattoo_mobile"
+          "package_name": "com.tattink.tattinkApp"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "9143554156-s6qt4oeehrjvuknl3na67strjumufo4v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tattink.tattinkApp",
+            "certificate_hash": "2bd352bd1ae62ecbd5f5a03e03899ff4d58d0988"
+          }
+        },
+        {
+          "client_id": "9143554156-abdve14av5llbaei4g3unlt94frrh0ac.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBTuAUomoVFT_mHVDkL14S1iwfUSR8kLFg"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "9143554156-abdve14av5llbaei4g3unlt94frrh0ac.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "9143554156-pkrg54vmfn75fs8tmgdb265fbaia0mc8.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.tattink.tattinkApp"
+              }
+            }
+          ]
         }
       }
     }

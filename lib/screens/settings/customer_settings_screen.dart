@@ -35,7 +35,6 @@ class CustomerSettingsScreen extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                // SlideRoute const olmadığı için başındaki const'u sildik
                 SlideRoute(page: const CustomerEditProfileScreen()), 
               );
             },
@@ -62,7 +61,8 @@ class CustomerSettingsScreen extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                SlideRoute(page: const NotificationsScreen()),
+                // DÜZELTME: Sınıf ismi NotificationsSettingsScreen olarak güncellendi ve const kaldırıldı
+                SlideRoute(page: const NotificationsSettingsScreen()),
               );
             },
           ),
@@ -99,9 +99,6 @@ class CustomerSettingsScreen extends StatelessWidget {
     );
   }
 
-  // Yardımcı widgetlar (_buildSectionHeader, _buildSettingsTile, _buildLogoutButton) senin kodundakiyle aynı kalabilir...
-  // (Kodun kısalığı için buraya tekrar eklemedim, senin dosyadaki kısımları aynen koru)
-  
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0, top: 8.0),
@@ -133,13 +130,33 @@ class CustomerSettingsScreen extends StatelessWidget {
         leading: const Icon(Icons.logout, color: Colors.red),
         title: const Text('Çıkış Yap', style: TextStyle(color: Colors.red)),
         onTap: () async {
-          // Çıkış onay diyaloğu mantığın burada devam eder...
-          await authService.signOut();
-          if (context.mounted) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (context) => const LoginScreen()),
-              (route) => false,
-            );
+          final shouldLogout = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Çıkış Yap'),
+              content: const Text('Çıkış yapmak istediğinize emin misiniz?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('İptal'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  child: const Text('Çıkış Yap'),
+                ),
+              ],
+            ),
+          );
+
+          if (shouldLogout == true && context.mounted) {
+            await authService.signOut();
+            if (context.mounted) {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                (route) => false,
+              );
+            }
           }
         },
       ),

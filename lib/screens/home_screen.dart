@@ -1,19 +1,26 @@
-import 'package:tattink_app/screens/profile/artist_profile_screen.dart';
+import 'post_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // FirebaseAuth eklendi
+import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:math' as math; // Açı hesaplaması için eklendi
+
+// --- IMPORTS ---
 import '../models/post_model.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart'; 
 import '../utils/constants.dart';
-import '../utils/turkey_locations.dart';
+import '../utils/turkey_locations.dart'; 
 import '../utils/slide_route.dart';
 import '../theme/app_theme.dart';
 import '../widgets/login_required_dialog.dart';
+
+// --- EKRANLAR ---
 import 'create_post_screen.dart';
 import 'chat_screen.dart';
-import 'notifications_screen.dart';
+import 'settings/notifications_screen.dart';
+import 'profile/artist_profile_screen.dart'; 
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,29 +44,20 @@ class HomeScreenState extends State<HomeScreen> {
 
   Future<void> _handleRefresh() async {
     await Future.delayed(const Duration(milliseconds: 800));
-    if (mounted) {
-      setState(() { });
-    }
+    if (mounted) setState(() { });
   }
 
-  // --- YENİ: KULLANICI DOĞRULAMA KONTROLÜ ---
-  // Bu fonksiyon; giriş yapılmamışsa login diyaloğunu, 
-  // e-posta onaylanmamışsa onay diyaloğunu gösterir.
+  // --- KULLANICI KONTROLLERİ ---
   bool _checkUserStatus() {
     final user = FirebaseAuth.instance.currentUser;
-    
-    // 1. Giriş Kontrolü
     if (user == null) {
-      _showLoginRequired();
+      LoginRequiredDialog.show(context);
       return false;
     }
-    
-    // 2. E-posta Onay Kontrolü
     if (!user.emailVerified) {
       _showVerificationRequired();
       return false;
     }
-    
     return true;
   }
 
@@ -70,26 +68,13 @@ class HomeScreenState extends State<HomeScreen> {
         backgroundColor: const Color(0xFF161616),
         title: const Text('E-posta Onayı Gerekli', style: TextStyle(color: Colors.white)),
         content: const Text(
-          'Mesaj atma, beğenme ve randevu talebi gibi özellikleri kullanabilmek için e-posta adresinizi onaylamanız gerekmektedir.',
+          'Beğeni yapabilmek ve mesaj atabilmek için e-posta onayı gereklidir.',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Tamam', style: TextStyle(color: AppTheme.primaryColor)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              await FirebaseAuth.instance.currentUser?.sendEmailVerification();
-              if (mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Doğrulama e-postası tekrar gönderildi.')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-            child: const Text('Tekrar Gönder'),
           ),
         ],
       ),
@@ -102,6 +87,7 @@ class HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  // --- FİLTRE DEĞİŞKENLERİ ---
   final List<String> _selectedApplications = [];
   final List<String> _selectedStyles = [];
   String? _selectedDistrict;
@@ -115,6 +101,7 @@ class HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            // 1. HEADER (Logo ve Bildirim)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: Row(
@@ -136,6 +123,8 @@ class HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
+
+            // 2. FİLTRE VE SIRALAMA BUTONLARI
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: Row(
@@ -158,6 +147,8 @@ class HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
+
+            // 3. POST AKIŞI
             Expanded(child: _buildPostFeed()),
           ],
         ),
@@ -178,11 +169,9 @@ class HomeScreenState extends State<HomeScreen> {
               builder: (context, userSnapshot) {
                 if (!userSnapshot.hasData) return const SizedBox.shrink();
                 final user = userSnapshot.data!;
-                if (user.role == AppConstants.roleArtistApproved && user.isApproved) {
+                if ((user.role == AppConstants.roleArtistApproved || user.role == "artist") && user.isApproved) {
                   return FloatingActionButton(
                     onPressed: () {
-                      // Artist paylaşım yaparken de onaylı olmalı mı?
-                      // İsterseniz buraya da _checkUserStatus() ekleyebilirsiniz.
                       Navigator.push(context, MaterialPageRoute(builder: (context) => const CreatePostScreen()));
                     },
                     child: const Icon(Icons.add),
@@ -199,6 +188,7 @@ class HomeScreenState extends State<HomeScreen> {
 
   Widget _buildPostFeed() {
     Query query = FirebaseFirestore.instance.collection(AppConstants.collectionPosts);
+    
     if (_sortOption == AppConstants.sortPopular) {
       query = query.orderBy('likeCount', descending: true);
     } else {
@@ -214,9 +204,25 @@ class HomeScreenState extends State<HomeScreen> {
         final filteredPosts = snapshot.data!.docs
             .map((doc) => PostModel.fromFirestore(doc))
             .where((post) {
+          
           if (_selectedDistrict != null) {
             if (!post.locationString.toLowerCase().contains(_selectedDistrict!.toLowerCase())) return false;
           }
+
+          if (_selectedApplications.isNotEmpty) {
+            bool match = _selectedApplications.any((app) => 
+               (post.caption?.toLowerCase().contains(app.toLowerCase()) ?? false)
+            );
+            if (!match) return false;
+          }
+
+          if (_selectedStyles.isNotEmpty) {
+             bool match = _selectedStyles.any((style) => 
+               (post.caption?.toLowerCase().contains(style.toLowerCase()) ?? false)
+            );
+            if (!match) return false;
+          }
+
           return true;
         }).toList();
 
@@ -238,98 +244,64 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _openFullScreenPost(PostModel post) {
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: '',
-      barrierColor: Colors.black,
-      transitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (context, animation1, animation2) {
-        return Scaffold(
-          backgroundColor: Colors.black,
-          body: Stack(
-            children: [
-              Center(
-                child: InteractiveViewer(
-                  minScale: 1.0,
-                  maxScale: 3.0,
-                  child: CachedNetworkImage(
-                    imageUrl: post.imageUrls[0],
-                    fit: BoxFit.contain,
-                    width: double.infinity,
-                    height: double.infinity,
-                  ),
-                ),
-              ),
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 10,
-                left: 16,
-                child: CircleAvatar(
-                  backgroundColor: Colors.black.withOpacity(0.5),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(1, 0),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutQuart)),
-          child: child,
-        );
-      },
+void _openFullScreenPost(PostModel post) {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    final bool isOwner = (currentUserId != null && currentUserId == post.artistId);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PostDetailScreen(
+          posts: [post],     // <-- TEK POSTU KÖŞELİ PARANTEZLE LİSTE YAPTIK
+          initialIndex: 0,   // <-- LİSTE TEK ELEMANLI OLDUĞU İÇİN INDEX 0
+          isOwner: isOwner 
+        ),
+      ),
     );
   }
 
   Widget _buildPostCard(PostModel post) {
     final ValueNotifier<bool> isExpandedNotifier = ValueNotifier<bool>(false);
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    final bool isOwnPost = currentUserId == post.artistId;
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAliasWithSaveLayer,
+      elevation: 4,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Medya
           GestureDetector(
             onTap: () => _openFullScreenPost(post),
             child: _buildPostMedia(post),
           ),
+          
+          // Alt Bilgiler
           Container(
             color: const Color(0xFF252525),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      // Artist Bilgileri (Alt Sol)
                       Expanded(
                         child: InkWell(
-                          onTap: () {
+                          onTap: isOwnPost ? null : () {
                             Navigator.push(
-                              context,
-                              PageRouteBuilder(
-                                pageBuilder: (context, animation, secondaryAnimation) =>
-                                    ArtistProfileScreen(userId: post.artistId),
-                                transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                  const begin = Offset(1.0, 0.0);
-                                  const end = Offset.zero;
-                                  const curve = Curves.easeOutQuart;
-                                  var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-                                  return SlideTransition(position: animation.drive(tween), child: child);
-                                },
-                                transitionDuration: const Duration(milliseconds: 400),
-                              ),
+                              context, 
+                              MaterialPageRoute(
+                                builder: (context) => ArtistProfileScreen(
+                                  userId: post.artistId,
+                                  isOwnProfile: false,
+                                )
+                              )
                             );
                           },
                           child: Row(
@@ -348,7 +320,7 @@ class HomeScreenState extends State<HomeScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     if (post.artistUsername != null)
-                                      Text(post.artistUsername!, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white), overflow: TextOverflow.ellipsis),
+                                      Text(post.artistUsername!, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14), overflow: TextOverflow.ellipsis),
                                     if (post.locationString.isNotEmpty)
                                       Text(post.locationString, style: TextStyle(fontSize: 11, color: Colors.grey[400]), overflow: TextOverflow.ellipsis),
                                   ],
@@ -358,46 +330,27 @@ class HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ),
+                      
+                      // Mesaj ve Like (Alt Sağ)
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.start, 
                         children: [
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                height: 40, width: 40,
-                                child: IconButton(
-                                  onPressed: () => _handleMessagePost(post),
-                                  padding: EdgeInsets.zero,
-                                  icon: Transform.rotate(angle: -0.8, child: const Icon(Icons.send_rounded, size: 26, color: Color(0xFF8A4F77))),
-                                ),
-                              ),
-                            ],
+                          Transform.rotate(
+                            angle: -45 * math.pi / 180,
+                            child: IconButton(
+                              onPressed: () => _handleMessagePost(post),
+                              icon: const Icon(Icons.send_rounded, color: AppTheme.primaryColor, size: 24), 
+                            ),
                           ),
-                          const SizedBox(width: 4),
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildLikeButton(post),
-                              if (post.likeCount > 0)
-                                Text(
-                                  post.likeCount.toString(),
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.grey[400],
-                                    fontSize: 10,
-                                  ),
-                                ),
-                            ],
-                          ),
+                          _buildLikeButton(post),
                         ],
                       ),
                     ],
                   ),
                 ),
+
                 if (post.caption != null && post.caption!.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(8.0, 4.0, 8.0, 12.0),
+                    padding: const EdgeInsets.fromLTRB(12.0, 0, 12.0, 12.0),
                     child: ValueListenableBuilder<bool>(
                       valueListenable: isExpandedNotifier,
                       builder: (context, isExpanded, child) {
@@ -406,14 +359,42 @@ class HomeScreenState extends State<HomeScreen> {
                           children: [
                             GestureDetector(
                               onTap: () => isExpandedNotifier.value = !isExpandedNotifier.value,
-                              child: Text(post.caption!, maxLines: isExpanded ? null : 2, overflow: isExpanded ? TextOverflow.visible : TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, color: Colors.white)),
-                            ),
-                            const SizedBox(height: 4),
-                            if (!isExpanded && post.caption!.length > 60)
-                              GestureDetector(
-                                onTap: () => isExpandedNotifier.value = true,
-                                child: const Text("Devamını oku...", style: TextStyle(color: Color(0xFF8A4F77), fontWeight: FontWeight.bold, fontSize: 12)),
+                              child: RichText(
+                                maxLines: isExpanded ? null : 2,
+                                overflow: isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                                text: TextSpan(
+                                  style: const TextStyle(fontSize: 13, color: Colors.white),
+                                  children: [
+                                    TextSpan(text: "${post.artistUsername ?? 'Artist'} ", style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    TextSpan(text: post.caption!),
+                                  ]
+                                ),
                               ),
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                if (!isExpanded && post.caption!.length > 60)
+                                  GestureDetector(
+                                    onTap: () => isExpandedNotifier.value = true,
+                                    child: const Padding(
+                                      padding: EdgeInsets.only(top: 4.0),
+                                      child: Text("daha fazla", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                    ),
+                                  )
+                                else
+                                  const SizedBox.shrink(),
+                                
+                                if (post.likeCount > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4.0),
+                                    child: Text(
+                                      "${post.likeCount} Beğeni",
+                                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ],
                         );
                       },
@@ -429,76 +410,73 @@ class HomeScreenState extends State<HomeScreen> {
 
   Widget _buildPostMedia(PostModel post) {
     if (post.imageUrls.isEmpty) return const SizedBox.shrink();
-    return AspectRatio(
-      aspectRatio: 0.8,
-      child: post.imageUrls.length == 1
-          ? CachedNetworkImage(
-              imageUrl: post.imageUrls[0],
-              width: double.infinity, height: double.infinity, fit: BoxFit.cover,
-              placeholder: (context, url) => Container(color: Colors.black12, child: const Center(child: CircularProgressIndicator(strokeWidth: 2))),
-              errorWidget: (context, url, error) => const Icon(Icons.error),
-            )
-          : PageView.builder(
-              itemCount: post.imageUrls.length,
-              itemBuilder: (context, index) {
-                return CachedNetworkImage(
-                  imageUrl: post.imageUrls[index],
-                  width: double.infinity, height: double.infinity, fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(color: Colors.black12, child: const Center(child: CircularProgressIndicator(strokeWidth: 2))),
-                  errorWidget: (context, url, error) => const Icon(Icons.error),
-                );
-              },
-            ),
+    return CachedNetworkImage(
+      imageUrl: post.imageUrls[0],
+      width: double.infinity,
+      fit: BoxFit.fitWidth, 
+      placeholder: (context, url) => Container(height: 300, color: const Color(0xFF202020), child: const Center(child: CircularProgressIndicator())),
+      errorWidget: (context, url, error) => Container(height: 300, color: const Color(0xFF202020), child: const Icon(Icons.broken_image, color: Colors.grey)),
     );
   }
 
   Widget _buildLikeButton(PostModel post) {
+    final userId = Provider.of<AuthService>(context, listen: false).currentUser?.uid;
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection(AppConstants.collectionLikes)
-          .doc('${post.id}_${Provider.of<AuthService>(context).currentUser?.uid ?? ''}')
-          .snapshots(),
+      stream: FirebaseFirestore.instance.collection(AppConstants.collectionLikes).doc('${post.id}_${userId ?? ""}').snapshots(),
       builder: (context, snapshot) {
         final isLiked = snapshot.hasData && snapshot.data!.exists;
-        return SizedBox(
-          height: 40, width: 40, 
-          child: GestureDetector(
-            onTap: () => _handleLike(post, isLiked),
-            child: Icon(isLiked ? Icons.favorite : Icons.favorite_border, color: isLiked ? const Color(0xFF944B79) : Colors.white, size: 28),
+        return GestureDetector(
+          onTap: () => _handleLike(post, isLiked),
+          child: Icon(
+            isLiked ? Icons.favorite : Icons.favorite_border, 
+            color: isLiked ? const Color(0xFF944B79) : AppTheme.primaryColor, 
+            size: 26
           ),
         );
       },
     );
   }
 
+  // --- GÜNCELLENEN BEĞENİ FONKSİYONU ---
   Future<void> _handleLike(PostModel post, bool isLiked) async {
-    // GÜNCELLENDİ: Durum kontrolü yapılıyor
     if (!_checkUserStatus()) return;
-
+    
     final authService = Provider.of<AuthService>(context, listen: false);
     final userId = authService.currentUser?.uid;
-    // userId kontrolü zaten _checkUserStatus içinde yapılıyor ama güvenli kod için kalabilir.
+    
     if (userId == null) return;
 
     final likeDocRef = FirebaseFirestore.instance.collection(AppConstants.collectionLikes).doc('${post.id}_$userId');
     final postRef = FirebaseFirestore.instance.collection(AppConstants.collectionPosts).doc(post.id);
+    
+    // Artistin puanını tutan referans
     final artistRef = FirebaseFirestore.instance.collection(AppConstants.collectionUsers).doc(post.artistId);
 
     if (isLiked) {
+      // 1. Beğeniyi Kaldır
       await likeDocRef.delete();
-      await postRef.update({'likeCount': FieldValue.increment(-1), 'likedBy': FieldValue.arrayRemove([userId])});
+      // 2. Postun beğeni sayısını azalt
+      await postRef.update({'likeCount': FieldValue.increment(-1)});
+      // 3. ARTİSTİN TOTAL LIKES PUANINI AZALT
       await artistRef.update({'totalLikes': FieldValue.increment(-1)});
     } else {
+      // 1. Beğeni Ekle
       await likeDocRef.set({'postId': post.id, 'userId': userId, 'createdAt': FieldValue.serverTimestamp()});
-      await postRef.update({'likeCount': FieldValue.increment(1), 'likedBy': FieldValue.arrayUnion([userId])});
+      // 2. Postun beğeni sayısını artır
+      await postRef.update({'likeCount': FieldValue.increment(1)});
+      // 3. ARTİSTİN TOTAL LIKES PUANINI ARTIR
       await artistRef.update({'totalLikes': FieldValue.increment(1)});
+      
+      // 4. Bildirim Gönder
+      final currentUserData = await authService.getUserModel(userId);
+      if (currentUserData != null) {
+        await NotificationService.sendLikeNotification(userId, currentUserData.fullName, currentUserData.profileImageUrl, post.artistId, post.id);
+      }
     }
   }
 
   void _handleMessagePost(PostModel post) {
-    // GÜNCELLENDİ: Durum kontrolü yapılıyor
     if (!_checkUserStatus()) return;
-
     Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(receiverId: post.artistId, receiverName: post.artistUsername ?? 'Artist', referenceImageUrl: post.imageUrls.isNotEmpty ? post.imageUrls[0] : null)));
   }
 
@@ -507,14 +485,12 @@ class HomeScreenState extends State<HomeScreen> {
     switch (_sortOption) {
       case AppConstants.sortNewest: return 'En Yeniler';
       case AppConstants.sortPopular: return 'En Popüler';
-      case AppConstants.sortDistance: return 'En Yakın';
-      case AppConstants.sortCampaigns: return 'Kampanyalar';
       default: return 'Sırala';
     }
   }
 
   void _showFilterBottomSheet(BuildContext context) {
-    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF161616), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => StatefulBuilder(builder: (context, setModalState) => SizedBox(height: MediaQuery.of(context).size.height * 0.75, child: Column(children: [Container(margin: const EdgeInsets.only(top: 12), width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))), const Padding(padding: EdgeInsets.all(16.0), child: Center(child: Text('Filtrele', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFEBEBEB))))), Expanded(child: SingleChildScrollView(padding: const EdgeInsets.symmetric(horizontal: 16.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFilterSection('Uygulama', ['Dövme', 'Piercing', 'Geçici Dövme', 'Rasta', 'Makyaj', 'Kına'], _selectedApplications, (value) { setModalState(() { _selectedApplications.contains(value) ? _selectedApplications.remove(value) : _selectedApplications.add(value); }); }), const SizedBox(height: 16), _buildFilterSection('Stil', ['Minimal', 'Old School', 'Dot Work', 'Realist', 'Tribal', 'Blackwork', 'Watercolor', 'Trash Polka', 'Fine Line', 'Traditional'], _selectedStyles, (value) { setModalState(() { _selectedStyles.contains(value) ? _selectedStyles.remove(value) : _selectedStyles.add(value); }); }), const SizedBox(height: 16), _buildDistrictSearch(setModalState), const SizedBox(height: 16), _buildScoreSlider(setModalState), const SizedBox(height: 16)]))), Padding(padding: const EdgeInsets.all(16.0), child: SizedBox(width: double.infinity, height: 50, child: ElevatedButton(onPressed: () { setState(() {}); Navigator.pop(context); }, style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('Uygula', style: TextStyle(color: Color(0xFFEBEBEB), fontSize: 16, fontWeight: FontWeight.bold)))))]))));
+    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF161616), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => StatefulBuilder(builder: (context, setModalState) => SizedBox(height: MediaQuery.of(context).size.height * 0.75, child: Column(children: [Container(margin: const EdgeInsets.only(top: 12), width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))), Padding(padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0), child: Stack(alignment: Alignment.center, children: [const Center(child: Text('Filtrele', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFEBEBEB)))), Positioned(right: 0, child: TextButton(onPressed: () { setModalState(() { _selectedApplications.clear(); _selectedStyles.clear(); _selectedDistrict = null; _selectedCity = null; _minScore = 0.0; }); }, child: const Text('Sıfırla', style: TextStyle(color: Colors.redAccent))))])), Expanded(child: SingleChildScrollView(padding: const EdgeInsets.symmetric(horizontal: 16.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFilterSection('Uygulama', AppConstants.applications, _selectedApplications, (value) { setModalState(() { _selectedApplications.contains(value) ? _selectedApplications.remove(value) : _selectedApplications.add(value); }); }), const SizedBox(height: 16), _buildFilterSection('Stil', AppConstants.styles, _selectedStyles, (value) { setModalState(() { _selectedStyles.contains(value) ? _selectedStyles.remove(value) : _selectedStyles.add(value); }); }), const SizedBox(height: 16), _buildDistrictSearch(setModalState), const SizedBox(height: 16)]))), Padding(padding: const EdgeInsets.all(16.0), child: SizedBox(width: double.infinity, height: 50, child: ElevatedButton(onPressed: () { setState(() {}); Navigator.pop(context); }, style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor), child: const Text('Uygula', style: TextStyle(color: Color(0xFFEBEBEB), fontSize: 16, fontWeight: FontWeight.bold)))))]))));
   }
 
   Widget _buildFilterSection(String title, List<String> options, List<String> selected, Function(String) onToggle) {
@@ -525,25 +501,8 @@ class HomeScreenState extends State<HomeScreen> {
     return _DistrictSearchWidget(selectedDistrict: _selectedDistrict, selectedCity: _selectedCity, onDistrictSelected: (district, city) { setModalState(() { _selectedDistrict = district; _selectedCity = city; }); });
   }
 
-  Widget _buildNotificationIcon() {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final userId = authService.currentUser?.uid;
-    if (userId == null) return IconButton(icon: const Icon(Icons.notifications_outlined, color: AppTheme.primaryColor, size: 28), onPressed: () {});
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection(AppConstants.collectionNotifications).where('userId', isEqualTo: userId).where('isRead', isEqualTo: false).snapshots(),
-      builder: (context, snapshot) {
-        final unreadCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
-        return Stack(clipBehavior: Clip.none, children: [IconButton(icon: const Icon(Icons.notifications_outlined, color: AppTheme.primaryColor, size: 28), onPressed: () { Navigator.push(context, SlideRoute(page: const NotificationsScreen())); }), if (unreadCount > 0) Positioned(right: 6, top: 6, child: Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2), decoration: const BoxDecoration(color: AppTheme.primaryColor, shape: BoxShape.circle), constraints: const BoxConstraints(minWidth: 18, minHeight: 18), child: Center(child: Text(unreadCount > 99 ? '99+' : unreadCount.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w300))))),]);
-      },
-    );
-  }
-
-  Widget _buildScoreSlider(StateSetter setModalState) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Minimum Artist Puanı: ${_minScore.toStringAsFixed(1)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFEBEBEB))), Slider(value: _minScore, min: 0.0, max: 5.0, divisions: 10, label: _minScore.toStringAsFixed(1), activeColor: AppTheme.primaryColor, inactiveColor: Colors.grey[700], onChanged: (value) { setModalState(() { _minScore = value; }); }),]);
-  }
-
   void _showSortBottomSheet(BuildContext context) {
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF161616), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => SizedBox(height: MediaQuery.of(context).size.height * 0.4, child: Column(children: [Container(margin: const EdgeInsets.only(top: 12), width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))), const Padding(padding: EdgeInsets.all(16.0), child: Text('Sırala', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFEBEBEB)))), Expanded(child: ListView(padding: const EdgeInsets.symmetric(horizontal: 16.0), children: [_buildSortOption('En Yeniler', Icons.refresh, AppConstants.sortNewest), _buildSortOption('En Popüler', Icons.local_fire_department, AppConstants.sortPopular), _buildSortOption('En Yakın', Icons.near_me, AppConstants.sortDistance), _buildSortOption('Kampanyalar', Icons.campaign, AppConstants.sortCampaigns)]))])));
+    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF161616), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => SizedBox(height: MediaQuery.of(context).size.height * 0.3, child: Column(children: [Container(margin: const EdgeInsets.only(top: 12), width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))), const Padding(padding: EdgeInsets.all(16.0), child: Text('Sırala', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFEBEBEB)))), Expanded(child: ListView(padding: const EdgeInsets.symmetric(horizontal: 16.0), children: [_buildSortOption('En Yeniler', Icons.refresh, AppConstants.sortNewest), _buildSortOption('En Popüler', Icons.local_fire_department, AppConstants.sortPopular)]))])));
   }
 
   Widget _buildSortOption(String label, IconData icon, String value) {
@@ -551,7 +510,52 @@ class HomeScreenState extends State<HomeScreen> {
     return ListTile(leading: Icon(icon, color: const Color(0xFFEBEBEB)), title: Text(label, style: const TextStyle(color: Color(0xFFEBEBEB))), trailing: isSelected ? const Icon(Icons.check, color: AppTheme.primaryColor) : null, onTap: () { setState(() { _sortOption = value; }); Navigator.pop(context); });
   }
 
-  void _showLoginRequired() { LoginRequiredDialog.show(context); }
+  Widget _buildNotificationIcon() {
+    final userId = Provider.of<AuthService>(context, listen: false).currentUser?.uid;
+    if (userId == null) return IconButton(icon: const Icon(Icons.notifications_outlined, color: AppTheme.primaryColor, size: 28), onPressed: () {});
+    
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection(AppConstants.collectionNotifications)
+          .where('receiverId', isEqualTo: userId)
+          .where('isRead', isEqualTo: false)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final unreadCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
+        
+        return Stack(
+          clipBehavior: Clip.none, 
+          children: [
+            IconButton(
+              icon: const Icon(Icons.notifications_outlined, color: AppTheme.primaryColor, size: 28), 
+              onPressed: () { 
+                Navigator.push(
+                  context, 
+                  SlideRoute(page: NotificationsSettingsScreen())
+                ); 
+              }
+            ), 
+            if (unreadCount > 0) 
+              Positioned(
+                right: 6, 
+                top: 6, 
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2), 
+                  decoration: const BoxDecoration(color: AppTheme.primaryColor, shape: BoxShape.circle), 
+                  constraints: const BoxConstraints(minWidth: 18, minHeight: 18), 
+                  child: Center(
+                    child: Text(
+                      unreadCount > 99 ? '99+' : unreadCount.toString(), 
+                      style: const TextStyle(color: Colors.white, fontSize: 10)
+                    )
+                  )
+                )
+              ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _DistrictSearchWidget extends StatefulWidget {
