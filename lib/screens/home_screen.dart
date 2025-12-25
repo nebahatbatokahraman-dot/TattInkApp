@@ -408,14 +408,32 @@ void _openFullScreenPost(PostModel post) {
     );
   }
 
-  Widget _buildPostMedia(PostModel post) {
+Widget _buildPostMedia(PostModel post) {
     if (post.imageUrls.isEmpty) return const SizedBox.shrink();
-    return CachedNetworkImage(
-      imageUrl: post.imageUrls[0],
-      width: double.infinity,
-      fit: BoxFit.fitWidth, 
-      placeholder: (context, url) => Container(height: 300, color: const Color(0xFF202020), child: const Center(child: CircularProgressIndicator())),
-      errorWidget: (context, url, error) => Container(height: 300, color: const Color(0xFF202020), child: const Icon(Icons.broken_image, color: Colors.grey)),
+
+    // Eğer sadece 1 resim varsa Slider çalıştırmaya gerek yok, direkt resmi göster (Performans için)
+    if (post.imageUrls.length == 1) {
+      return CachedNetworkImage(
+        imageUrl: post.imageUrls[0],
+        width: double.infinity,
+        fit: BoxFit.cover, // BoxFit.fitWidth yerine cover daha şık durabilir
+        placeholder: (context, url) => Container(
+          height: 300, 
+          color: const Color(0xFF202020), 
+          child: const Center(child: CircularProgressIndicator())
+        ),
+        errorWidget: (context, url, error) => Container(
+          height: 300, 
+          color: const Color(0xFF202020), 
+          child: const Icon(Icons.broken_image, color: Colors.grey)
+        ),
+      );
+    }
+
+    // Birden fazla resim varsa Slider Widget'ı çağır
+    return HomePostSlider(
+      imageUrls: post.imageUrls,
+      onTap: () => _openFullScreenPost(post), // Tıklayınca yine detaya gitsin
     );
   }
 
@@ -579,5 +597,93 @@ class _DistrictSearchWidgetState extends State<_DistrictSearchWidget> {
   }
   @override Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Bölge', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFEBEBEB))), const SizedBox(height: 8), TextField(controller: _searchController, style: const TextStyle(color: Color(0xFFEBEBEB)), decoration: InputDecoration(hintText: 'Semt ara', hintStyle: const TextStyle(color: Color(0xFFEBEBEB)), prefixIcon: const Icon(Icons.search, color: Color(0xFFEBEBEB)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), onChanged: _updateFilteredDistricts), if (_filteredDistricts.isNotEmpty) Container(margin: const EdgeInsets.only(top: 8), constraints: const BoxConstraints(maxHeight: 150), decoration: BoxDecoration(color: const Color(0xFF323232), borderRadius: BorderRadius.circular(8)), child: ListView.builder(shrinkWrap: true, itemCount: _filteredDistricts.length, itemBuilder: (context, index) { final item = _filteredDistricts[index]; return ListTile(title: Text('${item['district']}, ${item['city']}', style: const TextStyle(color: Color(0xFFEBEBEB))), onTap: () { _searchController.text = '${item['district']}, ${item['city']}'; widget.onDistrictSelected(item['district'], item['city']); setState(() { _filteredDistricts = []; }); }); })),]);
+  }
+}
+// --- BU SINIFI HOME SCREEN DOSYASININ EN ALTINA EKLE ---
+
+class HomePostSlider extends StatefulWidget {
+  final List<String> imageUrls;
+  final VoidCallback onTap; // Tıklanınca ne olacağını dışarıdan alacağız
+
+  const HomePostSlider({super.key, required this.imageUrls, required this.onTap});
+
+  @override
+  State<HomePostSlider> createState() => _HomePostSliderState();
+}
+
+class _HomePostSliderState extends State<HomePostSlider> {
+  int _currentIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    // Kare format (Instagram stili) için AspectRatio 1 yaptık. 
+    // İstersen 4/5 yapabilirsin.
+    return AspectRatio(
+      aspectRatio: 1, 
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          PageView.builder(
+            itemCount: widget.imageUrls.length,
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            itemBuilder: (context, index) {
+              return GestureDetector(
+                onTap: widget.onTap, // Resme tıklayınca detay sayfasına git
+                child: CachedNetworkImage(
+                  imageUrl: widget.imageUrls[index],
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(color: const Color(0xFF202020)),
+                  errorWidget: (context, url, error) => const Icon(Icons.error),
+                ),
+              );
+            },
+          ),
+          
+          // --- NOKTA İŞARETÇİLERİ (Sadece 1'den fazla resim varsa göster) ---
+          if (widget.imageUrls.length > 1)
+            Positioned(
+              bottom: 10,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: widget.imageUrls.asMap().entries.map((entry) {
+                  return Container(
+                    width: 6.0,
+                    height: 6.0,
+                    margin: const EdgeInsets.symmetric(horizontal: 3.0),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _currentIndex == entry.key
+                          ? AppTheme.primaryColor
+                          : Colors.white.withOpacity(0.5),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          
+          // --- FOTOĞRAF SAYISI GÖSTERGESİ (Sağ Üst Köşe - Opsiyonel) ---
+          if (widget.imageUrls.length > 1)
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  "${_currentIndex + 1}/${widget.imageUrls.length}",
+                  style: const TextStyle(color: Colors.white, fontSize: 10),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
