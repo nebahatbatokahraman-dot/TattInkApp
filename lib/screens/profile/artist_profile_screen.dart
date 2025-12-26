@@ -1,4 +1,5 @@
-import '../post_detail_screen.dart'; // <--- IMPORT EKLENDİ
+import '../create_appointment_screen.dart'; // <--- SENİN DOSYA ADIN
+import '../post_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
@@ -55,7 +56,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
     super.initState();
     _tabController = TabController(length: widget.isOwnProfile ? 3 : 2, vsync: this);
     _loadUser();
-    _loadCurrentUser();
+    _loadCurrentUser(); 
     _checkFollowing();
   }
 
@@ -369,7 +370,6 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
                     // --- PROFİL FOTO & BİLGİLER ---
                     Positioned(
                       left: 16,
-                      // TASARIM DÜZELTME: -60 yerine -75 yapıldı (Daha aşağı kaydırıldı)
                       bottom: -85, 
                       right: 16,
                       child: Row(
@@ -467,7 +467,6 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
                     ),
                   ],
                 ),
-                // TASARIM DÜZELTME: Profil aşağı kaydığı için alt boşluk artırıldı (60 -> 80)
                 const SizedBox(height: 80), 
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -536,7 +535,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildPortfolioTab(), // Artık detay sayfasına gidiyor
+                _buildPortfolioTab(),
                 if (isOwnProfile) _buildFavoritesTab(),
                 _buildAboutTab(isOwnProfile),
               ],
@@ -547,54 +546,95 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
     );
   }
 
-  // ... (Geri kalanlar aynı) ...
+  // --- GÜNCELLENEN BUTON ALANI ---
   Widget _buildFollowAndMessageButtons(BuildContext context) {
-    if (_currentUserModel == null || _user == null) {
+    if (_user == null) {
       return const SizedBox.shrink(); 
     }
+    
+    final userRole = _user!.role.toLowerCase();
+    final bool isTargetArtist = userRole.contains('artist');
 
-    final bool amIArtist = _currentUserModel!.role == 'artist' || _currentUserModel!.role == AppConstants.roleArtistApproved;
-    final bool isTargetCustomer = _user!.role == 'customer';
-
-    if (amIArtist && isTargetCustomer) {
-      return const SizedBox.shrink();
-    }
-
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _isFollowing 
-            ? ElevatedButton(
-                onPressed: _toggleFollow,
+        // 1. SATIR: TAKİP VE MESAJ
+        Row(
+          children: [
+            Expanded(
+              child: _isFollowing 
+                ? ElevatedButton(
+                    onPressed: _toggleFollow,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('Takibi Bırak', style: TextStyle(color: Colors.white, fontSize: 12)),
+                  )
+                : OutlinedButton(
+                    onPressed: _toggleFollow,
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppTheme.primaryColor),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('Takip Et', style: TextStyle(color: AppTheme.primaryColor)),
+                  ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () {
+                  if (!_checkUserStatus()) return;
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(receiverId: widget.userId, receiverName: _user!.fullName)));
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text('Takibi Bırak', style: TextStyle(color: Colors.white)),
-              )
-            : OutlinedButton(
-                onPressed: _toggleFollow,
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppTheme.primaryColor),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: const Text('Takip Et', style: TextStyle(color: AppTheme.primaryColor)),
+                child: const Text('Mesaj', style: TextStyle(color: Colors.white)),
               ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: ElevatedButton(
-            onPressed: () {
-              if (!_checkUserStatus()) return;
-              Navigator.push(context, MaterialPageRoute(builder: (context) => ChatScreen(receiverId: widget.userId, receiverName: _user!.fullName)));
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            child: const Text('Mesaj Gönder', style: TextStyle(color: Colors.white)),
-          ),
+          ],
         ),
+        
+        // 2. SATIR: RANDEVU AL (Sadece profiline bakılan kişi Artist ise)
+        if (isTargetArtist) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton( // <-- BURADA DEĞİŞİKLİK YAPILDI
+              onPressed: () {
+                if (!_checkUserStatus()) return;
+                
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true, 
+                  useSafeArea: true,       
+                  showDragHandle: true,
+                  backgroundColor: const Color(0xFF161616),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  builder: (context) => CreateAppointmentScreen(
+                    artistId: widget.userId,
+                  ),
+                );
+              },
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppTheme.primaryColor, width: 2.0), // Kenarlık Rengi
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                backgroundColor: Colors.transparent, // İçi boş
+              ),
+              child: const Text(
+                'Randevu Al', 
+                style: TextStyle(
+                  color: AppTheme.primaryColor, // Yazı Rengi
+                  fontWeight: FontWeight.bold
+                ),
+              ),
+            ),
+          ),
+        ]
       ],
     );
   }
@@ -621,17 +661,14 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
     );
   }
 
-  // --- GÜNCELLENEN PORTFOLYO KISMI ---
-Widget _buildPortfolioTab() {
+  Widget _buildPortfolioTab() {
     return StreamBuilder<QuerySnapshot>(
-      // ... (Burası aynı kalıyor)
       stream: FirebaseFirestore.instance
           .collection(AppConstants.collectionPosts)
           .where('artistId', isEqualTo: widget.userId)
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
-        // ... (Burası aynı)
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text('Henüz paylaşım yok', style: TextStyle(color: Colors.white70)));
 
@@ -640,7 +677,6 @@ Widget _buildPortfolioTab() {
             .toList();
 
         return GridView.builder(
-          // ... (Burası aynı)
           padding: const EdgeInsets.all(2),
           physics: const BouncingScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 2, mainAxisSpacing: 2),
@@ -649,18 +685,16 @@ Widget _buildPortfolioTab() {
             final post = posts[index];
             return GestureDetector(
               onTap: () {
-                // --- İŞTE DÜZELTİLEN KISIM ---
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => PostDetailScreen(
-                      posts: posts,           // TÜM LİSTEYİ GÖNDER
-                      initialIndex: index,    // TIKLANAN SIRAYI GÖNDER
+                      posts: posts,
+                      initialIndex: index,
                       isOwner: widget.isOwnProfile, 
                     ),
                   ),
                 );
-                // -----------------------------
               },
               child: CachedNetworkImage( 
                 imageUrl: post.imageUrls.isNotEmpty ? post.imageUrls[0] : '',
@@ -675,10 +709,8 @@ Widget _buildPortfolioTab() {
     );
   }
 
-// ... 2. DÜZELTME: FAVORİLER TAB ...
   Widget _buildFavoritesTab() {
     return StreamBuilder<QuerySnapshot>(
-      // ... (Stream kısımları aynı)
       stream: FirebaseFirestore.instance.collection(AppConstants.collectionLikes).where('userId', isEqualTo: widget.userId).snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text('Henüz favori yok', style: TextStyle(color: Colors.white70)));
@@ -700,18 +732,16 @@ Widget _buildPortfolioTab() {
                 final post = posts[index];
                 return GestureDetector(
                   onTap: () {
-                     // --- DÜZELTİLEN KISIM ---
                      Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => PostDetailScreen(
-                          posts: posts,        // TÜM FAVORİLERİ LİSTE OLARAK GÖNDER
-                          initialIndex: index, // TIKLANAN SIRA
+                          posts: posts,
+                          initialIndex: index,
                           isOwner: false
                         ),
                       ),
                     );
-                    // ------------------------
                   },
                   child: Image.network(post.imageUrls.isNotEmpty ? post.imageUrls[0] : '', fit: BoxFit.cover)
                 );
