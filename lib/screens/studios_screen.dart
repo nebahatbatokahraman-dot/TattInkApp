@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:carousel_slider/carousel_slider.dart' as cs;
 import 'package:geolocator/geolocator.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // EKLENDİ: ID kontrolü için
+import 'package:firebase_auth/firebase_auth.dart'; 
 import 'dart:math';
 import '../models/user_model.dart';
 import '../utils/constants.dart';
@@ -100,7 +101,6 @@ class _StudiosScreenState extends State<StudiosScreen> {
     return LatLng(original.latitude + offsetLat, original.longitude + offsetLng);
   }
 
-  // --- ARAMA & LOKASYON FONKSİYONLARI ---
   void _updateLocationSuggestions(String query) {
     if (query.length < 2) {
       setState(() => _locationSuggestions = []);
@@ -158,7 +158,6 @@ class _StudiosScreenState extends State<StudiosScreen> {
     });
   }
 
-  // --- YENİ FİLTRELEME BOTTOM SHEET ---
   void _showFilterBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -171,7 +170,6 @@ class _StudiosScreenState extends State<StudiosScreen> {
           child: Column(
             children: [
               Container(margin: const EdgeInsets.only(top: 12), width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))),
-              
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
                 child: Stack(
@@ -193,7 +191,6 @@ class _StudiosScreenState extends State<StudiosScreen> {
                   ],
                 ),
               ),
-
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -208,7 +205,6 @@ class _StudiosScreenState extends State<StudiosScreen> {
                   ),
                 ),
               ),
-
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: SizedBox(
@@ -275,17 +271,17 @@ class _StudiosScreenState extends State<StudiosScreen> {
           children: [
             // --- HEADER ---
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   SizedBox(
-                    height: 50,
+                    height: 40,
                     child: CachedNetworkImage(
                       imageUrl: AppConstants.logoUrl,
-                      height: 50,
+                      height: 40,
                       fit: BoxFit.contain,
-                      errorWidget: (context, url, error) => const SizedBox(width: 50, child: Icon(Icons.error)),
+                      errorWidget: (context, url, error) => const SizedBox(width: 40, child: Icon(Icons.error)),
                     ),
                   ),
                   Row(
@@ -370,10 +366,9 @@ class _StudiosScreenState extends State<StudiosScreen> {
             
             if (!_showMap)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 1.0),
                 child: Column(
                   children: [
-                    // YENİ: Tam Genişlikte FİLTRELE Butonu
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
@@ -390,14 +385,12 @@ class _StudiosScreenState extends State<StudiosScreen> {
                         ),
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: AppTheme.primaryColor),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
                     
-                    // SIRALAMA BUTONLARI
                     Row(
                       children: [
                         Expanded(
@@ -437,6 +430,38 @@ class _StudiosScreenState extends State<StudiosScreen> {
                   ],
                 ),
               ),
+
+// --- KAMPANYA SLIDER BANNER (GÜNCELLENDİ) ---
+            if (!_showMap)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 1.0),
+                child: cs.CarouselSlider(
+                  options: cs.CarouselOptions(
+                    height: 40,
+                    viewportFraction: 1.0,
+                    autoPlay: true,
+                    autoPlayInterval: const Duration(seconds: 4),
+                    enlargeCenterPage: false,
+                  ),
+                  items: [
+                    _buildBannerItem(
+                      "Yılbaşı Kampanyası! %20 İndirim",
+                      Icons.campaign,
+                      Colors.blueAccent,
+                    ),
+                    _buildBannerItem(
+                      "Yeni Stüdyoları Keşfedin 🎨",
+                      Icons.explore,
+                      Colors.deepPurpleAccent,
+                    ),
+                    _buildBannerItem(
+                      "Ücretsiz Konsültasyon Fırsatı",
+                      Icons.event_available,
+                      Colors.teal,
+                    ),
+                  ],
+                ),
+              ),
             
             Expanded(
               child: _showMap ? _buildMapView() : _buildArtistList(),
@@ -466,8 +491,6 @@ class _StudiosScreenState extends State<StudiosScreen> {
         var docs = snapshot.data!.docs;
         List<UserModel> artists = docs.map((d) => UserModel.fromFirestore(d)).toList();
 
-        // --- HİBRİT FİLTRELEME ---
-        
         if (_selectedSearchCity != null) {
           artists = artists.where((artist) {
             bool cityMatch = artist.city != null && artist.city!.toLowerCase() == _selectedSearchCity!.toLowerCase();
@@ -556,7 +579,6 @@ class _StudiosScreenState extends State<StudiosScreen> {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
-          // --- GÜNCELLENDİ: KENDİ PROFİLİNE TIKLARSA GİTME ---
           final currentUserId = FirebaseAuth.instance.currentUser?.uid;
           if (currentUserId == artist.uid) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -606,9 +628,9 @@ class _StudiosScreenState extends State<StudiosScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 35), 
+            const SizedBox(height: 30), 
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -663,6 +685,38 @@ class _StudiosScreenState extends State<StudiosScreen> {
     return Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.white.withOpacity(0.05))), child: Text(text, style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w500)));
   }
 
+  // --- BANNER TASARIM FONKSİYONU ---
+  Widget _buildBannerItem(String text, IconData icon, Color color) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 12),
+        ],
+      ),
+    );
+  }
+
+
   Widget _buildMapView() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection(AppConstants.collectionUsers).where('role', whereIn: [AppConstants.roleArtistApproved, AppConstants.roleArtistUnapproved]).where('isApproved', isEqualTo: true).snapshots(),
@@ -670,11 +724,10 @@ class _StudiosScreenState extends State<StudiosScreen> {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final artists = snapshot.data!.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
         final markers = <Marker>{};
-        final currentUserId = FirebaseAuth.instance.currentUser?.uid; // Map için de ID al
+        final currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
         for (var artist in artists) {
           bool showArtist = true;
-          // ... (filtreleme kodları aynı kaldı)
           if (_selectedSearchCity != null) {
              bool cityMatch = artist.city != null && artist.city!.toLowerCase() == _selectedSearchCity!.toLowerCase();
              if (!cityMatch) showArtist = false;
@@ -706,7 +759,6 @@ class _StudiosScreenState extends State<StudiosScreen> {
                 title: artist.username ?? artist.fullName, 
                 snippet: artist.locationString, 
                 onTap: () {
-                  // --- GÜNCELLENDİ: HARİTADA KENDİNE TIKLARSA GİTME ---
                   if (currentUserId == artist.uid) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text("Bu sizin kendi profiliniz."), backgroundColor: AppTheme.primaryColor),

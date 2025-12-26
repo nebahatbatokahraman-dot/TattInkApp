@@ -29,6 +29,7 @@ class AppConstants {
   ];
 
   static const List<String> styles = [
+    'KAMPANYA',
     'Minimalist',
     'Dotwork',
     'Realist',

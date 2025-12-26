@@ -103,18 +103,18 @@ class HomeScreenState extends State<HomeScreen> {
           children: [
             // 1. HEADER (Logo ve Bildirim)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   SizedBox(
-                    height: 50,
+                    height: 40,
                     child: CachedNetworkImage(
                       imageUrl: AppConstants.logoUrl,
-                      height: 50,
+                      height: 40,
                       fit: BoxFit.contain,
                       errorWidget: (context, url, error) => const SizedBox(
-                        height: 50, width: 50,
+                        height: 40, width: 40,
                         child: Icon(Icons.image_not_supported, size: 30),
                       ),
                     ),
@@ -186,63 +186,146 @@ class HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPostFeed() {
-    Query query = FirebaseFirestore.instance.collection(AppConstants.collectionPosts);
-    
-    if (_sortOption == AppConstants.sortPopular) {
-      query = query.orderBy('likeCount', descending: true);
-    } else {
-      query = query.orderBy('createdAt', descending: true);
-    }
-
-    return StreamBuilder<QuerySnapshot>(
-      stream: query.snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text('Henüz paylaşım yok'));
-
-        final filteredPosts = snapshot.data!.docs
-            .map((doc) => PostModel.fromFirestore(doc))
-            .where((post) {
-          
-          if (_selectedDistrict != null) {
-            if (!post.locationString.toLowerCase().contains(_selectedDistrict!.toLowerCase())) return false;
-          }
-
-          if (_selectedApplications.isNotEmpty) {
-            bool match = _selectedApplications.any((app) => 
-               (post.caption?.toLowerCase().contains(app.toLowerCase()) ?? false)
-            );
-            if (!match) return false;
-          }
-
-          if (_selectedStyles.isNotEmpty) {
-             bool match = _selectedStyles.any((style) => 
-               (post.caption?.toLowerCase().contains(style.toLowerCase()) ?? false)
-            );
-            if (!match) return false;
-          }
-
-          return true;
-        }).toList();
-
-        return RefreshIndicator(
-          onRefresh: _handleRefresh,
-          color: AppTheme.primaryColor,
-          backgroundColor: const Color(0xFF252525),
-          child: ListView.builder(
-            controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(), 
-            itemCount: filteredPosts.length,
-            itemBuilder: (context, index) {
-              final post = filteredPosts[index];
-              return _buildPostCard(post);
-            },
-          ),
-        );
-      },
-    );
+Widget _buildPostFeed() {
+  Query query = FirebaseFirestore.instance.collection(AppConstants.collectionPosts);
+  
+  if (_sortOption == AppConstants.sortPopular) {
+    query = query.orderBy('likeCount', descending: true);
+  } else {
+    query = query.orderBy('createdAt', descending: true);
   }
+
+  return StreamBuilder<QuerySnapshot>(
+    stream: query.snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text('Henüz paylaşım yok'));
+
+      final filteredPosts = snapshot.data!.docs
+          .map((doc) => PostModel.fromFirestore(doc))
+          .where((post) {
+        if (_selectedDistrict != null) {
+          if (!post.locationString.toLowerCase().contains(_selectedDistrict!.toLowerCase())) return false;
+        }
+        if (_selectedApplications.isNotEmpty) {
+          bool match = _selectedApplications.any((app) => (post.caption?.toLowerCase().contains(app.toLowerCase()) ?? false));
+          if (!match) return false;
+        }
+        if (_selectedStyles.isNotEmpty) {
+           bool match = _selectedStyles.any((style) => (post.caption?.toLowerCase().contains(style.toLowerCase()) ?? false));
+          if (!match) return false;
+        }
+        return true;
+      }).toList();
+
+      return RefreshIndicator(
+        onRefresh: _handleRefresh,
+        color: AppTheme.primaryColor,
+        backgroundColor: const Color(0xFF252525),
+        child: ListView.builder(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(), 
+          itemCount: filteredPosts.length + (filteredPosts.length ~/ 3),
+          itemBuilder: (context, index) {
+            // Her 4. sırada (index 3, 7, 11...) reklam kartı göster
+            if (index % 4 == 3) {
+              return _buildAdPostCard(); 
+            }
+
+            final postIndex = index - (index ~/ 4);
+            if (postIndex >= filteredPosts.length) return const SizedBox.shrink();
+
+            final post = filteredPosts[postIndex];
+            return _buildPostCard(post);
+          },
+        ),
+      );
+    },
+  );
+}
+
+//REKLAM KARTI//
+Widget _buildAdPostCard() {
+  return Container(
+    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: const Color(0xFF212121),
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. ÜST KISIM: REKLAM GÖRSELİ
+        ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          child: Container(
+            height: 300,
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF2A2A2A), Color(0xFF161616)],
+              ),
+            ),
+            child: const Center(
+              child: Icon(Icons.auto_awesome, color: AppTheme.primaryColor, size: 70),
+            ),
+          ),
+        ),
+        
+        // 2. ALT KISIM: PROFİL VE YAZI ALANI
+        Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                    child: const Icon(Icons.stars, color: AppTheme.primaryColor, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "TattInk Premium",
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      Text(
+                        "Sponsorlu",
+                        style: TextStyle(color: Colors.grey, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  ElevatedButton(
+                    onPressed: () {},
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    child: const Text("Bilgi Al", style: TextStyle(color: Colors.white, fontSize: 12)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                "Kendi stüdyonu şimdi öne çıkar! Profilini binlerce sanatseverle buluştur ve randevularını hemen artır.",
+                style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 
 void _openFullScreenPost(PostModel post) {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
@@ -332,22 +415,41 @@ void _openFullScreenPost(PostModel post) {
                       ),
                       
                       // Mesaj ve Like (Alt Sağ)
-                      Row(
+                     Row(
                         children: [
-                          Transform.rotate(
-                            angle: -45 * math.pi / 180,
-                            child: IconButton(
-                              onPressed: () => _handleMessagePost(post),
-                              icon: const Icon(Icons.send_rounded, color: AppTheme.primaryColor, size: 24), 
+                          // Mesaj Butonu
+                          Transform.translate(
+                            offset: const Offset(0, -2),
+                            child: Transform.rotate(
+                              angle: -45 * math.pi / 180,
+                              child: IconButton(
+                                onPressed: () => _handleMessagePost(post),
+                                icon: const Icon(Icons.send_rounded, color: AppTheme.primaryColor, size: 24),
+                              ),
                             ),
                           ),
-                          _buildLikeButton(post),
+                          // Beğeni Butonu ve Sayacı Stack İçinde
+                          Stack(
+                            clipBehavior: Clip.none, // Sayının buton dışına taşmasına izin verir
+                            children: [
+                              _buildLikeButton(post),
+                              if (post.likeCount > 0)
+                                Positioned(
+                                  right: 9, // Butonun sağından dışarı taşır
+                                  top: 25,   // Senin padding'ine göre aşağıda konumlandırır
+                                  child: Text(
+                                    "${post.likeCount}",
+                                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ],
                       ),
                     ],
                   ),
                 ),
-
+                
                 if (post.caption != null && post.caption!.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12.0, 0, 12.0, 12.0),
@@ -360,12 +462,12 @@ void _openFullScreenPost(PostModel post) {
                             GestureDetector(
                               onTap: () => isExpandedNotifier.value = !isExpandedNotifier.value,
                               child: RichText(
-                                maxLines: isExpanded ? null : 2,
+                                maxLines: isExpanded ? null : 1,
                                 overflow: isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
                                 text: TextSpan(
                                   style: const TextStyle(fontSize: 13, color: Colors.white),
                                   children: [
-                                    TextSpan(text: "${post.artistUsername ?? 'Artist'} ", style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  
                                     TextSpan(text: post.caption!),
                                   ]
                                 ),
@@ -379,20 +481,13 @@ void _openFullScreenPost(PostModel post) {
                                     onTap: () => isExpandedNotifier.value = true,
                                     child: const Padding(
                                       padding: EdgeInsets.only(top: 4.0),
-                                      child: Text("daha fazla", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                      child: Text("daha fazla...", style: TextStyle(color: Colors.grey, fontSize: 12)),
                                     ),
                                   )
                                 else
                                   const SizedBox.shrink(),
                                 
-                                if (post.likeCount > 0)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4.0),
-                                    child: Text(
-                                      "${post.likeCount} Beğeni",
-                                      style: const TextStyle(color: Colors.grey, fontSize: 12),
-                                    ),
-                                  ),
+                            
                               ],
                             ),
                           ],
@@ -407,6 +502,9 @@ void _openFullScreenPost(PostModel post) {
       ),
     );
   }
+
+
+
 
 Widget _buildPostMedia(PostModel post) {
     if (post.imageUrls.isEmpty) return const SizedBox.shrink();
