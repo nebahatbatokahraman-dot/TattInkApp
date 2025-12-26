@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_localizations/flutter_localizations.dart'; // <--- BU EKLENDİ
+
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 import 'screens/main_screen.dart';
@@ -15,6 +18,9 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
+  // Türkçe tarih formatlarını başlatıyoruz
+  await initializeDateFormatting('tr_TR', null);
+  
   runApp(const MyApp());
 }
 
@@ -25,7 +31,6 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // AuthService artık dinlenebilir bir model olarak tüm uygulamaya servis ediliyor
         ChangeNotifierProvider<AuthService>(
           create: (_) => AuthService(),
         ),
@@ -33,8 +38,21 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'TattInk',
         debugShowCheckedModeBanner: false,
-        // Font tanımlarımızın olduğu koyu temayı buraya bağlıyoruz
         theme: AppTheme.darkTheme,
+        
+        // --- DİL VE LOKALİZASYON AYARLARI (EKLENDİ) ---
+        supportedLocales: const [
+          Locale('tr', 'TR'), // Türkçe
+          Locale('en', 'US'), // İngilizce
+        ],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        locale: const Locale('tr', 'TR'), // Uygulamayı Türkçe açılmaya zorlar
+        // ----------------------------------------------
+
         home: const AuthWrapper(),
       ),
     );
@@ -47,7 +65,6 @@ class AuthWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Uygulama ilk açıldığında direkt anasayfayı gösterir
-    // Giriş yapılmamış olsa bile AuthService üzerinden durum kontrolü yapılabilir
     return const MainScreen();
   }
 }

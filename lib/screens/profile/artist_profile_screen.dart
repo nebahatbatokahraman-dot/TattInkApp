@@ -51,6 +51,91 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
   bool _isFollowing = false;
   final ImagePicker _picker = ImagePicker();
 
+// --- YENİ: STÜDYO FOTOĞRAFI YÜKLEME ---
+  Future<void> _uploadStudioImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+      if (image == null) return;
+
+      // Yükleme animasyonu gösterilebilir, şimdilik basit tutuyoruz
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yükleniyor...')));
+
+      final imageService = ImageService();
+      // Resmi sıkıştırıp byte'a çeviriyoruz (senin image service yapına göre)
+      final File file = File(image.path);
+      final optimizedImageBytes = await imageService.optimizeImage(file); 
+      
+      // Storage'a yükle
+      final imageUrl = await imageService.uploadImage(
+        imageBytes: optimizedImageBytes,
+        path: 'studio_images/${widget.userId}/${DateTime.now().millisecondsSinceEpoch}',
+      );
+
+      // Firestore'a dizi olarak ekle (arrayUnion)
+      await FirebaseFirestore.instance
+          .collection(AppConstants.collectionUsers)
+          .doc(widget.userId)
+          .update({
+        'studioImageUrls': FieldValue.arrayUnion([imageUrl]),
+      });
+
+      // Ekrana yansıması için kullanıcıyı yeniden yükle
+      await _loadUser();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fotoğraf eklendi!'), backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  // --- YENİ: STÜDYO FOTOĞRAFI SİLME ---
+  Future<void> _deleteStudioImage(String imageUrl) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection(AppConstants.collectionUsers)
+          .doc(widget.userId)
+          .update({
+        'studioImageUrls': FieldValue.arrayRemove([imageUrl]),
+      });
+
+      await _loadUser();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fotoğraf silindi.')));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e')));
+    }
+  }
+
+  // Silme onayı için dialog
+  void _confirmDeleteStudioImage(String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF252525),
+        title: const Text("Fotoğrafı Sil", style: TextStyle(color: Colors.white)),
+        content: const Text("Bu stüdyo fotoğrafını kaldırmak istiyor musunuz?", style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("İptal", style: TextStyle(color: Colors.grey))),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _deleteStudioImage(imageUrl);
+            }, 
+            child: const Text("Sil", style: TextStyle(color: Colors.red))
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
   @override
   void initState() {
     super.initState();
@@ -753,12 +838,16 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
     );
   }
 
-  Widget _buildAboutTab(bool isOwnProfile) {
+Widget _buildAboutTab(bool isOwnProfile) {
+    // Modelden gelen gerçek liste (Eğer null ise boş liste)
+    final studioImages = _user!.studioImageUrls;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // --- BİYOGRAFİ ---
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -775,29 +864,138 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
           const SizedBox(height: 8),
           Text(
             _user!.biography != null && _user!.biography!.isNotEmpty ? _user!.biography! : 'Henüz bir biyografi eklenmemiş.',
-            style: const TextStyle(fontSize: 14, color: Colors.white70),
+            style: const TextStyle(fontSize: 14, color: Colors.white70, height: 1.4),
           ),
           
+          // --- STÜDYO & ATMOSFER (VERİTABANI ENTEGRASYONLU) ---
+          // Eğer liste boşsa VE kendi profili değilse bu başlığı hiç gösterme.
+          if (studioImages.isNotEmpty || isOwnProfile) ...[
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                const Text('Stüdyo & Atmosfer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                if (isOwnProfile) // Sadece bilgi amaçlı (opsiyonel)
+                   Padding(
+                     padding: const EdgeInsets.only(left: 8.0),
+                     child: Text("(${studioImages.length})", style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                   ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            
+            SizedBox(
+              height: 100, 
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                // Eğer kendi profili ise, listeye "+ Ekle" butonu için +1 ekliyoruz
+                itemCount: studioImages.length + (isOwnProfile ? 1 : 0),
+                itemBuilder: (context, index) {
+                  
+                  // 1. Durum: Kendi profili ve ilk eleman -> EKLE BUTONU
+                  if (isOwnProfile && index == 0) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 12.0),
+                      child: InkWell(
+                        onTap: _uploadStudioImage,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: 80, // Ekle butonu biraz daha dar olabilir
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF252525),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white24),
+                          ),
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_a_photo, color: AppTheme.primaryColor),
+                              SizedBox(height: 4),
+                              Text("Ekle", style: TextStyle(color: Colors.white70, fontSize: 10)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  // 2. Durum: Fotoğraflar
+                  // Eğer +1 eklediysek, gerçek resim indexi 1 eksik olmalı
+                  final int imageIndex = isOwnProfile ? index - 1 : index;
+                  final String imageUrl = studioImages[imageIndex];
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 12.0),
+                    child: GestureDetector(
+                      // Kendi profili ise silmek için uzun basabilir
+                      onLongPress: isOwnProfile ? () => _confirmDeleteStudioImage(imageUrl) : null,
+                      onTap: () {
+                        // Tıklanınca tam ekran açılabilir (İstersen buraya kod ekleyebiliriz)
+                      },
+                      child: Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: CachedNetworkImage(
+                              imageUrl: imageUrl,
+                              height: 100,
+                              width: 140,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(color: Colors.grey[900]),
+                              errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.grey),
+                            ),
+                          ),
+                          // Kendi profili ise sağ üstte küçük silme ikonu da koyabiliriz (kullanıcı dostu)
+                          if (isOwnProfile)
+                            Positioned(
+                              top: 4,
+                              right: 4,
+                              child: GestureDetector(
+                                onTap: () => _confirmDeleteStudioImage(imageUrl),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black54,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.close, size: 14, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+
+          // --- UYGULAMALAR (TAGLER) ---
           if (_user!.applications.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             const Text('Uygulamalar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: _user!.applications.map((app) => _buildAboutTag(app, Colors.blueGrey.withOpacity(0.2))).toList(),
             ),
           ],
+          
+          // --- STİLLER (TAGLER) ---
           if (_user!.applicationStyles.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             const Text('Uzmanlık Stilleri', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: _user!.applicationStyles.map((style) => _buildAboutTag(style, AppTheme.primaryColor.withOpacity(0.15))).toList(),
             ),
           ],
+          
+          const SizedBox(height: 40),
         ],
       ),
     );

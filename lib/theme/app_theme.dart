@@ -170,12 +170,18 @@ class AppTheme {
       // Bottom Navigation Bar Theme
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: backgroundColor,
-        selectedItemColor: primaryColor,
-        unselectedItemColor: primaryColor.withAlpha(150),
+        
+        // --- SEÇİLİ OLAN (Selected) -> Kırık Beyaz ---
+        selectedItemColor: const Color(0xFFdbdbdb), // Kırık beyaz
+        selectedIconTheme: const IconThemeData(color: Color(0xFFdbdbdb)),
+
+        // --- SEÇİLİ OLMAYAN (Unselected) -> Primary Color ---
+        unselectedItemColor: primaryColor, // Direkt ana renk
+        unselectedIconTheme: const IconThemeData(color: primaryColor),
+        
+        // --- YAZI STİLLERİ ---
         selectedLabelStyle: GoogleFonts.openSans(fontWeight: FontWeight.w600, fontSize: 12),
         unselectedLabelStyle: GoogleFonts.openSans(fontWeight: FontWeight.w400, fontSize: 12),
-        selectedIconTheme: const IconThemeData(color: primaryColor),
-        unselectedIconTheme: IconThemeData(color: primaryColor.withAlpha(150)),
         type: BottomNavigationBarType.fixed,
       ),
 

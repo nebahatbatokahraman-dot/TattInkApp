@@ -8,9 +8,10 @@ import 'package:intl/intl.dart';
 // --- IMPORTS ---
 import '../models/appointment_model.dart';
 import '../services/auth_service.dart';
-import '../services/image_service.dart'; // Resim yükleme servisin
+import '../services/image_service.dart';
+import '../services/notification_service.dart'; // Bildirim servisi eklendi
 import '../utils/constants.dart';
-import '../theme/app_theme.dart'; // AppTheme.primaryColor için
+import '../theme/app_theme.dart';
 
 class CreateAppointmentScreen extends StatefulWidget {
   final String artistId;
@@ -46,7 +47,6 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
 
   // --- TARİH SEÇİCİ ---
   Future<void> _selectDate() async {
-    // Tema ayarları AppTheme üzerinden de gelebilir ama burada manuel dark theme zorladık
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now().add(const Duration(days: 1)),
@@ -74,7 +74,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
     }
   }
 
-  // --- ÖZEL SAAT SEÇİCİ (08:00 - 20:00) ---
+  // --- ÖZEL SAAT SEÇİCİ (09:00 - 20:00) ---
   void _showCustomTimePicker() {
     showModalBottomSheet(
       context: context,
@@ -83,7 +83,6 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (BuildContext context) {
-        // 08:00'den 20:00'e kadar saatleri oluştur
         List<TimeOfDay> timeSlots = [];
         for (int i = 9; i <= 20; i++) {
           timeSlots.add(TimeOfDay(hour: i, minute: 0));
@@ -102,7 +101,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
               Expanded(
                 child: GridView.builder(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4, // Yan yana 4 tane
+                    crossAxisCount: 4, 
                     childAspectRatio: 2.2,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
@@ -118,9 +117,8 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                         Navigator.pop(context);
                       },
                       style: OutlinedButton.styleFrom(
-                        // Seçiliyse dolu, değilse boş (outlined)
                         backgroundColor: isSelected ? AppTheme.primaryColor : Colors.transparent,
-                        side: BorderSide(color: AppTheme.primaryColor),
+                        side: const BorderSide(color: AppTheme.primaryColor),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         padding: EdgeInsets.zero,
                       ),
@@ -152,7 +150,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
     }
   }
 
-  // --- KAYDETME İŞLEMİ ---
+  // --- KAYDETME VE BİLDİRİM ---
   Future<void> _submitAppointment() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -171,6 +169,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
       
       if (customerId == null) return;
       
+      // Müşteri bilgilerini çekiyoruz (İsim ve Resim için)
       final customer = await authService.getUserModel(customerId);
       if (customer == null) return;
 
@@ -183,9 +182,8 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
       if (!artistDoc.exists) throw Exception("Artist bulunamadı");
       final artistData = artistDoc.data() as Map<String, dynamic>;
 
-      // Eğer yeni resim seçildiyse onu yükle, yoksa var olan referansı kullan
+      // Resim yükleme işlemi...
       String? finalImageUrl = widget.referenceImageUrl;
-      
       if (_selectedImageFile != null) {
         final imageService = ImageService();
         finalImageUrl = await imageService.uploadImage(
@@ -204,11 +202,16 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
 
       final appointmentRef = FirebaseFirestore.instance.collection(AppConstants.collectionAppointments).doc();
 
+      // Müşteri adını belirle
+      final String customerName = (customer.fullName != null && customer.fullName!.isNotEmpty) 
+          ? customer.fullName! 
+          : (customer.username ?? 'Müşteri');
+
       final appointment = AppointmentModel(
         id: appointmentRef.id,
         customerId: customerId,
         artistId: widget.artistId,
-        customerName: customer.fullName.isNotEmpty ? customer.fullName : customer.username,
+        customerName: customerName,
         artistName: artistData['fullName'] ?? artistData['username'] ?? 'Artist',
         appointmentDate: appointmentDate,
         notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
@@ -217,10 +220,27 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
         createdAt: DateTime.now(),
       );
 
+      // 1. Randevuyu Kaydet
       await appointmentRef.set(appointment.toMap());
 
+      // 2. BİLDİRİM GÖNDER (GÜNCELLENDİ: senderName ve senderAvatar eklendi)
+      await NotificationService.sendNotification(
+        receiverId: widget.artistId, // Kime: Artist
+        senderId: customerId,        // Kimden: Müşteri
+        
+        // --- BU İKİ SATIR EKLENDİ ---
+        senderName: customerName,    // Artık bildirimde isim görünecek
+        senderAvatar: customer.profileImageUrl, // Varsa resmi de görünecek
+        // ----------------------------
+        
+        title: 'Yeni Randevu Talebi',
+        body: '$customerName sizden ${DateFormat('dd/MM HH:mm').format(appointmentDate)} tarihi için randevu talep etti.',
+        type: 'appointment_request',
+        relatedId: appointmentRef.id,
+      );
+
       if (mounted) {
-        Navigator.pop(context); // BottomSheet'i kapat
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Randevu talebi gönderildi'), backgroundColor: Colors.green),
         );
@@ -242,7 +262,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Container(
-      // --- İSTEK: Ekranın 2/3'ünü kaplasın ---
+      // Ekranın %50'si kadar yükseklik (İsteğine göre değiştirebilirsin)
       height: screenHeight * 0.50, 
       decoration: const BoxDecoration(
         color: Color(0xFF161616),
@@ -258,7 +278,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-// --- REFERANS RESMİ (VARSA VEYA YENİ SEÇİLDİYSE) ---
+                // --- REFERANS RESMİ (VARSA VEYA YENİ SEÇİLDİYSE) ---
                 if (_selectedImageFile != null || widget.referenceImageUrl != null)
                   Stack(
                     alignment: Alignment.topRight,
@@ -278,7 +298,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                           ),
                         ),
                       ),
-                      // Resmi kaldırma butonu (sadece yeni seçilen varsa)
+                      // Resmi kaldırma butonu
                       if (_selectedImageFile != null)
                         IconButton(
                           onPressed: () => setState(() => _selectedImageFile = null),
@@ -303,10 +323,10 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center, // İçeriği ortalar
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const Icon(Icons.calendar_today, color: AppTheme.primaryColor),
-                            const SizedBox(width: 8), // Yan yana olduğu için width (genişlik) kullanıyoruz
+                            const SizedBox(width: 8), 
                             Text(
                               _selectedDate != null
                                   ? DateFormat('dd/MM/yyyy').format(_selectedDate!)
@@ -328,10 +348,10 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center, // İçeriği ortalar
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const Icon(Icons.access_time, color: AppTheme.primaryColor),
-                            const SizedBox(width: 8), // Yan yana olduğu için artık width (genişlik) kullanıyoruz
+                            const SizedBox(width: 8),
                             Text(
                               _selectedTime != null
                                   ? "${_selectedTime!.hour.toString().padLeft(2,'0')}:00"
@@ -348,10 +368,8 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                 const SizedBox(height: 15),
 
                 // --- NOTLAR VE FOTOĞRAF EKLEME BUTONU ---
-                // 1. Row'u IntrinsicHeight ile sarmala
                 IntrinsicHeight( 
                   child: Row(
-                    // 2. Elemanları dikeyde esnet (stretch)
                     crossAxisAlignment: CrossAxisAlignment.stretch, 
                     children: [
                       Expanded(
@@ -371,7 +389,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      // 3. Buradaki Column'u kaldırdık ve Container'ın height değerini sildik.
+                      // Fotoğraf Ekle İkonu
                       InkWell(
                         onTap: _pickImage,
                         borderRadius: BorderRadius.circular(12),
@@ -382,7 +400,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: AppTheme.primaryColor.withOpacity(0.5)),
                           ),
-                          child: const Column( // İkonu ortalamak için Column burada kalabilir ama height'ı etkilemez
+                          child: const Column( 
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.add_a_photo, color: AppTheme.primaryColor),

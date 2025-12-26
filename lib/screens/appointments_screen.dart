@@ -1,243 +1,372 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-// --- IMPORTS ---
-import '../models/appointment_model.dart';
 import '../services/auth_service.dart';
+import '../models/appointment_model.dart';
+import '../services/notification_service.dart';
 import '../utils/constants.dart';
 import '../theme/app_theme.dart';
+import '../models/user_model.dart';
 
-class AppointmentsScreen extends StatelessWidget {
+class AppointmentsScreen extends StatefulWidget {
   const AppointmentsScreen({super.key});
+
+  @override
+  State<AppointmentsScreen> createState() => _AppointmentsScreenState();
+}
+
+class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTickerProviderStateMixin {
+  TabController? _tabController; // Nullable yaptık çünkü müşteri ise buna gerek yok
+  bool _isLoading = true;
+  bool _isArtist = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkUserRole();
+  }
+
+  // --- KULLANICI ROLÜNÜ KONTROL ET ---
+  Future<void> _checkUserRole() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final uid = authService.currentUser?.uid;
+
+    if (uid != null) {
+      final user = await authService.getUserModel(uid);
+      if (user != null) {
+        // Kullanıcı rolü 'artist' veya 'approved_artist' ise (Senin AppConstants yapına göre)
+        // Buradaki kontrolü kendi role yapına göre düzenleyebilirsin
+        if (user.role == AppConstants.roleArtistApproved || 
+            user.role == AppConstants.roleArtistUnapproved || 
+            user.role == 'artist') {
+          _isArtist = true;
+          _tabController = TabController(length: 2, vsync: this);
+        }
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController?.dispose(); // Sadece tanımlıysa dispose et
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context, listen: false);
-    final user = authService.currentUser;
-    
-    if (user == null) {
+    final currentUserId = authService.currentUser?.uid;
+
+    if (currentUserId == null) return const Scaffold(body: Center(child: Text("Giriş yapmalısınız")));
+
+    // Rol kontrolü bitene kadar yükleniyor göster
+    if (_isLoading) {
       return const Scaffold(
         backgroundColor: Color(0xFF161616),
-        body: Center(child: Text("Giriş yapmalısınız", style: TextStyle(color: Colors.white))),
+        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
       );
     }
 
-    return FutureBuilder(
-      future: authService.getUserModel(user.uid),
+    // --- ARTIST GÖRÜNÜMÜ (MEVCUT TAB'LI YAPI) ---
+    if (_isArtist) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF161616),
+        appBar: AppBar(
+          title: const Text('Randevular', style: TextStyle(color: Colors.white)),
+          backgroundColor: const Color(0xFF161616),
+          iconTheme: const IconThemeData(color: Colors.white),
+          bottom: TabBar(
+            controller: _tabController,
+            labelColor: AppTheme.primaryColor,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: AppTheme.primaryColor,
+            tabs: const [
+              Tab(text: 'Gelen Talepler'),
+              Tab(text: 'Randevularım'), // Artistin kendi aldığı randevular (müşteri gibi davrandığı)
+            ],
+          ),
+        ),
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            _buildAppointmentList(currentUserId, isArtistView: true),  // Artist'e gelenler
+            _buildAppointmentList(currentUserId, isArtistView: false), // Artist'in aldıkları
+          ],
+        ),
+      );
+    }
+
+    // --- MÜŞTERİ GÖRÜNÜMÜ (TEK LİSTE - TAB YOK) ---
+    else {
+      return Scaffold(
+        backgroundColor: const Color(0xFF161616),
+        appBar: AppBar(
+          title: const Text('Randevularım', style: TextStyle(color: Colors.white)),
+          backgroundColor: const Color(0xFF161616),
+          iconTheme: const IconThemeData(color: Colors.white),
+        ),
+        // Müşteri sadece kendi aldığı randevuları görür (isArtistView: false)
+        body: _buildAppointmentList(currentUserId, isArtistView: false),
+      );
+    }
+  }
+
+  Widget _buildAppointmentList(String userId, {required bool isArtistView}) {
+    // ArtistView true ise -> Artist ID'sine göre ara (Bana gelenler)
+    // ArtistView false ise -> Customer ID'sine göre ara (Benim aldıklarım)
+    final String queryField = isArtistView ? 'artistId' : 'customerId';
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection(AppConstants.collectionAppointments)
+          .where(queryField, isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Scaffold(
-            backgroundColor: Color(0xFF161616),
-            body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('Hata: ${snapshot.error}', style: const TextStyle(color: Colors.white)));
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.calendar_today, size: 60, color: Colors.grey[800]),
+                const SizedBox(height: 16),
+                Text(
+                  isArtistView ? 'Henüz gelen bir talep yok.' : 'Henüz randevu almadınız.',
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              ],
+            ),
           );
         }
-        
-        final userModel = snapshot.data!;
-        // Kullanıcı Artist mi Müşteri mi?
-        final isArtist = (userModel.role == 'artist' || userModel.role == AppConstants.roleArtistApproved);
 
-        return Scaffold(
-          backgroundColor: const Color(0xFF161616),
-          appBar: AppBar(
-            title: const Text('Randevular', style: TextStyle(color: Colors.white)),
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            leading: const BackButton(color: Colors.white),
-          ),
-          body: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection(AppConstants.collectionAppointments)
-                .where(isArtist ? 'artistId' : 'customerId', isEqualTo: user.uid)
-                .orderBy('appointmentDate', descending: false) // En yakın tarih en üstte
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
-              }
+        final appointments = snapshot.data!.docs
+            .map((doc) => AppointmentModel.fromFirestore(doc))
+            .toList();
 
-              if (snapshot.hasError) {
-                return Center(child: Text('Hata: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
-              }
-
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.calendar_today_outlined, size: 60, color: Colors.grey[800]),
-                      const SizedBox(height: 16),
-                      const Text("Henüz randevu kaydı yok.", style: TextStyle(color: Colors.grey)),
-                    ],
-                  ),
-                );
-              }
-
-              final docs = snapshot.data!.docs;
-
-              return ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: docs.length,
-                itemBuilder: (context, index) {
-                  // Firestore dökümanını senin Model yapına çeviriyoruz
-                  final appointment = AppointmentModel.fromFirestore(docs[index]);
-                  return _buildAppointmentCard(context, appointment, isArtist);
-                },
-              );
-            },
-          ),
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: appointments.length,
+          itemBuilder: (context, index) {
+            final appointment = appointments[index];
+            return _buildAppointmentCard(appointment, isArtistView);
+          },
         );
       },
     );
   }
 
-  Widget _buildAppointmentCard(BuildContext context, AppointmentModel appointment, bool isArtist) {
-    // Enum'a göre renk ve metin belirleme
+  Widget _buildAppointmentCard(AppointmentModel appointment, bool isArtistView) {
     Color statusColor;
     String statusText;
 
     switch (appointment.status) {
+      case AppointmentStatus.pending:
+        statusColor = Colors.orange;
+        statusText = 'Bekliyor';
+        break;
       case AppointmentStatus.confirmed:
         statusColor = Colors.green;
         statusText = 'Onaylandı';
         break;
-      case AppointmentStatus.cancelled:
+      case AppointmentStatus.rejected:
         statusColor = Colors.red;
-        statusText = 'İptal / Red';
+        statusText = 'Reddedildi';
         break;
       case AppointmentStatus.completed:
-        statusColor = Colors.grey;
+        statusColor = Colors.blue;
         statusText = 'Tamamlandı';
         break;
-      case AppointmentStatus.pending:
-      default:
-        statusColor = Colors.orange;
-        statusText = 'Bekliyor';
+      case AppointmentStatus.cancelled:
+         statusColor = Colors.grey;
+        statusText = 'İptal Edildi';
+        break;
     }
-
-    // Basit Tarih Formatlama
-    final date = appointment.appointmentDate;
-    final dateStr = "${date.day}/${date.month}/${date.year}";
-    final timeStr = "${date.hour.toString().padLeft(2,'0')}:${date.minute.toString().padLeft(2,'0')}";
-
-    // Karşı tarafın adı (Artist ise müşteriyi görsün, Müşteri ise artisti görsün)
-    final displayName = isArtist 
-        ? (appointment.customerName ?? 'Müşteri') 
-        : (appointment.artistName ?? 'Artist');
 
     return Card(
       color: const Color(0xFF252525),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Üst Kısım: İsim, Tarih ve Statü
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                CircleAvatar(
-                  backgroundColor: Colors.grey[800],
-                  child: Text(
-                    displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ),
-                const SizedBox(width: 12),
+                // İsim Alanı (Güvenli)
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        displayName,
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "$dateStr • $timeStr",
-                        style: const TextStyle(color: Colors.grey, fontSize: 14),
-                      ),
-                    ],
+                  child: Text(
+                    isArtistView 
+                        ? ((appointment.customerName != null && appointment.customerName!.isNotEmpty) 
+                            ? appointment.customerName! 
+                            : 'Müşteri')
+                        : ((appointment.artistName != null && appointment.artistName!.isNotEmpty) 
+                            ? appointment.artistName! 
+                            : 'Artist'),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: statusColor.withOpacity(0.5)),
+                    border: Border.all(color: statusColor),
                   ),
                   child: Text(statusText, style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
+            const SizedBox(height: 12),
             
-            // Varsa Notlar
-            if (appointment.notes != null && appointment.notes!.isNotEmpty) ...[
-              const Divider(color: Colors.white10, height: 24),
-              Text("Not: ${appointment.notes}", style: const TextStyle(color: Colors.white70, fontSize: 14)),
-            ],
-
-            // Referans Resim Varsa (Posttan geldiyse)
+            Row(
+              children: [
+                const Icon(Icons.access_time, color: Colors.grey, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  DateFormat('dd MMMM yyyy, HH:mm', 'tr_TR').format(appointment.appointmentDate),
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+            
             if (appointment.referenceImageUrl != null) ...[
               const SizedBox(height: 12),
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: CachedNetworkImage(
                   imageUrl: appointment.referenceImageUrl!,
-                  height: 100,
+                  height: 120,
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  placeholder: (c, u) => Container(height: 100, color: Colors.grey[900]),
+                  placeholder: (context, url) => Container(color: Colors.grey[900]),
+                  errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.grey),
                 ),
               ),
             ],
-            
-            // Eğer Artist ise ve Durum 'Bekliyor' ise Butonları Göster
-            if (isArtist && appointment.status == AppointmentStatus.pending) ...[
+
+            if (appointment.notes != null && appointment.notes!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                "Not: ${appointment.notes}",
+                style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+              ),
+            ],
+
+            // Artist İşlem Butonları (Sadece Bekliyorsa ve Artist Bakıyorsa)
+            if (isArtistView && appointment.status == AppointmentStatus.pending) ...[
               const SizedBox(height: 16),
+              const Divider(color: Colors.grey),
               Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      // Reddet -> Status: Cancelled
-                      onPressed: () => _updateStatus(appointment.id, AppointmentStatus.cancelled),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.red),
-                        foregroundColor: Colors.red,
-                      ),
-                      child: const Text("Reddet"),
-                    ),
+                  TextButton(
+                    onPressed: () => _updateStatus(appointment, AppointmentStatus.rejected),
+                    child: const Text('Reddet', style: TextStyle(color: Colors.red)),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      // Onayla -> Status: Confirmed
-                      onPressed: () => _updateStatus(appointment.id, AppointmentStatus.confirmed),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                      child: const Text("Onayla", style: TextStyle(color: Colors.white)),
-                    ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => _updateStatus(appointment, AppointmentStatus.confirmed),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    child: const Text('Onayla', style: TextStyle(color: Colors.white)),
                   ),
                 ],
               ),
-            ]
+            ],
           ],
         ),
       ),
     );
   }
 
-  Future<void> _updateStatus(String docId, AppointmentStatus newStatus) async {
-    // Modelindeki toMap yapısına veya direkt string olarak güncellemeye dikkat et.
-    // Modelde 'status': status.name şeklinde kaydettiğin için burada da .name kullanıyoruz.
-    await FirebaseFirestore.instance
-        .collection(AppConstants.collectionAppointments)
-        .doc(docId)
-        .update({
-          'status': newStatus.name, // Enum'ı string'e çevirip kaydet
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+  // --- GÜNCELLENEN FONKSİYON (Bildirimli Versiyon) ---
+  Future<void> _updateStatus(AppointmentModel appointment, AppointmentStatus newStatus) async {
+    try {
+      // 1. Veritabanında durumu güncelle
+      await FirebaseFirestore.instance
+          .collection(AppConstants.collectionAppointments)
+          .doc(appointment.id)
+          .update({
+        'status': newStatus.name,
+      });
+
+      // 2. Bildirim Hazırla
+      String title = '';
+      String body = '';
+      
+      if (newStatus == AppointmentStatus.confirmed) {
+        title = 'Randevunuz Onaylandı! ✅';
+        body = 'randevu talebinizi kabul etti.';
+      } else if (newStatus == AppointmentStatus.rejected) {
+        title = 'Randevu Reddedildi ❌';
+        body = 'randevu talebinizi maalesef kabul edemedi.';
+      }
+
+      // 3. Bildirimi Gönder
+      if (title.isNotEmpty) {
+        final authService = Provider.of<AuthService>(context, listen: false);
+        final currentUserId = authService.currentUser?.uid;
+        
+        if (currentUserId != null) {
+          final artistUser = await authService.getUserModel(currentUserId);
+          
+          String senderName = 'Artist';
+          String? senderAvatar;
+          
+          if (artistUser != null) {
+            senderName = (artistUser.fullName != null && artistUser.fullName!.isNotEmpty) 
+                ? artistUser.fullName! 
+                : (artistUser.username ?? 'Artist');
+            senderAvatar = artistUser.profileImageUrl;
+          } else {
+            senderName = appointment.artistName ?? 'Artist';
+          }
+
+          await NotificationService.sendNotification(
+            receiverId: appointment.customerId,
+            senderId: currentUserId,
+            senderName: senderName,
+            senderAvatar: senderAvatar,
+            title: title,
+            body: '$senderName $body',
+            type: 'appointment_update',
+            relatedId: appointment.id,
+          );
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(newStatus == AppointmentStatus.confirmed ? 'Randevu onaylandı' : 'Randevu reddedildi'),
+            backgroundColor: newStatus == AppointmentStatus.confirmed ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e')));
+      }
+    }
   }
 }

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // EKLENDİ: ID kontrolü için
 import 'dart:math';
 import '../models/user_model.dart';
 import '../utils/constants.dart';
@@ -372,23 +373,23 @@ class _StudiosScreenState extends State<StudiosScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                 child: Column(
                   children: [
-                    // YENİ: Tam Genişlikte FİLTRELE Butonu (HEP PRIMARY COLOR)
+                    // YENİ: Tam Genişlikte FİLTRELE Butonu
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: _showFilterBottomSheet,
-                        icon: const Icon(Icons.tune, color: AppTheme.primaryColor), // İkon her zaman renkli
+                        icon: const Icon(Icons.tune, color: AppTheme.primaryColor),
                         label: Text(
                           isFilterActive 
                             ? 'Filtreler Aktif (${_selectedApplications.length + _selectedStyles.length})' 
                             : 'Filtrele',
                           style: TextStyle(
-                            color: AppTheme.primaryColor, // Yazı her zaman renkli
+                            color: AppTheme.primaryColor,
                             fontWeight: isFilterActive ? FontWeight.bold : FontWeight.normal
                           )
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppTheme.primaryColor), // Çerçeve her zaman renkli
+                          side: const BorderSide(color: AppTheme.primaryColor),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -554,7 +555,21 @@ class _StudiosScreenState extends State<StudiosScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ArtistProfileScreen(userId: artist.uid))),
+        onTap: () {
+          // --- GÜNCELLENDİ: KENDİ PROFİLİNE TIKLARSA GİTME ---
+          final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+          if (currentUserId == artist.uid) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Bu sizin kendi profiliniz. Profil sekmesinden düzenleyebilirsiniz."),
+                backgroundColor: AppTheme.primaryColor,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          } else {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => ArtistProfileScreen(userId: artist.uid)));
+          }
+        },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -655,8 +670,11 @@ class _StudiosScreenState extends State<StudiosScreen> {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final artists = snapshot.data!.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
         final markers = <Marker>{};
+        final currentUserId = FirebaseAuth.instance.currentUser?.uid; // Map için de ID al
+
         for (var artist in artists) {
           bool showArtist = true;
+          // ... (filtreleme kodları aynı kaldı)
           if (_selectedSearchCity != null) {
              bool cityMatch = artist.city != null && artist.city!.toLowerCase() == _selectedSearchCity!.toLowerCase();
              if (!cityMatch) showArtist = false;
@@ -677,10 +695,29 @@ class _StudiosScreenState extends State<StudiosScreen> {
             if (!artist.applicationStyles.any((style) => _selectedStyles.any((sel) => sel.toLowerCase() == style.toLowerCase()))) showArtist = false;
           }
           if (!showArtist) continue;
+          
           LatLng? position = _getArtistLatLng(artist);
           if (position != null) {
             position = _addJitter(position); 
-            markers.add(Marker(markerId: MarkerId(artist.uid), position: position, infoWindow: InfoWindow(title: artist.username ?? artist.fullName, snippet: artist.locationString, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ArtistProfileScreen(userId: artist.uid)))), icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet)));
+            markers.add(Marker(
+              markerId: MarkerId(artist.uid), 
+              position: position, 
+              infoWindow: InfoWindow(
+                title: artist.username ?? artist.fullName, 
+                snippet: artist.locationString, 
+                onTap: () {
+                  // --- GÜNCELLENDİ: HARİTADA KENDİNE TIKLARSA GİTME ---
+                  if (currentUserId == artist.uid) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Bu sizin kendi profiliniz."), backgroundColor: AppTheme.primaryColor),
+                    );
+                  } else {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => ArtistProfileScreen(userId: artist.uid)));
+                  }
+                }
+              ), 
+              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet)
+            ));
           }
         }
         return GoogleMap(initialCameraPosition: CameraPosition(target: _currentPosition != null ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude) : const LatLng(41.0082, 28.9784), zoom: _currentPosition != null ? 12 : 10), markers: markers, myLocationEnabled: true, myLocationButtonEnabled: true, onMapCreated: (controller) { _mapController = controller; if (_currentPosition != null) { controller.animateCamera(CameraUpdate.newLatLngZoom(LatLng(_currentPosition!.latitude, _currentPosition!.longitude), 13)); }});

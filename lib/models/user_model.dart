@@ -20,9 +20,10 @@ class UserModel {
   final String? profileImageUrl;
   final String? coverImageUrl;
   final List<String> portfolioImages;
+  final List<String> studioImageUrls; // YENİ EKLENDİ (Stüdyo fotoları için)
   final List<String> services; 
-  final List<String> applications; // GÜNCELLENDİ
-  final List<String> applicationStyles; // GÜNCELLENDİ
+  final List<String> applications; 
+  final List<String> applicationStyles; 
   final String? documentUrl;
   final String? biography;
   final int tattooCount;
@@ -52,9 +53,10 @@ class UserModel {
     this.profileImageUrl,
     this.coverImageUrl,
     this.portfolioImages = const [],
+    this.studioImageUrls = const [], // YENİ EKLENDİ
     this.services = const [],
-    this.applications = const [], // GÜNCELLENDİ
-    this.applicationStyles = const [], // GÜNCELLENDİ
+    this.applications = const [], 
+    this.applicationStyles = const [], 
     this.documentUrl,
     this.biography,
     this.tattooCount = 0,
@@ -65,7 +67,7 @@ class UserModel {
     this.updatedAt,
   });
 
-  // Veritabanına yazarken kullanılan metod (toMap GÜNCELLENDİ)
+  // Veritabanına yazarken kullanılan metod
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,
@@ -87,9 +89,10 @@ class UserModel {
       'profileImageUrl': profileImageUrl,
       'coverImageUrl': coverImageUrl,
       'portfolioImages': portfolioImages,
+      'studioImageUrls': studioImageUrls, // YENİ EKLENDİ
       'services': services,
-      'applications': applications, // EKLENDİ
-      'applicationStyles': applicationStyles, // EKLENDİ
+      'applications': applications,
+      'applicationStyles': applicationStyles,
       'documentUrl': documentUrl,
       'biography': biography,
       'tattooCount': tattooCount,
@@ -101,7 +104,7 @@ class UserModel {
     };
   }
 
-  // Firestore Map'inden oluştururken kullanılan metod (fromMap GÜNCELLENDİ)
+  // Firestore Map'inden oluştururken kullanılan metod
   factory UserModel.fromMap(Map<String, dynamic> map, String id) {
     return UserModel(
       uid: id,
@@ -123,9 +126,10 @@ class UserModel {
       profileImageUrl: map['profileImageUrl'],
       coverImageUrl: map['coverImageUrl'],
       portfolioImages: List<String>.from(map['portfolioImages'] ?? []),
+      studioImageUrls: List<String>.from(map['studioImageUrls'] ?? []), // YENİ EKLENDİ
       services: List<String>.from(map['services'] ?? []),
-      applications: List<String>.from(map['applications'] ?? []), // EKLENDİ
-      applicationStyles: List<String>.from(map['applicationStyles'] ?? []), // EKLENDİ
+      applications: List<String>.from(map['applications'] ?? []),
+      applicationStyles: List<String>.from(map['applicationStyles'] ?? []),
       documentUrl: map['documentUrl'],
       biography: map['biography'],
       tattooCount: map['tattooCount'] ?? 0,
@@ -137,12 +141,12 @@ class UserModel {
     );
   }
 
-  // DocumentSnapshot'tan oluştururken kullanılan metod (fromFirestore GÜNCELLENDİ)
+  // DocumentSnapshot'tan oluştururken kullanılan metod
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     return UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
   }
 
-  // copyWith Metodu (GÜNCELLENDİ - Yeni alanlar eklendi)
+  // copyWith Metodu
   UserModel copyWith({
     String? uid,
     String? email,
@@ -163,6 +167,7 @@ class UserModel {
     String? profileImageUrl,
     String? coverImageUrl,
     List<String>? portfolioImages,
+    List<String>? studioImageUrls, // YENİ EKLENDİ
     List<String>? services,
     List<String>? applications,
     List<String>? applicationStyles,
@@ -195,6 +200,7 @@ class UserModel {
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       coverImageUrl: coverImageUrl ?? this.coverImageUrl,
       portfolioImages: portfolioImages ?? this.portfolioImages,
+      studioImageUrls: studioImageUrls ?? this.studioImageUrls, // YENİ EKLENDİ
       services: services ?? this.services,
       applications: applications ?? this.applications,
       applicationStyles: applicationStyles ?? this.applicationStyles,

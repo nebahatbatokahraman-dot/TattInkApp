@@ -5,6 +5,7 @@ enum AppointmentStatus {
   confirmed,
   cancelled,
   completed,
+  rejected, // <--- YENİ EKLENDİ: Artık reddetme işlemi çalışacak
 }
 
 class AppointmentModel {
@@ -55,11 +56,12 @@ class AppointmentModel {
       id: map['id'] ?? '',
       customerId: map['customerId'] ?? '',
       artistId: map['artistId'] ?? '',
-      customerName: map['customerName'],
-      artistName: map['artistName'],
+      customerName: map['customerName'], // String? olarak kalabilir
+      artistName: map['artistName'],     // String? olarak kalabilir
       appointmentDate: (map['appointmentDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
       notes: map['notes'],
       referenceImageUrl: map['referenceImageUrl'],
+      // Enum eşleşmesi: Veritabanındaki string ile Enum'ı eşleştirir
       status: AppointmentStatus.values.firstWhere(
         (e) => e.name == map['status'],
         orElse: () => AppointmentStatus.pending,
@@ -71,6 +73,7 @@ class AppointmentModel {
 
   factory AppointmentModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    // ID'yi map'in içine ekleyip fromMap'e gönderiyoruz
     return AppointmentModel.fromMap({...data, 'id': doc.id});
   }
 
@@ -102,4 +105,3 @@ class AppointmentModel {
     );
   }
 }
-
