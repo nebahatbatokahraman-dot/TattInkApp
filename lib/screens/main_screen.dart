@@ -13,7 +13,7 @@ import 'admin/admin_dashboard.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
 import '../widgets/login_required_dialog.dart';
-import '../theme/app_theme.dart'; // Renkler için eklendi
+import '../theme/app_theme.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -34,33 +34,26 @@ class _MainScreenState extends State<MainScreen> {
     _loadUser();
   }
 
-  // --- KULLANICI VERİSİNİ YÜKLEME ---
   Future<void> _loadUser() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     final user = authService.currentUser;
 
     if (user != null) {
-      // Kullanıcı Auth'da var, Firestore'dan detayını çekelim
       final userModel = await authService.getUserModel(user.uid);
       
       if (mounted) {
         if (userModel == null) {
-          // KRİTİK DÜZELTME:
-          // Eğer Auth'da kullanıcı var ama Firestore'da yoksa (silinmişse),
-          // "Hayalet Kullanıcı" durumunu önlemek için çıkış yap.
           await authService.signOut();
           setState(() {
             _currentUser = null;
           });
         } else {
-          // Kullanıcı ve verisi sağlam
           setState(() {
             _currentUser = userModel;
           });
         }
       }
     } else {
-      // Kullanıcı zaten yok
       if (mounted) {
         setState(() {
           _currentUser = null;
@@ -72,25 +65,18 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Auth durumunu anlık dinliyoruz
       body: StreamBuilder<User?>(
         stream: Provider.of<AuthService>(context, listen: false).authStateChanges,
         builder: (context, snapshot) {
-          
-          // Eğer Stream'den gelen veri ile lokal veri uyuşmuyorsa güncelle
           if (snapshot.connectionState == ConnectionState.active) {
              final firebaseUser = snapshot.data;
              
-             // Kullanıcı çıkış yaptıysa veya silindiyse lokal veriyi temizle
              if (firebaseUser == null && _currentUser != null) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if(mounted) setState(() => _currentUser = null);
                 });
              }
-             // Kullanıcı giriş yaptı ama henüz modeli yüklenmediyse yükle
              else if (firebaseUser != null && _currentUser == null) {
-                // Tekrar tekrar çağırmamak için basit bir kontrol mekanizması eklenebilir
-                // ama şimdilik _loadUser içindeki kontroller yeterli.
                 _loadUser();
              }
           }
@@ -100,7 +86,7 @@ class _MainScreenState extends State<MainScreen> {
             children: [
               HomeScreen(key: _homeKey),
               const StudiosScreen(),
-              _buildProfileScreen(), // Profil mantığı burada
+              _buildProfileScreen(), 
             ],
           );
         },
@@ -113,73 +99,48 @@ class _MainScreenState extends State<MainScreen> {
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (index) {
-            // Anasayfaya çift tıklama ile yukarı kaydırma
             if (index == 0 && _currentIndex == 0) {
               _homeKey.currentState?.scrollToTop();
             }
-
-            // Profil sekmesine tıklayınca, eğer kullanıcı yoksa uyarı göster
-            // AMA sayfayı değiştirmesine izin ver (Misafir ekranını görsün diye)
-            // İstersen burada engelleyebilirsin ama misafir ekranı daha şık durur.
-            /* if (index == 2) {
-              final authService = Provider.of<AuthService>(context, listen: false);
-              if (authService.currentUser == null) {
-                _showLoginRequiredDialog(context);
-                return; // Eğer bunu açarsan Profile hiç geçmez.
-              }
-            }
-            */
-
             setState(() {
               _currentIndex = index;
             });
           },
           items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home),
-              label: 'Anasayfa',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.store),
-              label: 'Stüdyolar',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person),
-              label: 'Profil',
-            ),
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Anasayfa'),
+            BottomNavigationBarItem(icon: Icon(Icons.store), label: 'Stüdyolar'),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
           ],
         ),
       ),
     );
   }
 
-  // --- PROFİL EKRANI YÖNETİMİ ---
+  // --- PROFİL EKRANI YÖNETİMİ (GÜNCELLENDİ) ---
   Widget _buildProfileScreen() {
     final authService = Provider.of<AuthService>(context, listen: false);
     
-    // 1. Durum: Kullanıcı hiç giriş yapmamış
     if (authService.currentUser == null) {
-      return _buildGuestProfileView(); // Yeni Misafir Ekranı
+      return _buildGuestProfileView();
     }
 
-    // 2. Durum: Kullanıcı var ama verisi (Firestore) henüz gelmedi (Loading)
     if (_currentUser == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    // 3. Durum: Veri geldi, role göre yönlendir
     final role = _currentUser!.role;
-    if (role == 'admin') return const AdminDashboard();
-    if (role == 'customer') return CustomerProfileScreen(userId: _currentUser!.uid);
+
+    // GÜNCELLEME: Admin ise direkt Dashboard'a atmıyoruz. 
+    // Önce kendi profilini görsün, profilin içinden Dashboard'a gitsin.
+    if (role == 'admin' || role == 'customer') {
+      return CustomerProfileScreen(userId: _currentUser!.uid);
+    }
     
-    // Varsayılan Artist
     return ArtistProfileScreen(userId: _currentUser!.uid, isOwnProfile: true);
   }
 
-  // --- MİSAFİR KULLANICI EKRANI ---
-  // Kullanıcı silindiğinde veya giriş yapmadığında boş ekran yerine bu çıkacak.
   Widget _buildGuestProfileView() {
     return Scaffold(
       body: Center(

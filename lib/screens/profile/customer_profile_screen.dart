@@ -15,6 +15,8 @@ import '../messages_screen.dart';
 import '../profile/artist_profile_screen.dart';
 import '../settings/customer_settings_screen.dart'; 
 import '../settings/customer_edit_profile_screen.dart'; 
+// Admin Dashboard importu eklendi
+import '../admin/admin_dashboard.dart';
 
 class CustomerProfileScreen extends StatefulWidget {
   final String userId;
@@ -193,12 +195,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
 
   @override
   Widget build(BuildContext context) {
-    final user = Provider.of<AuthService>(context, listen: false).currentUser;
-    if (user == null) return const Scaffold(body: Center(child: Text('Giriş yapın')));
+    final authUser = Provider.of<AuthService>(context, listen: false).currentUser;
+    if (authUser == null) return const Scaffold(body: Center(child: Text('Giriş yapın')));
 
     return Scaffold(
       body: StreamBuilder<UserModel?>(
-        stream: Provider.of<AuthService>(context).getUserModelStream(user.uid),
+        stream: Provider.of<AuthService>(context).getUserModelStream(authUser.uid),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           final userModel = snapshot.data!;
@@ -208,6 +210,10 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
               children: [
                 _buildHeader(context),
                 _buildProfileInfo(userModel),
+                
+                // --- ADMIN BUTONU BURAYA EKLENDİ ---
+                if (userModel.role == 'admin') _buildAdminButton(),
+                
                 _buildAppointmentsBtn(),
                 const SizedBox(height: 20),
                 _buildTabs(),
@@ -217,7 +223,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
                     children: [
                       _buildGridTab(AppConstants.collectionLikes), // Favoriler
                       _buildListTab(), // Takip
-                      _buildMessagesList(user.uid), // Mesajlar
+                      _buildMessagesList(authUser.uid), // Mesajlar
                     ],
                   ),
                 ),
@@ -225,6 +231,39 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
             ),
           );
         },
+      ),
+    );
+  }
+
+  // --- YENİ: ADMIN PANELİNE GEÇİŞ BUTONU ---
+  Widget _buildAdminButton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AdminDashboard()),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.redAccent.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.admin_panel_settings, color: Colors.redAccent),
+              SizedBox(width: 12),
+              Text(
+                "Yönetim Paneli",
+                style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+              ),
+              Spacer(),
+              Icon(Icons.arrow_forward_ios, size: 14, color: Colors.redAccent),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -238,7 +277,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
           CachedNetworkImage(imageUrl: AppConstants.logoUrl, height: 40),
           IconButton(
             icon: const Icon(Icons.settings, color: AppTheme.primaryColor),
-            // DÜZELTİLDİ: Artık direkt edit sayfasına değil, Ayarlar menüsüne gidiyor
             onPressed: () => Navigator.push(context, SlideRoute(page: const CustomerSettingsScreen())),
           ),
         ],
@@ -261,7 +299,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
               Positioned(
                 bottom: 0, right: 0,
                 child: GestureDetector(
-                  // Profil fotosundaki kalem ikonu direkt düzenlemeye gitmeye devam edebilir
                   onTap: () => Navigator.push(context, SlideRoute(page: const CustomerEditProfileScreen())),
                   child: Container(
                     padding: const EdgeInsets.all(4),

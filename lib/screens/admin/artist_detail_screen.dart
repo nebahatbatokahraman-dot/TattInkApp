@@ -387,9 +387,50 @@ Future<void> _approveArtist() async {
                       ),
                       itemCount: widget.approval.portfolioImages.length,
                       itemBuilder: (context, index) {
-                        return CachedNetworkImage(
-                          imageUrl: widget.approval.portfolioImages[index],
-                          fit: BoxFit.cover,
+                        final imageUrl = widget.approval.portfolioImages[index];
+                        return GestureDetector(
+                          onTap: () {
+                            // RESME TIKLAYINCA BÜYÜTEN DIALOG
+                            showDialog(
+                              context: context,
+                              builder: (context) => Dialog(
+                                backgroundColor: Colors.black,
+                                insetPadding: EdgeInsets.zero, // Tam ekran olması için
+                                child: Stack(
+                                  alignment: Alignment.topRight,
+                                  children: [
+                                    // Resim alanı (Zoom yapılabilir)
+                                    Center(
+                                      child: InteractiveViewer(
+                                        panEnabled: true,
+                                        minScale: 0.5,
+                                        maxScale: 4.0,
+                                        child: CachedNetworkImage(
+                                          imageUrl: imageUrl,
+                                          placeholder: (context, url) => const CircularProgressIndicator(),
+                                          errorWidget: (context, url, error) => const Icon(Icons.error),
+                                        ),
+                                      ),
+                                    ),
+                                    // Kapatma butonu
+                                    IconButton(
+                                      icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                                      onPressed: () => Navigator.pop(context),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: CachedNetworkImage(
+                              imageUrl: imageUrl,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(color: Colors.grey[900]),
+                              errorWidget: (context, url, error) => const Icon(Icons.error),
+                            ),
+                          ),
                         );
                       },
                     ),
