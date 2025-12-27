@@ -191,12 +191,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF161616), // Koyu Tema Arka Plan
+      backgroundColor: AppTheme.backgroundColor, // Koyu Tema Arka Plan
       appBar: AppBar(
-        title: const Text('Yeni Paylaşım', style: TextStyle(color: Colors.white)),
+        title: const Text('Yeni Paylaşım', style: TextStyle(color: AppTheme.textColor)),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: AppTheme.textColor),
         actions: [
           TextButton(
             onPressed: _isUploading ? null : _uploadPost,
@@ -233,8 +233,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: _pickImages,
-                      icon: const Icon(Icons.image, color: Colors.white),
-                      label: const Text('Fotoğraf Ekle', style: TextStyle(color: Colors.white)),
+                      icon: const Icon(Icons.image, color: AppTheme.textColor),
+                      label: const Text('Fotoğraf Ekle', style: TextStyle(color: AppTheme.textColor)),
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: Colors.grey[800]!),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -246,8 +246,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: _pickVideo,
-                      icon: const Icon(Icons.videocam, color: Colors.white),
-                      label: const Text('Video Ekle', style: TextStyle(color: Colors.white)),
+                      icon: const Icon(Icons.videocam, color: AppTheme.textColor),
+                      label: const Text('Video Ekle', style: TextStyle(color: AppTheme.textColor)),
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: Colors.grey[800]!),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -258,10 +258,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 ],
               ),
               
-              const Divider(height: 32, color: Colors.white12),
+              const Divider(height: 32, color: AppTheme.textColor),
 
               // --- Uygulama Türü (MASTER DATA) ---
-              const Text('Uygulama Türü', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+              const Text('Uygulama Türü', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textColor)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -275,9 +275,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       setState(() => _selectedApplication = selected ? app : null);
                     },
                     selectedColor: AppTheme.primaryColor,
-                    backgroundColor: const Color(0xFF252525),
+                    backgroundColor: AppTheme.cardColor,
                     labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : Colors.grey[400],
+                      color: isSelected ? AppTheme.textColor : Colors.grey[400],
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
                     shape: RoundedRectangleBorder(
@@ -291,7 +291,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               const SizedBox(height: 24),
 
               // --- Stiller (MASTER DATA) ---
-              const Text('Stiller', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+              const Text('Stiller', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textColor)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -311,10 +311,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       });
                     },
                     selectedColor: AppTheme.primaryColor.withOpacity(0.3),
-                    backgroundColor: const Color(0xFF252525),
+                    backgroundColor: AppTheme.cardColor,
                     checkmarkColor: AppTheme.primaryColor,
                     labelStyle: TextStyle(
-                      color: isSelected ? Colors.white : Colors.grey[400],
+                      color: isSelected ? AppTheme.textColor : Colors.grey[400],
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
                     shape: RoundedRectangleBorder(
@@ -331,7 +331,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               TextFormField(
                 controller: _captionController,
                 maxLines: 4,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AppTheme.textColor),
                 decoration: InputDecoration(
                   labelText: 'Açıklama',
                   labelStyle: const TextStyle(color: Colors.grey),
@@ -339,7 +339,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   hintStyle: TextStyle(color: Colors.grey[700]),
                   alignLabelWithHint: true,
                   filled: true,
-                  fillColor: const Color(0xFF252525),
+                  fillColor: AppTheme.cardColor,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -374,7 +374,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                child: const Icon(Icons.close, color: Colors.white, size: 16),
+                child: const Icon(Icons.close, color: AppTheme.textColor, size: 16),
               ),
             ),
           ),
@@ -388,14 +388,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       width: 150,
       margin: const EdgeInsets.only(right: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF252525), 
+        color: AppTheme.cardColor, 
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey[800]!)
       ),
       child: Stack(
         children: [
           const Center(
-            child: Icon(Icons.play_circle_outline, size: 48, color: Colors.white)
+            child: Icon(Icons.play_circle_outline, size: 48, color: AppTheme.textColor)
           ),
            Positioned(
             top: 4,
@@ -405,7 +405,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                child: const Icon(Icons.close, color: Colors.white, size: 16),
+                child: const Icon(Icons.close, color: AppTheme.textColor, size: 16),
               ),
             ),
           ),

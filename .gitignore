@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# API Keys and Config (güvenlik için)
+lib/config/gemini_config.dart
+*.env
+.env.local

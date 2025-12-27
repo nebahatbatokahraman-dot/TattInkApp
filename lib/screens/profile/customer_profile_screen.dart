@@ -133,7 +133,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(post.artistUsername ?? 'Sanatçı', 
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              style: const TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold)),
                             Text(post.locationString, 
                               style: const TextStyle(color: Colors.grey, fontSize: 12)),
                           ],
@@ -149,7 +149,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
                           return IconButton(
                             icon: Icon(
                               isLiked ? Icons.favorite : Icons.favorite_border,
-                              color: isLiked ? const Color(0xFF944B79) : Colors.white,
+                              color: isLiked ? const Color(0xFF944B79) : AppTheme.textColor,
                             ),
                             onPressed: () => _handleLike(post, isLiked),
                           );
@@ -162,7 +162,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
                           Navigator.push(context, SlideRoute(page: ArtistProfileScreen(userId: post.artistId)));
                         },
                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-                        child: const Text('Profili Gör', style: TextStyle(color: Colors.white, fontSize: 12)),
+                        child: const Text('Profili Gör', style: TextStyle(color: AppTheme.textColor, fontSize: 12)),
                       ),
                     ],
                   ),
@@ -174,7 +174,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
                 child: CircleAvatar(
                   backgroundColor: Colors.black.withOpacity(0.5),
                   child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: const Icon(Icons.arrow_back, color: AppTheme.textColor),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
@@ -303,7 +303,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: const BoxDecoration(color: AppTheme.primaryColor, shape: BoxShape.circle),
-                    child: const Icon(Icons.edit, size: 14, color: Colors.white),
+                    child: const Icon(Icons.edit, size: 14, color: AppTheme.textColor),
                   ),
                 ),
               ),
@@ -313,7 +313,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(user.fullName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+              Text(user.fullName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
               Text(user.locationString, style: const TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           ),
@@ -333,7 +333,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
             context: context, isScrollControlled: true,
             builder: (context) => SizedBox(height: MediaQuery.of(context).size.height * 0.7, child: const AppointmentsScreen()),
           ),
-          child: const Text('RANDEVULARIM', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          child: const Text('RANDEVULARIM', style: TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold)),
         ),
       ),
     );
@@ -413,7 +413,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
               itemCount: users.length,
               itemBuilder: (c, i) => ListTile(
                 leading: CircleAvatar(backgroundImage: users[i].profileImageUrl != null ? NetworkImage(users[i].profileImageUrl!) : null),
-                title: Text(users[i].fullName, style: const TextStyle(color: Colors.white)),
+                title: Text(users[i].fullName, style: const TextStyle(color: AppTheme.textColor)),
                 onTap: () => Navigator.push(context, SlideRoute(page: ArtistProfileScreen(userId: users[i].uid))), 
               ),
             );
@@ -442,7 +442,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
             final name = m.senderId == uid ? "Sanatçı" : (m.senderName ?? "Kullanıcı");
             return ListTile(
               leading: CircleAvatar(backgroundImage: m.senderImageUrl != null && m.senderId != uid ? NetworkImage(m.senderImageUrl!) : null, child: m.senderImageUrl == null ? const Icon(Icons.person) : null),
-              title: Text(name, style: const TextStyle(color: Colors.white)),
+              title: Text(name, style: const TextStyle(color: AppTheme.textColor)),
               subtitle: Text(m.content, maxLines: 1, style: const TextStyle(color: Colors.grey)),
               onTap: () => Navigator.push(context, SlideRoute(page: ChatScreen(receiverId: otherId, receiverName: name))),
             );

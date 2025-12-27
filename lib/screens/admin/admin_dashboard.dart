@@ -1,3 +1,7 @@
+import '../../theme/app_theme.dart';
+import 'admin_stats_screen.dart';
+import 'send_notification_screen.dart';
+import 'ad_management_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // Eksik olan import eklendi
@@ -73,7 +77,7 @@ class AdminDashboard extends StatelessWidget {
                         const Text(
                           "Bekleyen Onay Talebi",
                           style: TextStyle(
-                            color: Colors.white, 
+                            color: AppTheme.textColor, 
                             fontSize: 16, 
                             fontWeight: FontWeight.w500
                           ),
@@ -82,7 +86,7 @@ class AdminDashboard extends StatelessWidget {
                         Text(
                           "$count",
                           style: const TextStyle(
-                            color: Colors.white, 
+                            color: AppTheme.textColor, 
                             fontSize: 48, 
                             fontWeight: FontWeight.bold,
                             letterSpacing: -1,
@@ -119,6 +123,60 @@ class AdminDashboard extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (context) => const ArtistApprovalScreen(),
                       ),
+                    );
+                  },
+                ),
+              ),
+
+              //REKLAM YONETIM//
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: ListTile(
+                  leading: Icon(Icons.ad_units, size: 30, color: AppTheme.primaryColor),
+                  title: const Text('Reklamları Yönet', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Anasayfa kampanya kartlarını düzenle'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => AdManagementScreen()),
+                    );
+                  },
+                ),
+              ),
+
+              //TOPLU BILDIRIM GONDER//
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: ListTile(
+                  leading: const Icon(Icons.notification_add, size: 30, color: Colors.orange),
+                  title: const Text('Toplu Bildirim Gönder', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Müşterilere veya artistlere duyuru yap'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => SendNotificationScreen()),
+                    );
+                  },
+                ),
+              ),
+
+              //DETAYLI ISTATISTIKLER//
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: ListTile(
+                  leading: const Icon(Icons.bar_chart_rounded, size: 30, color: Colors.blueAccent),
+                  title: const Text('Detaylı İstatistikler', style: TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Kullanıcı dağılımı ve popülerlik analizleri'),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => AdminStatsScreen()),
                     );
                   },
                 ),

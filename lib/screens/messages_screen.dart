@@ -20,14 +20,14 @@ class MessagesScreen extends StatelessWidget {
     if (currentUser == null) return const SizedBox();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF161616),
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Mesajlar', style: TextStyle(color: Colors.white)),
+        title: const Text('Mesajlar', style: TextStyle(color: AppTheme.textColor)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios, color: AppTheme.textColor),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -78,7 +78,7 @@ class MessagesScreen extends StatelessWidget {
                 builder: (context, userSnapshot) {
                   // Kullanıcı verisi yüklenirken geçici görünüm
                   if (!userSnapshot.hasData) {
-                    return Container(height: 70, color: const Color(0xFF161616)); 
+                    return Container(height: 70, color: AppTheme.backgroundColor); 
                   }
 
                   final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
@@ -105,22 +105,22 @@ class MessagesScreen extends StatelessWidget {
                   // bu örnekte basit tutuyoruz.
 
                   return ListTile(
-                    tileColor: const Color(0xFF161616),
+                    tileColor: AppTheme.backgroundSecondaryColor,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     leading: CircleAvatar(
                       radius: 28,
-                      backgroundColor: Colors.grey[800],
+                      backgroundColor: AppTheme.backgroundColor,
                       backgroundImage: (profileImage != null && profileImage.isNotEmpty)
                           ? NetworkImage(profileImage)
                           : null,
                       child: (profileImage == null || profileImage.isEmpty)
                           ? Text(displayName.isNotEmpty ? displayName[0].toUpperCase() : '?', 
-                              style: const TextStyle(color: Colors.white))
+                              style: const TextStyle(color: AppTheme.textColor))
                           : null,
                     ),
                     title: Text(
                       displayName,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      style: const TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                     subtitle: Row(
                       children: [

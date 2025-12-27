@@ -183,13 +183,13 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
     if (_currentUser == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     return Scaffold(
-      backgroundColor: const Color(0xFF161616), // Dark tema
+      backgroundColor: AppTheme.backgroundColor, // Dark tema
       appBar: AppBar(
-        title: const Text('Profili Düzenle', style: TextStyle(color: Colors.white)),
+        title: const Text('Profili Düzenle', style: TextStyle(color: AppTheme.textColor)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios, color: AppTheme.textColor),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -220,7 +220,7 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
                                   ? NetworkImage(_currentUser!.profileImageUrl!)
                                   : null) as ImageProvider?,
                           child: _selectedImage == null && _currentUser!.profileImageUrl == null
-                              ? const Icon(Icons.person, size: 50, color: Colors.white)
+                              ? const Icon(Icons.person, size: 50, color: AppTheme.textColor)
                               : null,
                         ),
                       ),
@@ -233,7 +233,7 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
                             color: AppTheme.primaryColor,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
+                          child: const Icon(Icons.camera_alt, size: 18, color: AppTheme.textColor),
                         ),
                       ),
                     ],
@@ -310,14 +310,14 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
               const SizedBox(height: 32),
 
               // --- DİNAMİK UYGULAMALAR (AppConstants'tan) ---
-              const Text('Hizmetler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+              const Text('Hizmetler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
               const SizedBox(height: 12),
               _buildMultiSelectChips(AppConstants.applications, _selectedApplications),
 
               const SizedBox(height: 24),
 
               // --- DİNAMİK STİLLER (AppConstants'tan) ---
-              const Text('Uzmanlık Stilleri', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+              const Text('Uzmanlık Stilleri', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
               const SizedBox(height: 12),
               _buildMultiSelectChips(AppConstants.styles, _selectedStyles),
 
@@ -334,8 +334,8 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: _isLoading 
-                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
-                    : const Text('DEĞİŞİKLİKLERİ KAYDET', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: AppTheme.textColor, strokeWidth: 2)) 
+                    : const Text('DEĞİŞİKLİKLERİ KAYDET', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
                 ),
               ),
               const SizedBox(height: 30),
@@ -358,13 +358,13 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
       controller: controller,
       focusNode: focusNode,
       maxLines: maxLines,
-      style: const TextStyle(color: Colors.white),
+      style: const TextStyle(color: AppTheme.textColor),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.grey),
         prefixIcon: Icon(icon, color: Colors.grey),
         filled: true,
-        fillColor: const Color(0xFF252525),
+        fillColor: AppTheme.cardColor,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
@@ -392,10 +392,10 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
             });
           },
           selectedColor: AppTheme.primaryColor,
-          backgroundColor: const Color(0xFF252525),
-          checkmarkColor: Colors.white,
+          backgroundColor: AppTheme.cardColor,
+          checkmarkColor: AppTheme.textColor,
           labelStyle: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey[400],
+            color: isSelected ? AppTheme.textColor : Colors.grey[400],
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             fontSize: 13,
           ),

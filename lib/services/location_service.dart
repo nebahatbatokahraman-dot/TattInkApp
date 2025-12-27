@@ -1,5 +1,6 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import '../theme/app_theme.dart';
 
 class LocationService {
   // Check if location services are enabled

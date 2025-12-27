@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math' as math; // Açı hesaplaması için eklendi
+import 'dart:ui'; //glass effect//
 
 // --- IMPORTS ---
 import '../models/post_model.dart';
@@ -65,11 +66,11 @@ class HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF161616),
-        title: const Text('E-posta Onayı Gerekli', style: TextStyle(color: Colors.white)),
+        backgroundColor: AppTheme.backgroundColor,
+        title: const Text('E-posta Onayı Gerekli', style: TextStyle(color: AppTheme.textColor)),
         content: const Text(
           'Beğeni yapabilmek ve mesaj atabilmek için e-posta onayı gereklidir.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AppTheme.textColor),
         ),
         actions: [
           TextButton(
@@ -96,66 +97,137 @@ class HomeScreenState extends State<HomeScreen> {
   String? _sortOption;
 
   @override
+
+  //HEADER VE GLASS EFFECT//
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 1. HEADER (Logo ve Bildirim)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  SizedBox(
-                    height: 40,
-                    child: CachedNetworkImage(
-                      imageUrl: AppConstants.logoUrl,
-                      height: 40,
-                      fit: BoxFit.contain,
-                      errorWidget: (context, url, error) => const SizedBox(
-                        height: 40, width: 40,
-                        child: Icon(Icons.image_not_supported, size: 30),
+  // Ayarları buradan kolayca yapabilirsin:
+  const double blurAmount = 20.0; // Bulanıklık şiddeti
+  const double glassOpacity = 0.10; // Camın rengi (%30 Siyah)
+  
+  // Header yüksekliği (SafeArea hariç tahmini yükseklik)
+  // Post listesini bu kadar aşağı iteceğiz.
+  
+  const double headerHeight = 0.0; 
+  
+
+  return Container(
+    // 1. ZEMİN (Atmosferik Arka Plan)
+    decoration: const BoxDecoration(
+      gradient: AppTheme.atmosphericBackgroundGradient, 
+    ),
+    child: Scaffold(
+      backgroundColor: Colors.transparent, // Scaffold şeffaf
+      
+      // STACK: Katmanlı Yapı
+      body: Stack(
+        children: [
+          // KATMAN 1: POST AKIŞI (En altta)
+          Positioned.fill(
+            child: Padding(
+              // Header'ın altında kalmasın diye üstten boşluk bırakıyoruz
+              padding: EdgeInsets.only(top: headerHeight), 
+              child: _buildPostFeed(), 
+            ),
+          ),
+
+          // KATMAN 2: TEK PARÇA GLASS HEADER (En üstte sabit)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: ClipRect( // Blur taşmasın
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: blurAmount, sigmaY: blurAmount),
+                child: Container(
+                  width: double.infinity,
+                  
+                  // DÜZELTİLEN YER BURASI: 
+                  // Dışarıdaki 'color' satırını sildim. Sadece decoration içinde kaldı.
+                  decoration: BoxDecoration(
+                    color: AppTheme.backgroundColor.withOpacity(0.9),
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Colors.white.withOpacity(0.1), 
+                        width: 0.5
                       ),
                     ),
                   ),
-                  _buildNotificationIcon(),
-                ],
-              ),
-            ),
+                  
+                  // İçerik (SafeArea ile çentik altına alıyoruz)
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 5.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // A) LOGO VE BİLDİRİM
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                SizedBox(
+                                  height: 40,
+                                  child: CachedNetworkImage(
+                                    imageUrl: AppConstants.logoUrl,
+                                    height: 40,
+                                    fit: BoxFit.contain,
+                                    errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white),
+                                  ),
+                                ),
+                                _buildNotificationIcon(),
+                              ],
+                            ),
+                          ),
 
-            // 2. FİLTRE VE SIRALAMA BUTONLARI
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _showFilterBottomSheet(context),
-                      icon: const Icon(Icons.tune),
-                      label: const Text('Filtrele'),
+                          // B) BUTONLAR
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => _showFilterBottomSheet(context),
+                                    icon: const Icon(Icons.tune, size: 18, color: AppTheme.primaryColor),
+                                    label: const Text('Filtrele', style: TextStyle(color: AppTheme.primaryColor)),
+                                    style: OutlinedButton.styleFrom(
+                                      backgroundColor: AppTheme.backgroundColor.withOpacity(0.3),
+                                      side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.8)),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => _showSortBottomSheet(context),
+                                    icon: const Icon(Icons.sort, size: 18, color: AppTheme.primaryColor),
+                                    label: Text(_getSortButtonLabel(), style: const TextStyle(color: AppTheme.primaryColor)),
+                                    style: OutlinedButton.styleFrom(
+                                      backgroundColor: AppTheme.backgroundColor.withOpacity(0.3),
+                                      side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.8)),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _showSortBottomSheet(context),
-                      icon: const Icon(Icons.sort),
-                      label: Text(_getSortButtonLabel()),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-
-            // 3. POST AKIŞI
-            Expanded(child: _buildPostFeed()),
-          ],
-        ),
+          ),
+        ],
       ),
       floatingActionButton: _buildFloatingActionButton(),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildFloatingActionButton() {
     return Consumer<AuthService>(
@@ -189,11 +261,17 @@ class HomeScreenState extends State<HomeScreen> {
 Widget _buildPostFeed() {
   Query query = FirebaseFirestore.instance.collection(AppConstants.collectionPosts);
   
+  // Şimdi sıralama mantığını güvenle ekleyebiliriz
   if (_sortOption == AppConstants.sortPopular) {
-    query = query.orderBy('likeCount', descending: true);
+    query = query
+        .orderBy('isFeatured', descending: true) // Önce Premiumlar
+        .orderBy('likeCount', descending: true);
   } else {
-    query = query.orderBy('createdAt', descending: true);
+    query = query
+        .orderBy('isFeatured', descending: true) // Önce Premiumlar
+        .orderBy('createdAt', descending: true);
   }
+
 
   return StreamBuilder<QuerySnapshot>(
     stream: query.snapshots(),
@@ -221,15 +299,16 @@ Widget _buildPostFeed() {
       return RefreshIndicator(
         onRefresh: _handleRefresh,
         color: AppTheme.primaryColor,
-        backgroundColor: const Color(0xFF252525),
+        backgroundColor: AppTheme.cardColor,
         child: ListView.builder(
           controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(), 
+          padding: const EdgeInsets.only(top: 170, bottom: 100),
           itemCount: filteredPosts.length + (filteredPosts.length ~/ 3),
           itemBuilder: (context, index) {
             // Her 4. sırada (index 3, 7, 11...) reklam kartı göster
             if (index % 4 == 3) {
-              return _buildAdPostCard(); 
+              return _buildDynamicAds(); // ARTIK DİNAMİK OLANI ÇAĞIRIYORUZ
             }
 
             final postIndex = index - (index ~/ 4);
@@ -245,36 +324,37 @@ Widget _buildPostFeed() {
 }
 
 //REKLAM KARTI//
-Widget _buildAdPostCard() {
+Widget _buildAdPostCard({
+  required String title,
+  required String subtitle,
+  required String content,
+  String? imageUrl,
+}) {
   return Container(
     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     decoration: BoxDecoration(
-      color: const Color(0xFF212121),
+      color: AppTheme.cardColor,
       borderRadius: BorderRadius.circular(16),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. ÜST KISIM: REKLAM GÖRSELİ
         ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
           child: Container(
-            height: 300,
+            height: 250,
             width: double.infinity,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF2A2A2A), Color(0xFF161616)],
-              ),
-            ),
-            child: const Center(
-              child: Icon(Icons.auto_awesome, color: AppTheme.primaryColor, size: 70),
-            ),
+            decoration: const BoxDecoration(color: AppTheme.textColor),
+            child: imageUrl != null
+                ? CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                    errorWidget: (context, url, error) => const Icon(Icons.auto_awesome, color: AppTheme.primaryColor, size: 50),
+                  )
+                : const Center(child: Icon(Icons.auto_awesome, color: AppTheme.primaryColor, size: 70)),
           ),
         ),
-        
-        // 2. ALT KISIM: PROFİL VE YAZI ALANI
         Padding(
           padding: const EdgeInsets.all(12.0),
           child: Column(
@@ -282,42 +362,29 @@ Widget _buildAdPostCard() {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
+                  const CircleAvatar(
                     radius: 20,
-                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                    child: const Icon(Icons.stars, color: AppTheme.primaryColor, size: 22),
+                    backgroundColor: AppTheme.cardColor,
+                    child: Icon(Icons.stars, color: AppTheme.primaryColor, size: 22),
                   ),
                   const SizedBox(width: 12),
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        "TattInk Premium",
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
-                      Text(
-                        "Sponsorlu",
-                        style: TextStyle(color: Colors.grey, fontSize: 11),
-                      ),
+                      Text(title, style: const TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold, fontSize: 15)),
+                      Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 11)),
                     ],
                   ),
                   const Spacer(),
                   ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                    ),
-                    child: const Text("Bilgi Al", style: TextStyle(color: Colors.white, fontSize: 12)),
+                    onPressed: () {}, // İstersen buraya link verebilirsin
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                    child: const Text("Bilgi Al", style: TextStyle(color: AppTheme.textColor, fontSize: 12)),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              const Text(
-                "Kendi stüdyonu şimdi öne çıkar! Profilini binlerce sanatseverle buluştur ve randevularını hemen artır.",
-                style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
-              ),
+              Text(content, style: const TextStyle(color: AppTheme.textColor, fontSize: 13, height: 1.4)),
             ],
           ),
         ),
@@ -325,6 +392,40 @@ Widget _buildAdPostCard() {
     ),
   );
 }
+
+
+//DINAMIK REKLAM KARTI//
+Widget _buildDynamicAds() {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('ads') // Firestore'daki koleksiyon adın
+        .where('isActive', isEqualTo: true)
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        // Eğer Firebase'de reklam yoksa, senin eski sabit reklamını gösterelim ki boş kalmasın
+        return _buildAdPostCard(
+          title: "TattInk Premium",
+          subtitle: "Sponsorlu",
+          content: "Kendi stüdyonu şimdi öne çıkar! Profilini binlerce sanatseverle buluştur.",
+          imageUrl: null,
+        );
+      }
+
+      final adDocs = snapshot.data!.docs;
+      // Rastgele bir reklam seçmek için (veya listelemek için)
+      final adData = adDocs[math.Random().nextInt(adDocs.length)];
+
+      return _buildAdPostCard(
+        title: adData['title'] ?? "TattInk",
+        subtitle: adData['subtitle'] ?? "Sponsorlu",
+        content: adData['content'] ?? "",
+        imageUrl: adData['imageUrl'],
+      );
+    },
+  );
+}
+
 
 
 void _openFullScreenPost(PostModel post) {
@@ -343,165 +444,189 @@ void _openFullScreenPost(PostModel post) {
     );
   }
 
-  Widget _buildPostCard(PostModel post) {
+Widget _buildPostCard(PostModel post) {
     final ValueNotifier<bool> isExpandedNotifier = ValueNotifier<bool>(false);
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
     final bool isOwnPost = currentUserId == post.artistId;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      clipBehavior: Clip.antiAliasWithSaveLayer,
-      elevation: 4,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Medya
-          GestureDetector(
-            onTap: () => _openFullScreenPost(post),
-            child: _buildPostMedia(post),
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('users').doc(post.artistId).get(),
+      builder: (context, artistSnapshot) {
+        final bool isPremium = artistSnapshot.hasData && 
+                              (artistSnapshot.data?.data() as Map<String, dynamic>?)?['isFeatured'] == true;
+
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: isPremium ? [
+              BoxShadow(
+                color: AppTheme.primaryColor.withOpacity(0.6), 
+                blurRadius: 7,
+                spreadRadius: 1,
+              )
+            ] : null,
+
+            // 🔥 ÇERÇEVE (Border) - Hata veren satırın düzeltilmiş hali
+            border: isPremium ? Border.all(color: AppTheme.primaryColor, width: 1.2) : null, 
           ),
-          
-          // Alt Bilgiler
-          Container(
-            color: const Color(0xFF252525),
+          child: Card(
+            margin: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            clipBehavior: Clip.antiAliasWithSaveLayer,
+            elevation: isPremium ? 0 : 4,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Artist Bilgileri (Alt Sol)
-                      Expanded(
-                        child: InkWell(
-                          onTap: isOwnPost ? null : () {
-                            Navigator.push(
-                              context, 
-                              MaterialPageRoute(
-                                builder: (context) => ArtistProfileScreen(
-                                  userId: post.artistId,
-                                  isOwnProfile: false,
-                                )
-                              )
-                            );
-                          },
-                          child: Row(
+                Stack(
+                  children: [
+                    GestureDetector(
+                      onTap: () => _openFullScreenPost(post),
+                      child: _buildPostMedia(post),
+                    ),
+                    if (isPremium)
+                      Positioned(
+                        top: 12,
+                        left: 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withOpacity(0.8),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              CircleAvatar(
-                                radius: 18,
-                                backgroundColor: Colors.grey[800],
-                                backgroundImage: post.artistProfileImageUrl != null && post.artistProfileImageUrl!.isNotEmpty
-                                    ? CachedNetworkImageProvider(post.artistProfileImageUrl!) : null,
-                                child: post.artistProfileImageUrl == null || post.artistProfileImageUrl!.isEmpty
-                                    ? const Icon(Icons.person, size: 20, color: Colors.white) : null,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (post.artistUsername != null)
-                                      Text(post.artistUsername!, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14), overflow: TextOverflow.ellipsis),
-                                    if (post.locationString.isNotEmpty)
-                                      Text(post.locationString, style: TextStyle(fontSize: 11, color: Colors.grey[400]), overflow: TextOverflow.ellipsis),
-                                  ],
-                                ),
-                              ),
+                              Icon(Icons.stars, color: AppTheme.textColor, size: 14),
+                              SizedBox(width: 4),
+                              Text("ÖNE ÇIKAN", style: TextStyle(color: AppTheme.textColor, fontSize: 10, fontWeight: FontWeight.bold)),
                             ],
                           ),
                         ),
                       ),
-                      
-                      // Mesaj ve Like (Alt Sağ)
-                     Row(
-                        children: [
-                          // Mesaj Butonu
-                          Transform.translate(
-                            offset: const Offset(0, -2),
-                            child: Transform.rotate(
-                              angle: -45 * math.pi / 180,
-                              child: IconButton(
-                                onPressed: () => _handleMessagePost(post),
-                                icon: const Icon(Icons.send_rounded, color: AppTheme.primaryColor, size: 24),
-                              ),
-                            ),
-                          ),
-                          // Beğeni Butonu ve Sayacı Stack İçinde
-                          Stack(
-                            clipBehavior: Clip.none, // Sayının buton dışına taşmasına izin verir
-                            children: [
-                              _buildLikeButton(post),
-                              if (post.likeCount > 0)
-                                Positioned(
-                                  right: 9, // Butonun sağından dışarı taşır
-                                  top: 25,   // Senin padding'ine göre aşağıda konumlandırır
-                                  child: Text(
-                                    "${post.likeCount}",
-                                    style: const TextStyle(color: Colors.grey, fontSize: 12),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
-                
-                if (post.caption != null && post.caption!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12.0, 0, 12.0, 12.0),
-                    child: ValueListenableBuilder<bool>(
-                      valueListenable: isExpandedNotifier,
-                      builder: (context, isExpanded, child) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                Container(
+                  color: AppTheme.cardColor,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            GestureDetector(
-                              onTap: () => isExpandedNotifier.value = !isExpandedNotifier.value,
-                              child: RichText(
-                                maxLines: isExpanded ? null : 1,
-                                overflow: isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
-                                text: TextSpan(
-                                  style: const TextStyle(fontSize: 13, color: Colors.white),
+                            Expanded(
+                              child: InkWell(
+                                onTap: isOwnPost ? null : () {
+                                  Navigator.push(
+                                    context, 
+                                    MaterialPageRoute(
+                                      builder: (context) => ArtistProfileScreen(
+                                        userId: post.artistId,
+                                        isOwnProfile: false,
+                                      )
+                                    )
+                                  );
+                                },
+                                child: Row(
                                   children: [
-                                  
-                                    TextSpan(text: post.caption!),
-                                  ]
+                                    CircleAvatar(
+                                      radius: 18,
+                                      backgroundColor: Colors.grey[800],
+                                      backgroundImage: post.artistProfileImageUrl != null && post.artistProfileImageUrl!.isNotEmpty
+                                          ? CachedNetworkImageProvider(post.artistProfileImageUrl!) : null,
+                                      child: post.artistProfileImageUrl == null || post.artistProfileImageUrl!.isEmpty
+                                          ? const Icon(Icons.person, size: 20, color: AppTheme.textColor) : null,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          if (post.artistUsername != null)
+                                            Text(post.artistUsername!, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textColor, fontSize: 14), overflow: TextOverflow.ellipsis),
+                                          if (post.locationString.isNotEmpty)
+                                            Text(post.locationString, style: TextStyle(fontSize: 11, color: Colors.grey[400]), overflow: TextOverflow.ellipsis),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                if (!isExpanded && post.caption!.length > 60)
-                                  GestureDetector(
-                                    onTap: () => isExpandedNotifier.value = true,
-                                    child: const Padding(
-                                      padding: EdgeInsets.only(top: 4.0),
-                                      child: Text("daha fazla...", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                Transform.translate(
+                                  offset: const Offset(0, -2),
+                                  child: Transform.rotate(
+                                    angle: -45 * math.pi / 180,
+                                    child: IconButton(
+                                      onPressed: () => _handleMessagePost(post),
+                                      icon: const Icon(Icons.send_rounded, color: AppTheme.primaryColor, size: 24),
                                     ),
-                                  )
-                                else
-                                  const SizedBox.shrink(),
-                                
-                            
+                                  ),
+                                ),
+                                Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    _buildLikeButton(post),
+                                    if (post.likeCount > 0)
+                                      Positioned(
+                                        right: 9,
+                                        top: 25,
+                                        child: Text("${post.likeCount}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                      ),
+                                  ],
+                                ),
                               ],
                             ),
                           ],
-                        );
-                      },
-                    ),
+                        ),
+                      ),
+                      if (post.caption != null && post.caption!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12.0, 0, 12.0, 12.0),
+                          child: ValueListenableBuilder<bool>(
+                            valueListenable: isExpandedNotifier,
+                            builder: (context, isExpanded, child) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  GestureDetector(
+                                    onTap: () => isExpandedNotifier.value = !isExpandedNotifier.value,
+                                    child: RichText(
+                                      maxLines: isExpanded ? null : 1,
+                                      overflow: isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                                      text: TextSpan(
+                                        style: const TextStyle(fontSize: 13, color: AppTheme.textColor),
+                                        children: [TextSpan(text: post.caption!)],
+                                      ),
+                                    ),
+                                  ),
+                                  if (!isExpanded && post.caption!.length > 60)
+                                    GestureDetector(
+                                      onTap: () => isExpandedNotifier.value = true,
+                                      child: const Padding(
+                                        padding: EdgeInsets.only(top: 4.0),
+                                        child: Text("daha fazla...", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                    ],
                   ),
+                ),
               ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
-  }
+  } // <--- METOD BURADA BİTİYOR
 
 
 
@@ -517,12 +642,12 @@ Widget _buildPostMedia(PostModel post) {
         fit: BoxFit.cover, // BoxFit.fitWidth yerine cover daha şık durabilir
         placeholder: (context, url) => Container(
           height: 300, 
-          color: const Color(0xFF202020), 
+          color: AppTheme.backgroundColor, 
           child: const Center(child: CircularProgressIndicator())
         ),
         errorWidget: (context, url, error) => Container(
           height: 300, 
-          color: const Color(0xFF202020), 
+          color: AppTheme.backgroundColor, 
           child: const Icon(Icons.broken_image, color: Colors.grey)
         ),
       );
@@ -545,7 +670,7 @@ Widget _buildPostMedia(PostModel post) {
           onTap: () => _handleLike(post, isLiked),
           child: Icon(
             isLiked ? Icons.favorite : Icons.favorite_border, 
-            color: isLiked ? const Color(0xFF944B79) : AppTheme.primaryColor, 
+            color: isLiked ? AppTheme.primaryColor : AppTheme.primaryColor, 
             size: 26
           ),
         );
@@ -606,11 +731,154 @@ Widget _buildPostMedia(PostModel post) {
   }
 
   void _showFilterBottomSheet(BuildContext context) {
-    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF161616), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => StatefulBuilder(builder: (context, setModalState) => SizedBox(height: MediaQuery.of(context).size.height * 0.75, child: Column(children: [Container(margin: const EdgeInsets.only(top: 12), width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))), Padding(padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0), child: Stack(alignment: Alignment.center, children: [const Center(child: Text('Filtrele', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFEBEBEB)))), Positioned(right: 0, child: TextButton(onPressed: () { setModalState(() { _selectedApplications.clear(); _selectedStyles.clear(); _selectedDistrict = null; _selectedCity = null; _minScore = 0.0; }); }, child: const Text('Sıfırla', style: TextStyle(color: Colors.redAccent))))])), Expanded(child: SingleChildScrollView(padding: const EdgeInsets.symmetric(horizontal: 16.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildFilterSection('Uygulama', AppConstants.applications, _selectedApplications, (value) { setModalState(() { _selectedApplications.contains(value) ? _selectedApplications.remove(value) : _selectedApplications.add(value); }); }), const SizedBox(height: 16), _buildFilterSection('Stil', AppConstants.styles, _selectedStyles, (value) { setModalState(() { _selectedStyles.contains(value) ? _selectedStyles.remove(value) : _selectedStyles.add(value); }); }), const SizedBox(height: 16), _buildDistrictSearch(setModalState), const SizedBox(height: 16)]))), Padding(padding: const EdgeInsets.all(16.0), child: SizedBox(width: double.infinity, height: 50, child: ElevatedButton(onPressed: () { setState(() {}); Navigator.pop(context); }, style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor), child: const Text('Uygula', style: TextStyle(color: Color(0xFFEBEBEB), fontSize: 16, fontWeight: FontWeight.bold)))))]))));
+showModalBottomSheet(
+  context: context,
+  isScrollControlled: true,
+  backgroundColor: Colors.transparent, // 1. ÖNEMLİ: Burası şeffaf olmalı
+  builder: (context) => ClipRRect( // 2. Bulanıklığı köşelere göre kırpıyoruz
+    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    child: BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5), // 3. Buzlu camın bulanıklık şiddeti
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        decoration: BoxDecoration(
+          // 4. Rengin kendisi biraz şeffaf olmalı ki arkası görünsün
+          // AppTheme.backgroundColor yerine dark bir renk veya temanın şeffaf hali:
+          color: AppTheme.backgroundColor.withOpacity(0.8), 
+          // İsteğe bağlı: Cam hissini artırmak için ince bir kenarlık
+          border: Border(
+            top: BorderSide(color: Colors.white.withOpacity(0.2), width: 1),
+          ),
+        ),
+        child: Column(
+          children: [
+            // --- Gri Çubuk ---
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 10),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[600],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // --- İÇERİK (Stack ve diğer kodlar aynı) ---
+            Expanded(
+              child: Stack(
+                children: [
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        StatefulBuilder( // StatefulBuilder'ı buraya taşıdım
+                          builder: (context, setModalState) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildFilterSection(
+                                  'Uygulama',
+                                  AppConstants.applications,
+                                  _selectedApplications,
+                                  (value) {
+                                    setModalState(() {
+                                      _selectedApplications.contains(value)
+                                          ? _selectedApplications.remove(value)
+                                          : _selectedApplications.add(value);
+                                    });
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                                _buildFilterSection(
+                                  'Stil',
+                                  AppConstants.styles,
+                                  _selectedStyles,
+                                  (value) {
+                                    setModalState(() {
+                                      _selectedStyles.contains(value)
+                                          ? _selectedStyles.remove(value)
+                                          : _selectedStyles.add(value);
+                                    });
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                                _buildDistrictSearch(setModalState),
+                                const SizedBox(height: 16),
+                              ],
+                            );
+                          }
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // SIFIRLA BUTONU (Konumu aynı)
+                  Positioned(
+                    top: -2,
+                    right: 8,
+                    child: StatefulBuilder( // Sıfırlama işlemi için state lazım
+                      builder: (context, setModalState) => TextButton(
+                        onPressed: () {
+                          setModalState(() {
+                            _selectedApplications.clear();
+                            _selectedStyles.clear();
+                            _selectedDistrict = null;
+                            _selectedCity = null;
+                            _minScore = 0.0;
+                          });
+                        },
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text(
+                          'Sıfırla',
+                          style: TextStyle(color: AppTheme.textColor, fontSize: 14),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // --- UYGULA BUTONU (Padding düzeltilmiş hali) ---
+            Padding(
+              padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 16.0, bottom: 40.0),
+              child: SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {});
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                  ),
+                  child: const Text(
+                    'Uygula',
+                    style: TextStyle(
+                      color: AppTheme.textColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ),
+);
   }
 
   Widget _buildFilterSection(String title, List<String> options, List<String> selected, Function(String) onToggle) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFEBEBEB))), const SizedBox(height: 8), Wrap(spacing: 8, runSpacing: 8, children: options.map((option) { final isSelected = selected.contains(option); return GestureDetector(onTap: () => onToggle(option), child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: isSelected ? AppTheme.primaryColor : Colors.transparent, borderRadius: BorderRadius.circular(8), border: Border.all(color: isSelected ? AppTheme.primaryColor : const Color(0xFFEBEBEB), width: 1)), child: Text(option, style: const TextStyle(color: Color(0xFFEBEBEB), fontSize: 14)))); }).toList())]);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor)), const SizedBox(height: 8), Wrap(spacing: 8, runSpacing: 8, children: options.map((option) { final isSelected = selected.contains(option); return GestureDetector(onTap: () => onToggle(option), child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: isSelected ? AppTheme.primaryColor : Colors.transparent, borderRadius: BorderRadius.circular(8), border: Border.all(color: isSelected ? AppTheme.primaryColor : AppTheme.primaryLightColor, width: 1)), child: Text(option, style: const TextStyle(color: AppTheme.textColor, fontSize: 14)))); }).toList())]);
   }
 
   Widget _buildDistrictSearch(StateSetter setModalState) {
@@ -618,12 +886,57 @@ Widget _buildPostMedia(PostModel post) {
   }
 
   void _showSortBottomSheet(BuildContext context) {
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF161616), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (context) => SizedBox(height: MediaQuery.of(context).size.height * 0.3, child: Column(children: [Container(margin: const EdgeInsets.only(top: 12), width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))), const Padding(padding: EdgeInsets.all(16.0), child: Text('Sırala', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFEBEBEB)))), Expanded(child: ListView(padding: const EdgeInsets.symmetric(horizontal: 16.0), children: [_buildSortOption('En Yeniler', Icons.refresh, AppConstants.sortNewest), _buildSortOption('En Popüler', Icons.local_fire_department, AppConstants.sortPopular)]))])));
-  }
+showModalBottomSheet(
+  context: context,
+  backgroundColor: Colors.transparent, // 1. Arka plan şeffaf
+  builder: (context) => ClipRRect( // 2. Köşeleri yuvarla
+    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    child: BackdropFilter( // 3. Bulanıklık Efekti
+      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.3,
+        decoration: BoxDecoration(
+          // 4. Arka plan rengini yarı şeffaf yap
+          color: AppTheme.backgroundColor.withOpacity(0.8),
+          // İsteğe bağlı: Üst kısma ince bir parlaklık çizgisi (Cam hissi için)
+          border: Border(
+            top: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+          ),
+        ),
+        child: Column(
+          children: [
+            // --- Gri Çubuk (Tutamaç) ---
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 10),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[600],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // --- Seçenekler Listesi ---
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                children: [
+                  _buildSortOption('En Yeni En Üstte', Icons.refresh, AppConstants.sortNewest),
+                  _buildSortOption('En Popüler En Üstte', Icons.local_fire_department, AppConstants.sortPopular),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ),
+);  
+}
 
   Widget _buildSortOption(String label, IconData icon, String value) {
     final isSelected = _sortOption == value;
-    return ListTile(leading: Icon(icon, color: const Color(0xFFEBEBEB)), title: Text(label, style: const TextStyle(color: Color(0xFFEBEBEB))), trailing: isSelected ? const Icon(Icons.check, color: AppTheme.primaryColor) : null, onTap: () { setState(() { _sortOption = value; }); Navigator.pop(context); });
+    return ListTile(leading: Icon(icon, color: AppTheme.primaryColor), title: Text(label, style: const TextStyle(color: AppTheme.primaryColor)), trailing: isSelected ? const Icon(Icons.check, color: AppTheme.primaryColor) : null, onTap: () { setState(() { _sortOption = value; }); Navigator.pop(context); });
   }
 
   Widget _buildNotificationIcon() {
@@ -662,7 +975,7 @@ Widget _buildPostMedia(PostModel post) {
                   child: Center(
                     child: Text(
                       unreadCount > 99 ? '99+' : unreadCount.toString(), 
-                      style: const TextStyle(color: Colors.white, fontSize: 10)
+                      style: const TextStyle(color: AppTheme.textColor, fontSize: 10)
                     )
                   )
                 )
@@ -694,7 +1007,7 @@ class _DistrictSearchWidgetState extends State<_DistrictSearchWidget> {
     });
   }
   @override Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Bölge', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFEBEBEB))), const SizedBox(height: 8), TextField(controller: _searchController, style: const TextStyle(color: Color(0xFFEBEBEB)), decoration: InputDecoration(hintText: 'Semt ara', hintStyle: const TextStyle(color: Color(0xFFEBEBEB)), prefixIcon: const Icon(Icons.search, color: Color(0xFFEBEBEB)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), onChanged: _updateFilteredDistricts), if (_filteredDistricts.isNotEmpty) Container(margin: const EdgeInsets.only(top: 8), constraints: const BoxConstraints(maxHeight: 150), decoration: BoxDecoration(color: const Color(0xFF323232), borderRadius: BorderRadius.circular(8)), child: ListView.builder(shrinkWrap: true, itemCount: _filteredDistricts.length, itemBuilder: (context, index) { final item = _filteredDistricts[index]; return ListTile(title: Text('${item['district']}, ${item['city']}', style: const TextStyle(color: Color(0xFFEBEBEB))), onTap: () { _searchController.text = '${item['district']}, ${item['city']}'; widget.onDistrictSelected(item['district'], item['city']); setState(() { _filteredDistricts = []; }); }); })),]);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Bölge', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor)), const SizedBox(height: 8), TextField(controller: _searchController, style: const TextStyle(color: AppTheme.textColor), decoration: InputDecoration(hintText: 'Semt ara', hintStyle: const TextStyle(color: AppTheme.textColor), prefixIcon: const Icon(Icons.search, color: AppTheme.textColor), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), onChanged: _updateFilteredDistricts), if (_filteredDistricts.isNotEmpty) Container(margin: const EdgeInsets.only(top: 8), constraints: const BoxConstraints(maxHeight: 150), decoration: BoxDecoration(color: AppTheme.cardColor, borderRadius: BorderRadius.circular(8)), child: ListView.builder(shrinkWrap: true, itemCount: _filteredDistricts.length, itemBuilder: (context, index) { final item = _filteredDistricts[index]; return ListTile(title: Text('${item['district']}, ${item['city']}', style: const TextStyle(color: AppTheme.textColor)), onTap: () { _searchController.text = '${item['district']}, ${item['city']}'; widget.onDistrictSelected(item['district'], item['city']); setState(() { _filteredDistricts = []; }); }); })),]);
   }
 }
 // --- BU SINIFI HOME SCREEN DOSYASININ EN ALTINA EKLE ---
@@ -734,7 +1047,7 @@ class _HomePostSliderState extends State<HomePostSlider> {
                 child: CachedNetworkImage(
                   imageUrl: widget.imageUrls[index],
                   fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(color: const Color(0xFF202020)),
+                  placeholder: (context, url) => Container(color: AppTheme.backgroundColor),
                   errorWidget: (context, url, error) => const Icon(Icons.error),
                 ),
               );
@@ -756,30 +1069,14 @@ class _HomePostSliderState extends State<HomePostSlider> {
                       shape: BoxShape.circle,
                       color: _currentIndex == entry.key
                           ? AppTheme.primaryColor
-                          : Colors.white.withOpacity(0.5),
+                          : AppTheme.textColor.withOpacity(0.5),
                     ),
                   );
                 }).toList(),
               ),
             ),
           
-          // --- FOTOĞRAF SAYISI GÖSTERGESİ (Sağ Üst Köşe - Opsiyonel) ---
-          if (widget.imageUrls.length > 1)
-            Positioned(
-              top: 10,
-              right: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  "${_currentIndex + 1}/${widget.imageUrls.length}",
-                  style: const TextStyle(color: Colors.white, fontSize: 10),
-                ),
-              ),
-            ),
+        
         ],
       ),
     );

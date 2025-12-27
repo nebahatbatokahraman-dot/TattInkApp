@@ -75,7 +75,7 @@ class AppConstants {
   static const String storageAppImages = 'app_images';
   
   // Logo URL
-  static const String logoUrl = 'https://firebasestorage.googleapis.com/v0/b/tattinkapp.firebasestorage.app/o/app_images%2Flogo.png?alt=media';
+  static const String logoUrl = 'https://firebasestorage.googleapis.com/v0/b/tattinkapp.firebasestorage.app/o/app_images%2Flogo.png?alt=media&token=b58cd8b2-e470-4d77-abca-b88540168eab';
   
   // Image Constraints
   static const int maxImageWidth = 1080;
@@ -90,4 +90,13 @@ class AppConstants {
     'Uygunsuz içerik',
     'Diğer',
   ];
+
+  // Gemini AI Configuration
+  // NOT: google_generative_ai v0.4.7 paketi v1beta API kullanıyor
+  // v1beta API'sinde gemini-1.5-flash desteklenmiyor, bu yüzden gemini-pro kullanıyoruz
+  static const String geminiModelName = 'gemini-pro';
+  // Alternatif modeller (v1beta API için):
+  // - 'gemini-pro' (desteklenen, stabil model)
+  // - 'gemini-1.5-pro' (v1beta'da desteklenmeyebilir)
+  // - 'gemini-1.5-flash' (sadece v1 API'de destekleniyor)
 }

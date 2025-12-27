@@ -1,109 +1,66 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/constants.dart';
 
 class NotificationService {
   
-  // --- ANA BİLDİRİM GÖNDERME FONKSİYONU ---
+  // --- 1. GENEL BİLDİRİM GÖNDERME (ANA METOT) ---
   static Future<void> sendNotification({
-    required String receiverId,
-    required String senderId,     
+    required String currentUserId,      
+    required String currentUserName,    
+    required String? currentUserAvatar, 
+    required String receiverId,         
+    required String type,               
     required String title,
     required String body,
-    required String type,
-    String? senderName,            
-    String? senderAvatar,          
-    String? relatedId,             
+    String? relatedId,                  
   }) async {
     try {
-      if (senderId == receiverId) return;
+      // Kişi kendine bildirim göndermesin
+      if (currentUserId == receiverId) return;
 
-      await FirebaseFirestore.instance.collection(AppConstants.collectionNotifications).add({
+      // Belge referansı oluştur (ID'yi içine de kaydedebilmek için)
+      final notificationRef = FirebaseFirestore.instance
+          .collection(AppConstants.collectionNotifications)
+          .doc();
+
+      await notificationRef.set({
+        'id': notificationRef.id, // Bildirim ID'sini belgeye ekledik, silme/güncelleme için lazım olur
+        'senderId': currentUserId,
+        'senderName': currentUserName,
+        'senderAvatar': currentUserAvatar,
         'receiverId': receiverId,
-        'senderId': senderId,
-        'senderName': senderName ?? '',
-        'senderAvatar': senderAvatar ?? '',
+        'type': type,
         'title': title,
         'body': body,
-        'type': type,
         'relatedId': relatedId,
         'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      debugPrint("Bildirim hatası: $e");
+      print("Bildirim gönderme hatası: $e");
     }
   }
 
-  // --- RANDEVU BİLDİRİMİ ---
-  static Future<void> sendAppointmentNotification({
-    required String receiverId,
-    required String senderId,
-    required String title,
-    required String body,
-    required String type,
-    String? relatedId,
-  }) async {
-    await sendNotification(
-      receiverId: receiverId,
-      senderId: senderId,
-      title: title,
-      body: body,
-      type: type,
-      relatedId: relatedId,
-    );
-  }
-
-  // --- TAKİP BİLDİRİMİ ---
-  static Future<void> sendFollowNotification(
-    String senderId,      
-    String senderName,      
-    String? senderAvatar,   
-    String targetUserId     
-  ) async {
+  // --- 2. TAKİP BİLDİRİMİ ---
+  static Future<void> sendFollowNotification(String currentUserId, String currentUserName, String? currentUserAvatar, String targetUserId) async {
      await sendNotification(
+        currentUserId: currentUserId,
+        currentUserName: currentUserName,
+        currentUserAvatar: currentUserAvatar,
         receiverId: targetUserId,
-        senderId: senderId,          
-        senderName: senderName,
-        senderAvatar: senderAvatar,
         type: 'follow',
         title: 'Yeni Takipçi',
-        body: '$senderName seni takip etmeye başladı.',
-        relatedId: senderId,          
+        body: '$currentUserName seni takip etmeye başladı.',
+        relatedId: currentUserId, // Profiline tıklanınca gidilebilsin diye
       );
   }
 
-  // --- MESAJ BİLDİRİMİ ---
-  static Future<void> sendMessageNotification(
-    String senderId,
-    String senderName,
-    String? senderAvatar,
-    String receiverId,
-    String chatId,
-  ) async {
-    await sendNotification(
-      receiverId: receiverId,
-      senderId: senderId,
-      senderName: senderName,
-      senderAvatar: senderAvatar,
-      type: 'message',
-      title: senderName,
-      body: 'Sana bir mesaj gönderdi.',
-      relatedId: chatId,
-    );
-  }
-
-  // --- BEĞENİ BİLDİRİMİ ---
-  static Future<void> sendLikeNotification(
-    String senderId,      
-    String senderName,    
-    String? senderAvatar, 
-    String postOwnerId,   
-    String postId         
-  ) async {
+  // --- 3. BEĞENİ BİLDİRİMİ ---
+  static Future<void> sendLikeNotification(String currentUserId, String currentUserName, String? currentUserAvatar, String postOwnerId, String postId) async {
+    // Daha önce bu gönderi için beğeni bildirimi gitmiş mi kontrol et (Spam önleme)
     final query = await FirebaseFirestore.instance
         .collection(AppConstants.collectionNotifications)
-        .where('senderId', isEqualTo: senderId)
+        .where('senderId', isEqualTo: currentUserId)
         .where('receiverId', isEqualTo: postOwnerId)
         .where('relatedId', isEqualTo: postId)
         .where('type', isEqualTo: 'like')
@@ -111,13 +68,13 @@ class NotificationService {
 
     if (query.docs.isEmpty) {
       await sendNotification(
+        currentUserId: currentUserId,
+        currentUserName: currentUserName,
+        currentUserAvatar: currentUserAvatar,
         receiverId: postOwnerId,
-        senderId: senderId,           
-        senderName: senderName,
-        senderAvatar: senderAvatar,
         type: 'like',
         title: 'Yeni Beğeni',
-        body: '$senderName gönderini beğendi.',
+        body: '$currentUserName gönderini beğendi.',
         relatedId: postId,
       );
     }

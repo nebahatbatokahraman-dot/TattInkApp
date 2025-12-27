@@ -201,7 +201,7 @@ class _CustomerEditProfileScreenState extends State<CustomerEditProfileScreen> {
                         backgroundColor: Theme.of(context).colorScheme.primary,
                         child: IconButton(
                           icon: const Icon(Icons.camera_alt, size: 20),
-                          color: Colors.white,
+                          color: AppTheme.textColor,
                           onPressed: _pickImage,
                         ),
                       ),
@@ -277,8 +277,8 @@ class _CustomerEditProfileScreenState extends State<CustomerEditProfileScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   child: _isLoading
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)))
-                      : const Text('Kaydet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(AppTheme.textColor)))
+                      : const Text('Kaydet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
                 ),
               ),
               const SizedBox(height: 16),

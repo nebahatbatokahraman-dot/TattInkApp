@@ -112,7 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: AppTheme.textColor),
                     decoration: InputDecoration(
                       labelText: 'E-posta',
                       prefixIcon: const Icon(Icons.email_outlined, color: Colors.grey),
@@ -130,7 +130,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: AppTheme.textColor),
                     decoration: InputDecoration(
                       labelText: 'Şifre',
                       prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
@@ -176,11 +176,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.textColor),
                           )
                         : const Text(
                             'Giriş Yap',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor),
                           ),
                   ),
 
@@ -205,15 +205,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     height: 50,
                     child: OutlinedButton.icon(
                       onPressed: _isLoading ? null : _loginWithGoogle,
-                      icon: const Icon(Icons.g_mobiledata, color: Colors.white, size: 24),
+                      icon: const Icon(Icons.g_mobiledata, color: AppTheme.textColor, size: 24),
                       label: const Text(
                         'Google ile Devam Et',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor),
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.white24),
+                        side: const BorderSide(color: AppTheme.textColor),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        foregroundColor: Colors.white,
+                        foregroundColor: AppTheme.textColor,
                       ),
                     ),
                   ),

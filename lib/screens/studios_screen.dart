@@ -162,7 +162,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF161616),
+      backgroundColor: AppTheme.backgroundColor,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => SizedBox(
@@ -175,7 +175,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    const Center(child: Text('Filtrele', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFEBEBEB)))),
+                    const Center(child: Text('Filtrele', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.primaryColor))),
                     Positioned(
                       right: 0,
                       child: TextButton(
@@ -185,7 +185,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                             _selectedStyles.clear();
                           });
                         },
-                        child: const Text('Sıfırla', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        child: const Text('Sıfırla', style: TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],
@@ -216,7 +216,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                       Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                    child: const Text('Uygula', style: TextStyle(color: Color(0xFFEBEBEB), fontSize: 16, fontWeight: FontWeight.bold)),
+                    child: const Text('Uygula', style: TextStyle(color: AppTheme.backgroundColor, fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ),
@@ -231,7 +231,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+        Text(title, style: const TextStyle(fontSize: 14, color: AppTheme.textGreyColor)),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
@@ -246,14 +246,14 @@ class _StudiosScreenState extends State<StudiosScreen> {
                   selected ? selectedList.add(option) : selectedList.remove(option);
                 });
               },
-              backgroundColor: const Color(0xFF161616),
+              backgroundColor: AppTheme.backgroundSecondaryColor,
               selectedColor: AppTheme.primaryColor,
-              checkmarkColor: Colors.white,
+              checkmarkColor: AppTheme.textColor,
               labelStyle: TextStyle(
-                color: isSelected ? Colors.white : Colors.grey[400],
+                color: isSelected ? AppTheme.textColor : AppTheme.primaryLightColor,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide.none),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: AppTheme.cardLightColor)),
             );
           }).toList(),
         ),
@@ -288,7 +288,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                     children: [
                       IconButton(
                         icon: Icon(_showMap ? Icons.list : Icons.map),
-                        color: _showMap ? AppTheme.primaryColor : const Color(0xFF757575),
+                        color: _showMap ? AppTheme.primaryColor : AppTheme.textGreyColor,
                         onPressed: () async {
                           if (!_showMap) await _requestUserLocation();
                           setState(() {
@@ -302,7 +302,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                         },
                       ),
                       IconButton(
-                        icon: Icon(Icons.search, color: _showSearch ? AppTheme.primaryColor : const Color(0xFF757575)),
+                        icon: Icon(Icons.search, color: _showSearch ? AppTheme.primaryColor : AppTheme.textGreyColor),
                         onPressed: () => setState(() {
                           _showSearch = !_showSearch;
                           if (!_showSearch) _clearSearch();
@@ -322,7 +322,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                   children: [
                     TextField(
                       controller: _searchController,
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: AppTheme.textColor),
                       textInputAction: TextInputAction.search,
                       onSubmitted: (value) => _performNameSearch(),
                       decoration: InputDecoration(
@@ -331,7 +331,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                         prefixIcon: GestureDetector(onTap: _performNameSearch, child: const Icon(Icons.search, color: Colors.grey)),
                         suffixIcon: IconButton(icon: const Icon(Icons.close, color: Colors.grey), onPressed: _clearSearch),
                         filled: true,
-                        fillColor: const Color(0xFF212121),
+                        fillColor: AppTheme.cardColor,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       ),
                       onChanged: (val) {
@@ -354,7 +354,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                             final suggestion = _locationSuggestions[index];
                             return ListTile(
                               leading: const Icon(Icons.place, size: 18, color: Colors.grey),
-                              title: Text(suggestion, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                              title: Text(suggestion, style: const TextStyle(color: AppTheme.textColor, fontSize: 14)),
                               onTap: () => _onLocationSelected(suggestion),
                             );
                           },
@@ -399,8 +399,8 @@ class _StudiosScreenState extends State<StudiosScreen> {
                             icon: const Icon(Icons.local_fire_department, size: 18),
                             label: const Text('Popüler'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _sortOption == AppConstants.sortPopular ? AppTheme.primaryColor : const Color(0xFF323232),
-                              foregroundColor: Colors.white,
+                              backgroundColor: _sortOption == AppConstants.sortPopular ? AppTheme.primaryColor : AppTheme.cardLightColor,
+                              foregroundColor: AppTheme.textColor,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                           ),
@@ -419,8 +419,8 @@ class _StudiosScreenState extends State<StudiosScreen> {
                             icon: const Icon(Icons.near_me, size: 18),
                             label: const Text('Mesafe'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _sortOption == AppConstants.sortDistance ? AppTheme.primaryColor : const Color(0xFF323232),
-                              foregroundColor: Colors.white,
+                              backgroundColor: _sortOption == AppConstants.sortDistance ? AppTheme.primaryColor : AppTheme.cardLightColor,
+                              foregroundColor: AppTheme.textColor,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                           ),
@@ -573,7 +573,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
 
      return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: const Color(0xFF212121),
+      color: AppTheme.cardColor,
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
@@ -609,7 +609,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                           ? DecorationImage(image: NetworkImage(artist.coverImageUrl!), fit: BoxFit.cover)
                           : null,
                     ),
-                    child: artist.coverImageUrl == null ? Center(child: Icon(Icons.image, color: Colors.white.withOpacity(0.2), size: 50)) : null,
+                    child: artist.coverImageUrl == null ? Center(child: Icon(Icons.image, color: AppTheme.textColor.withOpacity(0.2), size: 50)) : null,
                   ),
                 ),
                 Positioned(
@@ -617,12 +617,12 @@ class _StudiosScreenState extends State<StudiosScreen> {
                   left: 16,
                   child: Container(
                     padding: const EdgeInsets.all(3),
-                    decoration: const BoxDecoration(color: Color(0xFF212121), shape: BoxShape.circle),
+                    decoration: const BoxDecoration(color: AppTheme.cardColor, shape: BoxShape.circle),
                     child: CircleAvatar(
                       radius: 32,
                       backgroundColor: Colors.grey[700],
                       backgroundImage: artist.profileImageUrl != null ? NetworkImage(artist.profileImageUrl!) : null,
-                      child: artist.profileImageUrl == null ? const Icon(Icons.person, size: 35, color: Colors.white) : null,
+                      child: artist.profileImageUrl == null ? const Icon(Icons.person, size: 35, color: AppTheme.textColor) : null,
                     ),
                   ),
                 ),
@@ -638,19 +638,19 @@ class _StudiosScreenState extends State<StudiosScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: Text(artist.username ?? artist.fullName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white), overflow: TextOverflow.ellipsis),
+                        child: Text(artist.username ?? artist.fullName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textColor), overflow: TextOverflow.ellipsis),
                       ),
                       Row(
                         children: [
-                          Icon(Icons.favorite, color: AppTheme.primaryColor, size: 14),
+                          Icon(Icons.favorite, color: AppTheme.primaryLightColor, size: 14),
                           const SizedBox(width: 4),
-                          Text(artist.totalLikes.toString(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white70)),
+                          Text(artist.totalLikes.toString(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
                           const SizedBox(width: 12),
                           StreamBuilder<QuerySnapshot>(
                             stream: FirebaseFirestore.instance.collection(AppConstants.collectionFollows).where('followingId', isEqualTo: artist.uid).snapshots(),
                             builder: (context, snapshot) {
                               final followerCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
-                              return Row(children: [const Icon(Icons.people, color: Colors.grey, size: 14), const SizedBox(width: 4), Text(followerCount.toString(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white70))]);
+                              return Row(children: [const Icon(Icons.people, color: AppTheme.primaryLightColor, size: 14), const SizedBox(width: 4), Text(followerCount.toString(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textColor))]);
                             },
                           ),
                         ],
@@ -659,7 +659,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                   ),
                   if (artist.locationString.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Row(children: [const Icon(Icons.location_on, size: 12, color: Colors.grey), const SizedBox(width: 4), Expanded(child: Text("${artist.locationString}$distanceText", style: TextStyle(fontSize: 12, color: Colors.grey[400]), overflow: TextOverflow.ellipsis))]),
+                    Row(children: [const Icon(Icons.location_on, size: 12, color: AppTheme.textGreyColor), const SizedBox(width: 4), Expanded(child: Text("${artist.locationString}$distanceText", style: TextStyle(fontSize: 12, color: AppTheme.textGreyColor), overflow: TextOverflow.ellipsis))]),
                   ],
                   if (artist.applications.isNotEmpty || artist.applicationStyles.isNotEmpty) ...[
                     const SizedBox(height: 12),
@@ -667,8 +667,8 @@ class _StudiosScreenState extends State<StudiosScreen> {
                       spacing: 6,
                       runSpacing: 6,
                       children: [
-                        ...artist.applications.take(3).map((app) => _buildTinyTag(app, Colors.blueGrey.withOpacity(0.3))),
-                        ...artist.applicationStyles.take(4).map((style) => _buildTinyTag(style, AppTheme.primaryColor.withOpacity(0.15))),
+                        ...artist.applications.take(3).map((app) => _buildTinyTag(app, AppTheme.primaryColor.withOpacity(0.3))),
+                        ...artist.applicationStyles.take(4).map((style) => _buildTinyTag(style, AppTheme.primaryLightColor.withOpacity(0.15))),
                       ],
                     ),
                   ],
@@ -682,7 +682,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
   }
 
   Widget _buildTinyTag(String text, Color bgColor) {
-    return Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.white.withOpacity(0.05))), child: Text(text, style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w500)));
+    return Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(6), border: Border.all(color: AppTheme.primaryColor.withOpacity(0))), child: Text(text, style: const TextStyle(fontSize: 10, color: AppTheme.textColor, fontWeight: FontWeight.w500)));
   }
 
   // --- BANNER TASARIM FONKSİYONU ---
@@ -696,13 +696,13 @@ class _StudiosScreenState extends State<StudiosScreen> {
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.white, size: 24),
+          Icon(icon, color: AppTheme.textColor, size: 24),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               text,
               style: const TextStyle(
-                color: Colors.white,
+                color: AppTheme.textColor,
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
               ),
@@ -710,7 +710,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const Icon(Icons.arrow_forward_ios, color: Colors.white70, size: 12),
+          const Icon(Icons.arrow_forward_ios, color: AppTheme.textColor, size: 12),
         ],
       ),
     );

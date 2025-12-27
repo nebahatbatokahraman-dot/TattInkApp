@@ -1,112 +1,106 @@
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
-const nodemailer = require('nodemailer');
+/**
+ * Import function triggers from their respective submodules:
+ *
+ * const {onCall} = require("firebase-functions/v2/https");
+ * const {onDocumentWritten} = require("firebase-functions/v2/firestore");
+ *
+ * See a full list of supported triggers at https://firebase.google.com/docs/functions
+ */
 
-admin.initializeApp();
+const {setGlobalOptions} = require("firebase-functions");
+const {onRequest, onCall} = require("firebase-functions/v2/https");
+const logger = require("firebase-functions/logger");
+const {GoogleGenerativeAI} = require("@google/generative-ai");
 
-// Email transporter configuration
-// Note: You need to configure your email service (Gmail, SendGrid, etc.)
-const transporter = nodemailer.createTransport({
-  service: 'gmail', // Change to your email service
-  auth: {
-    user: functions.config().email.user, // Set via: firebase functions:config:set email.user="your-email@gmail.com"
-    pass: functions.config().email.password, // Set via: firebase functions:config:set email.password="your-app-password"
-  },
-});
+// For cost control, you can set the maximum number of containers that can be
+// running at the same time. This helps mitigate the impact of unexpected
+// traffic spikes by instead downgrading performance. This limit is a
+// per-function limit. You can override the limit for each function using the
+// `maxInstances` option in the function's options, e.g.
+// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
+// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
+// functions should each use functions.runWith({ maxInstances: 10 }) instead.
+// In the v1 API, each function can only serve one request per container, so
+// this will be the maximum concurrent request count.
+setGlobalOptions({ maxInstances: 10 });
 
-// Send email verification
-exports.sendEmailVerification = functions.auth.user().onCreate(async (user) => {
-  const email = user.email;
-  if (!email) return null;
+// Gemini AI Configuration
+// NOT: Flutter paketi v1beta API kullanıyor, bu yüzden gemini-pro kullanıyoruz
+// Cloud Functions'da @google/generative-ai paketi v1 API kullanabilir
+const GEMINI_MODEL_NAME = "gemini-pro"; // v1beta uyumluluğu için
+// Alternatif: Eğer Cloud Functions v1 API kullanıyorsa "gemini-1.5-flash" kullanılabilir
 
-  const actionCodeSettings = {
-    url: 'https://yourapp.com/verify-email', // Change to your app URL
-    handleCodeInApp: true,
-  };
-
+/**
+ * Chat mesajını Gemini AI ile analiz et
+ * Bu fonksiyon chat mesajlarını moderasyon için analiz eder
+ */
+exports.analyzeChatMessage = onCall(async (request) => {
   try {
-    const link = await admin.auth().generateEmailVerificationLink(email, actionCodeSettings);
+    const {message, apiKey} = request.data;
     
-    const mailOptions = {
-      from: functions.config().email.user,
-      to: email,
-      subject: 'TattInk - Email Doğrulama',
-      html: `
-        <h2>Email Adresinizi Doğrulayın</h2>
-        <p>TattInk hesabınızı aktifleştirmek için aşağıdaki linke tıklayın:</p>
-        <a href="${link}">Email Adresimi Doğrula</a>
-        <p>Bu link 24 saat geçerlidir.</p>
-      `,
-    };
+    if (!message) {
+      throw new Error("Mesaj içeriği gerekli");
+    }
+    
+    if (!apiKey) {
+      throw new Error("Gemini API anahtarı gerekli");
+    }
 
-    await transporter.sendMail(mailOptions);
-    console.log('Email verification sent to:', email);
+    // GoogleGenerativeAI instance oluştur
+    const genAI = new GoogleGenerativeAI(apiKey);
+    
+    // Güncellenmiş model adı ile model oluştur
+    const model = genAI.getGenerativeModel({model: GEMINI_MODEL_NAME});
+
+    // Prompt hazırla
+    const prompt = `Bu mesajı analiz et ve aşağıdaki kriterlere göre değerlendir:
+1. Mesaj uygunsuz içerik (küfür, nefret söylemi, spam) içeriyor mu?
+2. Mesaj kişisel bilgi (telefon, email, adres) paylaşıyor mu?
+3. Mesaj dış platform linkleri içeriyor mu?
+
+Mesaj: "${message}"
+
+Sadece JSON formatında cevap ver:
+{
+  "isSafe": true/false,
+  "reason": "Neden güvenli/güvensiz olduğu açıklaması",
+  "violations": ["ihlal1", "ihlal2"]
+}`;
+
+    // İçerik oluştur
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    logger.info("Gemini analiz tamamlandı", {messageLength: message.length});
+
+    return {
+      success: true,
+      analysis: text,
+    };
   } catch (error) {
-    console.error('Error sending email verification:', error);
+    logger.error("Gemini API Hatası", {
+      error: error.message,
+      code: error.code,
+      model: GEMINI_MODEL_NAME,
+    });
+
+    // 404 hatası için özel mesaj
+    if (error.code === 404 || error.message.includes("NOT_FOUND")) {
+      throw new Error(
+        `Gemini modeli bulunamadı. Model: ${GEMINI_MODEL_NAME}. ` +
+        `Lütfen API anahtarınızın geçerli olduğundan ve model adının doğru olduğundan emin olun.`
+      );
+    }
+
+    throw new Error(`Gemini API çağrısı başarısız: ${error.message}`);
   }
 });
 
-// Send artist approval email
-exports.sendArtistApprovalEmail = functions.firestore
-  .document('artist_approvals/{approvalId}')
-  .onUpdate(async (change, context) => {
-    const before = change.before.data();
-    const after = change.after.data();
+// Create and deploy your first functions
+// https://firebase.google.com/docs/functions/get-started
 
-    // Only send email if status changed to approved
-    if (before.status !== 'approved' && after.status === 'approved') {
-      const email = after.email;
-      const artistName = `${after.firstName} ${after.lastName}`;
-
-      try {
-        const mailOptions = {
-          from: functions.config().email.user,
-          to: email,
-          subject: 'TattInk - Artist Hesabınız Onaylandı',
-          html: `
-            <h2>Hesabınız Onaylandı!</h2>
-            <p>Merhaba ${artistName},</p>
-            <p>TattInk artist hesabınız başarıyla onaylandı. Artık paylaşım yapabilir, mesaj atabilir ve fotoğraf beğenebilirsiniz.</p>
-            <p>Uygulamaya giriş yaparak başlayabilirsiniz.</p>
-            <p>İyi çalışmalar!</p>
-          `,
-        };
-
-        await transporter.sendMail(mailOptions);
-        console.log('Approval email sent to:', email);
-      } catch (error) {
-        console.error('Error sending approval email:', error);
-      }
-    }
-
-    // Send rejection email if status changed to rejected
-    if (before.status !== 'rejected' && after.status === 'rejected') {
-      const email = after.email;
-      const artistName = `${after.firstName} ${after.lastName}`;
-      const rejectionReason = after.rejectionReason || 'Belirtilmemiş';
-
-      try {
-        const mailOptions = {
-          from: functions.config().email.user,
-          to: email,
-          subject: 'TattInk - Artist Başvurunuz Hakkında',
-          html: `
-            <h2>Başvurunuz Hakkında</h2>
-            <p>Merhaba ${artistName},</p>
-            <p>Maalesef artist başvurunuz onaylanamadı.</p>
-            <p><strong>Red Sebebi:</strong> ${rejectionReason}</p>
-            <p>Yeni bir başvuru oluşturabilir veya eksik bilgileri tamamlayarak tekrar başvurabilirsiniz.</p>
-            <p>Sorularınız için bizimle iletişime geçebilirsiniz.</p>
-          `,
-        };
-
-        await transporter.sendMail(mailOptions);
-        console.log('Rejection email sent to:', email);
-      } catch (error) {
-        console.error('Error sending rejection email:', error);
-      }
-    }
-
-    return null;
-  });
-
+// exports.helloWorld = onRequest((request, response) => {
+//   logger.info("Hello logs!", {structuredData: true});
+//   response.send("Hello from Firebase!");
+// });

@@ -1,22 +1,21 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-
-// --- IMPORTS ---
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import '../models/message_model.dart';
 import '../services/auth_service.dart';
 import '../services/image_service.dart';
-import '../services/notification_service.dart';
+import '../services/chat_moderation_service.dart'; // Eski manuel filtreleme için
+import '../services/gemini_service.dart'; // Yeni AI filtreleme için
 import '../utils/constants.dart';
 import '../theme/app_theme.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ChatScreen extends StatefulWidget {
   final String receiverId;
   final String receiverName;
-  final String? referenceImageUrl; // Eğer bir post üzerinden gelindiyse
+  final String? referenceImageUrl;
 
   const ChatScreen({
     super.key,
@@ -33,16 +32,19 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
-  
   String? _chatId;
-  bool _isLoading = false;
+  bool _isAnalyzing = false; // AI analizi sırasında çark göstermek için
 
   @override
   void initState() {
     super.initState();
-    _initializeChatId();
     
-    // Sayfa açıldıktan sonra eğer referans resim varsa otomatik gönder
+    // 🚀 GEMINI BAŞLATMA
+    // API anahtarını burada set ediyoruz.
+    GeminiService.setApiKey('AIzaSyBmCmTgJo922h6M7JfclA4hZQKOfAqLEyE');
+    
+    _initializeChat();
+    
     if (widget.referenceImageUrl != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _autoSendReferenceImage();
@@ -57,47 +59,60 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  // --- KRİTİK: ID OLUŞTURMA ---
-  // ID'leri alfabetik sıralayıp birleştiriyoruz.
-  // Böylece Ali-Veli sohbeti her iki taraf için de aynı ID'ye sahip oluyor.
-  void _initializeChatId() {
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-    if (currentUserId == null) return;
-
-    final List<String> ids = [currentUserId, widget.receiverId];
-    ids.sort(); // Alfabetik sırala
-    _chatId = ids.join("_"); // Birleştir
+  void _initializeChat() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final senderId = authService.currentUser?.uid;
+    if (senderId != null) {
+      _chatId = MessageModel.generateChatId(senderId, widget.receiverId);
+    }
   }
 
-  // Referans resmi (Post fotosu) gönderme
   Future<void> _autoSendReferenceImage() async {
     if (widget.referenceImageUrl != null && _chatId != null) {
-      // Kullanıcıya sormadan direkt gönderiyor, istersen onay kutusu ekleyebilirsin.
       await _sendFinalMessage(
-        content: "Bu gönderi hakkında konuşmak istiyorum.",
-        imagePath: widget.referenceImageUrl, // Upload etmeye gerek yok, zaten URL var
+        content: "Bu gönderi hakkında bilgi almak istiyorum.",
+        imagePath: widget.referenceImageUrl,
       );
     }
   }
 
-  // Galeriden/Kameradan resim seçip gönderme
+  Future<void> _markMessagesAsRead() async {
+    final currentUserId = Provider.of<AuthService>(context, listen: false).currentUser?.uid;
+    if (currentUserId != null && _chatId != null) {
+      final unreadQuery = await FirebaseFirestore.instance
+          .collection(AppConstants.collectionMessages)
+          .where('chatId', isEqualTo: _chatId)
+          .where('receiverId', isEqualTo: currentUserId)
+          .where('isRead', isEqualTo: false)
+          .get();
+
+      if (unreadQuery.docs.isNotEmpty) {
+        final batch = FirebaseFirestore.instance.batch();
+        for (var doc in unreadQuery.docs) {
+          batch.update(doc.reference, {'isRead': true});
+        }
+        await batch.commit();
+      }
+    }
+  }
+
   Future<void> _pickAndSendImage() async {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF252525),
+      backgroundColor: AppTheme.cardColor,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
-            leading: const Icon(Icons.camera_alt, color: Colors.white),
-            title: const Text('Fotoğraf Çek', style: TextStyle(color: Colors.white)),
-            onTap: () { Navigator.pop(context); _processImage(ImageSource.camera); },
+            leading: const Icon(Icons.camera_alt, color: AppTheme.textColor),
+            title: const Text('Fotoğraf Çek', style: TextStyle(color: AppTheme.textColor)),
+            onTap: () => _processImage(ImageSource.camera),
           ),
           ListTile(
-            leading: const Icon(Icons.photo_library, color: Colors.white),
-            title: const Text('Galeriden Seç', style: TextStyle(color: Colors.white)),
-            onTap: () { Navigator.pop(context); _processImage(ImageSource.gallery); },
+            leading: const Icon(Icons.photo_library, color: AppTheme.textColor),
+            title: const Text('Galeriden Seç', style: TextStyle(color: AppTheme.textColor)),
+            onTap: () => _processImage(ImageSource.gallery),
           ),
           const SizedBox(height: 20),
         ],
@@ -106,273 +121,229 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _processImage(ImageSource source) async {
+    Navigator.pop(context);
     final XFile? image = await _picker.pickImage(source: source, imageQuality: 70);
     if (image == null) return;
 
-    setState(() => _isLoading = true);
     final imageService = ImageService();
     try {
       final imageUrl = await imageService.uploadImage(
         imageBytes: await File(image.path).readAsBytes(),
         path: 'chat_images/$_chatId',
       );
-      await _sendFinalMessage(content: '📷 Fotoğraf', imagePath: imageUrl);
+      _sendFinalMessage(content: '📷 Fotoğraf', imagePath: imageUrl);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Resim yüklenemedi: $e")));
-    } finally {
-      setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _handleSendMessage() async {
+  // 🚀 AI DESTEKLİ GÜNCELLENMİŞ MESAJ GÖNDERME
+  Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
+    
+    // Mesaj kutusunu hemen temizle
     _messageController.clear();
-    await _sendFinalMessage(content: text);
+    
+    // AI analizi başlıyor, çarkı döndür
+    setState(() => _isAnalyzing = true);
+    
+    try {
+      // 1. Kademe: Manuel Filtreleme (Hızlı küfür kontrolü)
+      final tempFilteredText = ChatModerationService.filterMessage(text);
+      
+      // 2. Kademe: Gemini AI Filtreleme
+      // Servis içindeki 'filterMessage' artık yeni model (1.5-flash) ile çalışıyor.
+      final String finalFilteredText = await GeminiService.filterMessage(tempFilteredText);
+      
+      // 3. Kademe: Eğer AI "[YASAKLI İÇERİK]" döndürdüyse kullanıcıya uyarı ver
+      if (finalFilteredText == "[YASAKLI İÇERİK]") {
+        _showModerationWarning("Mesajınız topluluk kurallarına aykırı olduğu için engellendi.");
+      } else {
+        // AI'dan gelen temiz/filtrelenmiş mesajı gönder
+        await _sendFinalMessage(content: finalFilteredText);
+      }
+      
+    } catch (e) {
+      print('Mesaj gönderilirken hata oluştu: $e');
+      // AI hata verirse (internet vs.) orijinal mesajı gönderiyoruz
+      await _sendFinalMessage(content: text);
+    } finally {
+      // İşlem bitti, çarkı durdur
+      if (mounted) setState(() => _isAnalyzing = false);
+    }
   }
 
-  // --- ANA MESAJ GÖNDERME FONKSİYONU ---
+  /// Kullanıcıya moderasyon uyarısı gösteren küçük yardımcı fonksiyon
+  void _showModerationWarning(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+      ),
+    );
+  }
+
   Future<void> _sendFinalMessage({required String content, String? imagePath}) async {
     final authService = Provider.of<AuthService>(context, listen: false);
     final senderId = authService.currentUser?.uid;
-    
-    // Gönderen bilgilerini çek (Bildirimde adının görünmesi için)
     final sender = await authService.getUserModel(senderId ?? '');
 
     if (senderId == null || _chatId == null) return;
 
-    // 1. MESAJI KAYDET (chats -> ID -> messages)
-    final messageRef = FirebaseFirestore.instance
-        .collection(AppConstants.collectionChats)
-        .doc(_chatId)
-        .collection(AppConstants.collectionMessages) // 'messages'
-        .doc();
+    final messageRef = FirebaseFirestore.instance.collection(AppConstants.collectionMessages).doc();
     
-    final newMessageData = {
+    await messageRef.set({
       'id': messageRef.id,
       'chatId': _chatId!,
       'senderId': senderId,
       'receiverId': widget.receiverId,
+      'senderName': sender?.fullName ?? 'Kullanıcı',
+      'senderImageUrl': sender?.profileImageUrl,
       'content': content,
-      'imageUrl': imagePath, // Varsa resim URL'si
+      'imageUrl': imagePath,
       'isRead': false,
       'createdAt': FieldValue.serverTimestamp(),
-    };
-
-    await messageRef.set(newMessageData);
-
-    // 2. SOHBET ÖZETİNİ GÜNCELLE (Inbox Listesi İçin)
-    await FirebaseFirestore.instance
-        .collection(AppConstants.collectionChats)
-        .doc(_chatId)
-        .set({
-      'users': [senderId, widget.receiverId], 
-      'lastMessage': imagePath != null ? '📷 Fotoğraf' : content,
-      'lastMessageTime': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
-    // 3. BİLDİRİM GÖNDER
-    if (sender != null) {
-      // Username null ise 'Kullanıcı' yazsın diye önlem aldık
-      final senderName = sender.fullName.isNotEmpty ? sender.fullName : (sender.username ?? 'Müşteri');
-      
-      await NotificationService.sendMessageNotification(
-        senderId,
-        senderName,
-        sender.profileImageUrl,
-        widget.receiverId,
-        _chatId! 
-      );
-    }
+    });
     
-    // Listeyi aşağı kaydır
     if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        0, 
-        duration: const Duration(milliseconds: 300), 
-        curve: Curves.easeOut
-      );
+      _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
     }
-  }
-
-  // --- OKUNDU OLARAK İŞARETLEME ---
-  Future<void> _markMessagesAsRead() async {
-     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-     if (currentUserId == null || _chatId == null) return;
-
-     // Sadece karşı tarafın attığı ve okunmamış mesajları bul
-     final query = await FirebaseFirestore.instance
-         .collection(AppConstants.collectionChats)
-         .doc(_chatId)
-         .collection(AppConstants.collectionMessages)
-         .where('receiverId', isEqualTo: currentUserId)
-         .where('isRead', isEqualTo: false)
-         .get();
-
-     if (query.docs.isNotEmpty) {
-       final batch = FirebaseFirestore.instance.batch();
-       for (var doc in query.docs) {
-         batch.update(doc.reference, {'isRead': true});
-       }
-       await batch.commit();
-     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_chatId == null) return const SizedBox();
-
     return Scaffold(
-      backgroundColor: const Color(0xFF161616),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        title: Text(widget.receiverName), 
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        // --- CANLI İSİM GÖSTERİMİ ---
-        title: StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection(AppConstants.collectionUsers)
-              .doc(widget.receiverId)
-              .snapshots(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData || !snapshot.data!.exists) {
-              return Text(widget.receiverName, style: const TextStyle(color: Colors.white, fontSize: 16));
-            }
-            final data = snapshot.data!.data() as Map<String, dynamic>;
-            // Ad Soyad > Kullanıcı Adı > Stüdyo Adı
-            final displayName = data['fullName'] ?? data['username'] ?? data['studioName'] ?? widget.receiverName;
-            return Text(displayName, style: const TextStyle(color: Colors.white, fontSize: 16));
-          },
-        ),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        elevation: 0,
       ),
       body: Column(
         children: [
-          // --- MESAJ LİSTESİ ---
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection(AppConstants.collectionChats) // Ana: chats
-                  .doc(_chatId)                             // Doc: ID
-                  .collection(AppConstants.collectionMessages) // Alt: messages
-                  .orderBy('createdAt', descending: true) // En yeni en altta (reverse)
+                  .collection(AppConstants.collectionMessages)
+                  .where('chatId', isEqualTo: _chatId)
+                  .orderBy('createdAt', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
-                // Veri geldikçe okundu yap
                 if (snapshot.hasData) _markMessagesAsRead();
-                
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
-                }
+                if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
                 
                 final docs = snapshot.data?.docs ?? [];
 
-                if (docs.isEmpty) {
-                  return const Center(child: Text("Hadi bir merhaba de! 👋", style: TextStyle(color: Colors.grey)));
-                }
-
                 return ListView.builder(
                   controller: _scrollController,
-                  reverse: true, // Klavye açılınca mantıklı olan budur
+                  reverse: true,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
                     final data = docs[index].data() as Map<String, dynamic>;
-                    final bool isMe = data['senderId'] == FirebaseAuth.instance.currentUser?.uid;
-                    return _buildMessageBubble(data, isMe);
+                    final bool isMe = data['senderId'] == Provider.of<AuthService>(context, listen: false).currentUser?.uid;
+                    return _buildBubble(data, isMe);
                   },
                 );
               },
             ),
           ),
-
-          // --- GİRİŞ ALANI ---
-          if (_isLoading) const LinearProgressIndicator(color: AppTheme.primaryColor, backgroundColor: Colors.transparent),
-          
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            color: const Color(0xFF252525),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.add_a_photo, color: Colors.grey),
-                    onPressed: _pickAndSendImage,
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: "Mesaj yaz...",
-                        hintStyle: const TextStyle(color: Colors.grey),
-                        filled: true,
-                        fillColor: const Color(0xFF333333),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  CircleAvatar(
-                    backgroundColor: AppTheme.primaryColor,
-                    child: IconButton(
-                      icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                      onPressed: _handleSendMessage,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          _buildInputArea(),
         ],
       ),
     );
   }
 
-  Widget _buildMessageBubble(Map<String, dynamic> msg, bool isMe) {
-    final String content = msg['content'] ?? '';
-    final String? imageUrl = msg['imageUrl'];
+  Widget _buildBubble(Map<String, dynamic> data, bool isMe) {
+    const Color customMeColor = AppTheme.backgroundSecondaryColor;
 
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.all(12),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
         decoration: BoxDecoration(
-          color: isMe ? AppTheme.primaryColor : const Color(0xFF333333),
+          color: isMe ? customMeColor : AppTheme.cardColor,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
-            bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
-            bottomRight: isMe ? Radius.zero : const Radius.circular(16),
+            bottomLeft: Radius.circular(isMe ? 16 : 4),
+            bottomRight: Radius.circular(isMe ? 4 : 16),
           ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (imageUrl != null && imageUrl.isNotEmpty)
+            if (data['imageUrl'] != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                   child: CachedNetworkImage(
-                    imageUrl: imageUrl,
-                    placeholder: (c, u) => const SizedBox(height: 100, child: Center(child: CircularProgressIndicator(color: Colors.white))),
-                    errorWidget: (c, u, e) => const Icon(Icons.error, color: Colors.white),
+                    imageUrl: data['imageUrl'],
+                    placeholder: (context, url) => const SizedBox(
+                      height: 100, 
+                      child: Center(child: CircularProgressIndicator(strokeWidth: 2))
+                    ),
                   ),
                 ),
               ),
-            if (content.isNotEmpty)
-              Text(
-                content,
-                style: const TextStyle(color: Colors.white, fontSize: 15),
+            Text(
+              data['content'] ?? '',
+              style: const TextStyle(color: AppTheme.textColor, fontSize: 15),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInputArea() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      color: AppTheme.cardColor.withOpacity(0.5),
+      child: SafeArea(
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.add_a_photo, color: AppTheme.primaryLightColor),
+              onPressed: _pickAndSendImage,
+            ),
+            Expanded(
+              child: TextField(
+                controller: _messageController,
+                onSubmitted: (_) => _sendMessage(),
+                style: const TextStyle(color: AppTheme.textColor),
+                decoration: InputDecoration(
+                  hintText: 'Mesaj yazın...',
+                  hintStyle: const TextStyle(color: Colors.grey),
+                  filled: true,
+                  fillColor: AppTheme.cardColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
               ),
+            ),
+            const SizedBox(width: 4),
+            _isAnalyzing
+                ? const Padding(
+                    padding: EdgeInsets.all(12.0),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.textColor,
+                      ),
+                    ),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.send, color: AppTheme.primaryLightColor),
+                    onPressed: _sendMessage,
+                  ),
           ],
         ),
       ),

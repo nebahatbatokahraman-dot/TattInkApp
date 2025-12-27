@@ -1,3 +1,4 @@
+import '../../theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
@@ -414,7 +415,7 @@ Future<void> _approveArtist() async {
                                     ),
                                     // Kapatma butonu
                                     IconButton(
-                                      icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                                      icon: const Icon(Icons.close, color: AppTheme.textColor, size: 30),
                                       onPressed: () => Navigator.pop(context),
                                     ),
                                   ],

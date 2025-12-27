@@ -53,12 +53,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF252525),
-        title: const Text("Gönderiyi Sil", style: TextStyle(color: Colors.white)),
-        content: const Text("Bu gönderiyi silmek istediğine emin misin?", style: TextStyle(color: Colors.white70)),
+        backgroundColor: AppTheme.cardColor,
+        title: const Text("Gönderiyi Sil", style: TextStyle(color: AppTheme.textColor)),
+        content: const Text("Bu gönderiyi silmek istediğine emin misin?", style: TextStyle(color: AppTheme.textColor)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("İptal", style: TextStyle(color: Colors.white))),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Sil", style: TextStyle(color: Colors.red))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("İptal", style: TextStyle(color: AppTheme.textColor))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Sil", style: TextStyle(color: AppTheme.primaryColor))),
         ],
       ),
     );
@@ -99,11 +99,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final newCaption = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF252525),
-        title: const Text("Düzenle", style: TextStyle(color: Colors.white)),
+        backgroundColor: AppTheme.cardColor,
+        title: const Text("Düzenle", style: TextStyle(color: AppTheme.textColor)),
         content: TextField(
           controller: captionController,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: AppTheme.textColor),
           maxLines: 3,
           decoration: const InputDecoration(
             hintText: "Açıklama...",
@@ -113,7 +113,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("İptal", style: TextStyle(color: Colors.white))),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("İptal", style: TextStyle(color: AppTheme.textColor))),
           TextButton(onPressed: () => Navigator.pop(context, captionController.text), child: const Text("Kaydet", style: TextStyle(color: AppTheme.primaryColor))),
         ],
       ),
@@ -141,24 +141,24 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: const BackButton(color: Colors.white),
+        leading: const BackButton(color: AppTheme.textColor),
         title: Text(
           "${_currentPostIndex + 1} / ${widget.posts.length}", 
-          style: const TextStyle(color: Colors.white70, fontSize: 14)
+          style: const TextStyle(color: AppTheme.textColor, fontSize: 14)
         ),
         centerTitle: true,
         actions: [
           if (widget.isOwner)
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: Colors.white),
-              color: const Color(0xFF252525),
+              icon: const Icon(Icons.more_vert, color: AppTheme.textColor),
+              color: AppTheme.cardColor,
               onSelected: (value) {
                 if (value == 'edit') _editPost();
                 if (value == 'delete') _deletePost();
               },
               itemBuilder: (BuildContext context) => [
-                const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, color: Colors.white), SizedBox(width: 8), Text('Düzenle', style: TextStyle(color: Colors.white))])),
-                const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, color: Colors.redAccent), SizedBox(width: 8), Text('Sil', style: TextStyle(color: Colors.redAccent))])),
+                const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, color: AppTheme.textColor), SizedBox(width: 8), Text('Düzenle', style: TextStyle(color: AppTheme.textColor))])),
+                const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, color: AppTheme.primaryColor), SizedBox(width: 8), Text('Sil', style: TextStyle(color: AppTheme.primaryColor))])),
               ],
             ),
         ],
@@ -200,7 +200,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 child: Text(
                   displayCaption, 
                   textAlign: TextAlign.center, 
-                  style: const TextStyle(color: Colors.white, fontSize: 16)
+                  style: const TextStyle(color: AppTheme.textColor, fontSize: 16)
                 ),
               ),
             Padding(
@@ -223,7 +223,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           imageUrl: post.imageUrls.isNotEmpty ? post.imageUrls[0] : '',
           fit: BoxFit.contain,
           placeholder: (c, u) => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-          errorWidget: (c, u, e) => const Icon(Icons.error, color: Colors.white),
+          errorWidget: (c, u, e) => const Icon(Icons.error, color: AppTheme.textColor),
         ),
       );
     }
@@ -261,7 +261,7 @@ class _HorizontalImageSliderState extends State<_HorizontalImageSlider> {
                 imageUrl: widget.imageUrls[index],
                 fit: BoxFit.contain,
                 placeholder: (c, u) => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-                errorWidget: (c, u, e) => const Icon(Icons.error, color: Colors.white),
+                errorWidget: (c, u, e) => const Icon(Icons.error, color: AppTheme.textColor),
               ),
             );
           },
@@ -280,7 +280,7 @@ class _HorizontalImageSliderState extends State<_HorizontalImageSlider> {
                   shape: BoxShape.circle,
                   color: _currentImageIndex == entry.key
                       ? AppTheme.primaryColor
-                      : Colors.white.withOpacity(0.4),
+                      : AppTheme.textColor,
                 ),
               );
             }).toList(),

@@ -160,7 +160,7 @@ class _MainScreenState extends State<MainScreen> {
                 backgroundColor: AppTheme.primaryColor,
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               ),
-              child: const Text('Giriş Yap / Kayıt Ol', style: TextStyle(color: Colors.white)),
+              child: const Text('Giriş Yap / Kayıt Ol', style: TextStyle(color: AppTheme.textColor)),
             ),
           ],
         ),

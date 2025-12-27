@@ -1,3 +1,4 @@
+import '../../theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -75,7 +76,7 @@ class _ArtistRegisterScreenState extends State<ArtistRegisterScreen> {
   void _showDocumentSelectionSheet() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF161616),
+      backgroundColor: AppTheme.backgroundColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -84,24 +85,24 @@ class _ArtistRegisterScreenState extends State<ArtistRegisterScreen> {
           child: Wrap(
             children: <Widget>[
               ListTile(
-                leading: const Icon(Icons.camera_alt, color: Colors.white),
-                title: const Text('Kamera', style: TextStyle(color: Colors.white)),
+                leading: const Icon(Icons.camera_alt, color: AppTheme.textColor),
+                title: const Text('Kamera', style: TextStyle(color: AppTheme.textColor)),
                 onTap: () {
                   Navigator.pop(context);
                   _pickDocumentFromSource(ImageSource.camera);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library, color: Colors.white),
-                title: const Text('Galeri (Fotoğraf)', style: TextStyle(color: Colors.white)),
+                leading: const Icon(Icons.photo_library, color: AppTheme.textColor),
+                title: const Text('Galeri (Fotoğraf)', style: TextStyle(color: AppTheme.textColor)),
                 onTap: () {
                   Navigator.pop(context);
                   _pickDocumentFromSource(ImageSource.gallery);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.attach_file, color: Colors.white),
-                title: const Text('Dosya (PDF)', style: TextStyle(color: Colors.white)),
+                leading: const Icon(Icons.attach_file, color: AppTheme.textColor),
+                title: const Text('Dosya (PDF)', style: TextStyle(color: AppTheme.textColor)),
                 onTap: () {
                   Navigator.pop(context);
                   _pickDocumentFromFile();

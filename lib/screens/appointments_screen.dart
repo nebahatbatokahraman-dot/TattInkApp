@@ -71,7 +71,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
     // Rol kontrolü bitene kadar yükleniyor göster
     if (_isLoading) {
       return const Scaffold(
-        backgroundColor: Color(0xFF161616),
+        backgroundColor: AppTheme.backgroundColor,
         body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
       );
     }
@@ -79,11 +79,11 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
     // --- ARTIST GÖRÜNÜMÜ (MEVCUT TAB'LI YAPI) ---
     if (_isArtist) {
       return Scaffold(
-        backgroundColor: const Color(0xFF161616),
+        backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(
-          title: const Text('Randevular', style: TextStyle(color: Colors.white)),
-          backgroundColor: const Color(0xFF161616),
-          iconTheme: const IconThemeData(color: Colors.white),
+          title: const Text('Randevular', style: TextStyle(color: AppTheme.textColor)),
+          backgroundColor: AppTheme.backgroundColor,
+          iconTheme: const IconThemeData(color: AppTheme.textColor),
           bottom: TabBar(
             controller: _tabController,
             labelColor: AppTheme.primaryColor,
@@ -108,11 +108,11 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
     // --- MÜŞTERİ GÖRÜNÜMÜ (TEK LİSTE - TAB YOK) ---
     else {
       return Scaffold(
-        backgroundColor: const Color(0xFF161616),
+        backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(
-          title: const Text('Randevularım', style: TextStyle(color: Colors.white)),
-          backgroundColor: const Color(0xFF161616),
-          iconTheme: const IconThemeData(color: Colors.white),
+          title: const Text('Randevularım', style: TextStyle(color: AppTheme.textColor)),
+          backgroundColor: AppTheme.backgroundColor,
+          iconTheme: const IconThemeData(color: AppTheme.textColor),
         ),
         // Müşteri sadece kendi aldığı randevuları görür (isArtistView: false)
         body: _buildAppointmentList(currentUserId, isArtistView: false),
@@ -137,7 +137,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
         }
 
         if (snapshot.hasError) {
-          return Center(child: Text('Hata: ${snapshot.error}', style: const TextStyle(color: Colors.white)));
+          return Center(child: Text('Hata: ${snapshot.error}', style: const TextStyle(color: AppTheme.textColor)));
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -200,7 +200,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
     }
 
     return Card(
-      color: const Color(0xFF252525),
+      color: AppTheme.cardColor,
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
@@ -221,7 +221,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
                         : ((appointment.artistName != null && appointment.artistName!.isNotEmpty) 
                             ? appointment.artistName! 
                             : 'Artist'),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    style: const TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold, fontSize: 16),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -245,7 +245,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
                 const SizedBox(width: 8),
                 Text(
                   DateFormat('dd MMMM yyyy, HH:mm', 'tr_TR').format(appointment.appointmentDate),
-                  style: const TextStyle(color: Colors.white70),
+                  style: const TextStyle(color: AppTheme.textColor),
                 ),
               ],
             ),
@@ -288,7 +288,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
                   ElevatedButton(
                     onPressed: () => _updateStatus(appointment, AppointmentStatus.confirmed),
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                    child: const Text('Onayla', style: TextStyle(color: Colors.white)),
+                    child: const Text('Onayla', style: TextStyle(color: AppTheme.textColor)),
                   ),
                 ],
               ),
@@ -343,10 +343,10 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
           }
 
           await NotificationService.sendNotification(
+            currentUserId: currentUserId,
+            currentUserName: senderName,
+            currentUserAvatar: senderAvatar,
             receiverId: appointment.customerId,
-            senderId: currentUserId,
-            senderName: senderName,
-            senderAvatar: senderAvatar,
             title: title,
             body: '$senderName $body',
             type: 'appointment_update',

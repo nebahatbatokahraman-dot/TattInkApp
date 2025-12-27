@@ -1,3 +1,4 @@
+import '../../theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/artist_approval_model.dart';
@@ -102,7 +103,7 @@ class ArtistApprovalScreen extends StatelessWidget {
                             padding: EdgeInsets.zero,
                             label: Text(
                               approval.isApprovedArtist ? 'Onaylı Hesap' : 'Yeni Kayıt',
-                              style: const TextStyle(fontSize: 10, color: Colors.white),
+                              style: const TextStyle(fontSize: 10, color: AppTheme.textColor),
                             ),
                             backgroundColor: approval.isApprovedArtist ? Colors.blue : Colors.orange,
                           ),

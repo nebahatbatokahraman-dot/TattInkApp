@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image/image.dart' as img;
 import '../utils/constants.dart';
+import '../theme/app_theme.dart';
 
 class ImageService {
   final FirebaseStorage _storage = FirebaseStorage.instance;

@@ -9,7 +9,7 @@ import 'package:intl/intl.dart';
 import '../models/appointment_model.dart';
 import '../services/auth_service.dart';
 import '../services/image_service.dart';
-import '../services/notification_service.dart'; // Bildirim servisi eklendi
+import '../services/notification_service.dart';
 import '../utils/constants.dart';
 import '../theme/app_theme.dart';
 
@@ -56,12 +56,12 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
         return Theme(
           data: ThemeData.dark().copyWith(
             colorScheme: const ColorScheme.dark(
-              primary: AppTheme.primaryColor,
-              onPrimary: Colors.white,
-              surface: Color(0xFF252525),
-              onSurface: Colors.white,
+              primary: AppTheme.primaryLightColor,
+              onPrimary: AppTheme.textDarkColor,
+              surface: AppTheme.cardColor,
+              onSurface: AppTheme.textColor,
             ),
-            dialogBackgroundColor: const Color(0xFF252525),
+            dialogBackgroundColor: AppTheme.cardColor,
           ),
           child: child!,
         );
@@ -78,7 +78,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
   void _showCustomTimePicker() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF202020),
+      backgroundColor: AppTheme.backgroundSecondaryColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -95,7 +95,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
             children: [
               const Text(
                 "Saat Seçin",
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(color: AppTheme.textColor, fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               Expanded(
@@ -117,15 +117,15 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                         Navigator.pop(context);
                       },
                       style: OutlinedButton.styleFrom(
-                        backgroundColor: isSelected ? AppTheme.primaryColor : Colors.transparent,
-                        side: const BorderSide(color: AppTheme.primaryColor),
+                        backgroundColor: isSelected ? AppTheme.primaryLightColor : Colors.transparent,
+                        side: const BorderSide(color: AppTheme.primaryLightColor),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         padding: EdgeInsets.zero,
                       ),
                       child: Text(
                         "${time.hour.toString().padLeft(2, '0')}:00",
                         style: TextStyle(
-                          color: isSelected ? Colors.white : AppTheme.primaryColor,
+                          color: isSelected ? AppTheme.textDarkColor : AppTheme.primaryLightColor,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -223,19 +223,15 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
       // 1. Randevuyu Kaydet
       await appointmentRef.set(appointment.toMap());
 
-      // 2. BİLDİRİM GÖNDER (GÜNCELLENDİ: senderName ve senderAvatar eklendi)
+      // 2. Bildirim Gönder (Düzeltildi)
       await NotificationService.sendNotification(
-        receiverId: widget.artistId, // Kime: Artist
-        senderId: customerId,        // Kimden: Müşteri
-        
-        // --- BU İKİ SATIR EKLENDİ ---
-        senderName: customerName,    // Artık bildirimde isim görünecek
-        senderAvatar: customer.profileImageUrl, // Varsa resmi de görünecek
-        // ----------------------------
-        
+        receiverId: widget.artistId,
+        currentUserId: customerId,
+        currentUserName: customerName,
+        currentUserAvatar: customer.profileImageUrl,
+        type: 'appointment_request',
         title: 'Yeni Randevu Talebi',
         body: '$customerName sizden ${DateFormat('dd/MM HH:mm').format(appointmentDate)} tarihi için randevu talep etti.',
-        type: 'appointment_request',
         relatedId: appointmentRef.id,
       );
 
@@ -262,10 +258,10 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Container(
-      // Ekranın %50'si kadar yükseklik (İsteğine göre değiştirebilirsin)
+      // Ekranın %50'si kadar yükseklik
       height: screenHeight * 0.50, 
       decoration: const BoxDecoration(
-        color: Color(0xFF161616),
+        color: AppTheme.backgroundColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Scaffold(
@@ -304,7 +300,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                           onPressed: () => setState(() => _selectedImageFile = null),
                           icon: const CircleAvatar(
                             backgroundColor: Colors.black54,
-                            child: Icon(Icons.close, color: Colors.white, size: 20),
+                            child: Icon(Icons.close, color: AppTheme.textColor, size: 20),
                           ),
                         ),
                     ],
@@ -318,20 +314,20 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                       child: OutlinedButton(
                         onPressed: _selectDate,
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppTheme.primaryColor),
+                          side: const BorderSide(color: AppTheme.primaryLightColor),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.calendar_today, color: AppTheme.primaryColor),
+                            const Icon(Icons.calendar_today, color: AppTheme.primaryLightColor),
                             const SizedBox(width: 8), 
                             Text(
                               _selectedDate != null
                                   ? DateFormat('dd/MM/yyyy').format(_selectedDate!)
                                   : 'Tarih Seç',
-                              style: const TextStyle(color: Colors.white),
+                              style: const TextStyle(color: AppTheme.textColor),
                             ),
                           ],
                         ),
@@ -343,20 +339,20 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                       child: OutlinedButton(
                         onPressed: _showCustomTimePicker,
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppTheme.primaryColor),
+                          side: const BorderSide(color: AppTheme.primaryLightColor),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.access_time, color: AppTheme.primaryColor),
+                            const Icon(Icons.access_time, color: AppTheme.primaryLightColor),
                             const SizedBox(width: 8),
                             Text(
                               _selectedTime != null
                                   ? "${_selectedTime!.hour.toString().padLeft(2,'0')}:00"
                                   : 'Saat Seç',
-                              style: const TextStyle(color: Colors.white),
+                              style: const TextStyle(color: AppTheme.textColor),
                             ),
                           ],
                         ),
@@ -376,14 +372,14 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                         child: TextFormField(
                           controller: _notesController,
                           maxLines: 4,
-                          style: const TextStyle(color: Colors.white),
+                          style: const TextStyle(color: AppTheme.textColor),
                           decoration: InputDecoration(
                             labelText: 'Notlar (Opsiyonel)',
                             labelStyle: const TextStyle(color: Colors.grey),
                             hintText: 'Dövme fikri, boyutu vb...',
                             hintStyle: TextStyle(color: Colors.grey[700]),
                             filled: true,
-                            fillColor: const Color(0xFF252525),
+                            fillColor: AppTheme.cardColor,
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                           ),
                         ),
@@ -396,14 +392,14 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                         child: Container(
                           width: 50,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF252525),
+                            color: AppTheme.cardColor,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppTheme.primaryColor.withOpacity(0.5)),
+                            border: Border.all(color: AppTheme.primaryLightColor.withOpacity(0.5)),
                           ),
                           child: const Column( 
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.add_a_photo, color: AppTheme.primaryColor),
+                              Icon(Icons.add_a_photo, color: AppTheme.primaryLightColor),
                             ],
                           ),
                         ),
@@ -427,11 +423,11 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.textColor),
                           )
                         : const Text(
                             'Randevu Talebi Gönder',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDarkColor),
                           ),
                   ),
                 ),
