@@ -110,7 +110,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     return Padding(
       // Fotoğrafın tam 'Geri' butonuyla aynı hizada başlaması için
       // sadece sistem çubuğu yüksekliği kadar boşluk bırakıyoruz.
-      padding: EdgeInsets.only(top: statusBarHeight + 25.0),
+      padding: EdgeInsets.only(top: statusBarHeight + 50.0),
       child: Column(
         children: [
           // Resim Alanı (Genişlik kadar yükseklik - Kare)

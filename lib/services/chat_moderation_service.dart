@@ -5,19 +5,23 @@
 class ChatModerationService {
   // Engelenecek kelimeler veya desenler
   static const List<String> _forbiddenKeywords = [
-    // Küfürler (örnekler, genişletilebilir)
-    'ibn', 'p*ç', 's*ktir', 'amk', 'orospu',
+    // Küfürler (genişletilmiş liste)
+    'ibn', 'p*ç', 's*ktir', 'amk', 'orospu', 'piç', 'sürtük', 'yarrak', 'sikerim',
+    'fuck', 'shit', 'bitch', 'asshole', 'damn', 'bastard', 'motherfucker',
+    'ananı', 'babanı', 'bacını', 'kahpe', 'fahişe', 'göt', 'yarak',
     // Dış bağlantılar ve iletişim bilgileri
     'instagram.com', 'ig:', '@gmail', '@hotmail', '@yahoo',
-    'www.', 'http://', 'https://',
+    'www.', 'http://', 'https://', 'iban',
     // Spam desenleri
     'kazan', 'bedava', 'ücretsiz', 'tıkla', 'şimdi tıkla',
   ];
 
   // Kritik ihlaller - mesajı direkt engelle
   static const List<String> _criticalKeywords = [
-    // Çok ağır küfürler veya tehditler
-    // Bu liste boş bırakıldı, AI servisi bunları yakalayacak
+    // Çok ağır küfürler - direkt engelle
+    'ananı sikeyim', 'babanı sikeyim', 'bacını sikeyim', 'sikeyim seni',
+    'motherfucker', 'son of a bitch', 'go fuck yourself',
+    'öl', 'geber', 'kır', 'dövdürürüm', 'tehdit', 'şantaj',
   ];
 
   // Telefon numaralarını yakalamak için Regex (05xx... gibi)
@@ -90,7 +94,7 @@ class ChatModerationService {
   /// Mesajın uzunluğunu kontrol et (spam önleme)
   static bool isMessageTooLong(String text) {
     // 1000 karakterden uzun mesajlar spam olabilir
-    return text.length > 1000;
+    return text.length > 300;
   }
   
   /// Mesajın çok kısa olup olmadığını kontrol et (spam önleme)

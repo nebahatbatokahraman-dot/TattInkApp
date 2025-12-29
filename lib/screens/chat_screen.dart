@@ -201,17 +201,31 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _isAnalyzing = true);
     
     try {
+      // GEÇİCİ: Sadece temel filtreleme kullan (Gemini API çalışmıyor)
       final tempFilteredText = ChatModerationService.filterMessage(text);
-      final String finalFilteredText = await GeminiService.filterMessage(tempFilteredText);
-      
-      if (finalFilteredText == "[YASAKLI İÇERİK]") {
+      debugPrint('🔍 Temel filtreleme sonucu: "$tempFilteredText"');
+
+      // Gemini filtresi geçici olarak devre dışı
+      // final String finalFilteredText = await GeminiService.filterMessage(tempFilteredText);
+      final String finalFilteredText = tempFilteredText;
+
+      debugPrint('✅ Final mesaj: "$finalFilteredText"');
+
+      // İhlal kontrolü
+      final isViolating = ChatModerationService.isMessageViolating(finalFilteredText);
+      final isTooLong = ChatModerationService.isMessageTooLong(finalFilteredText);
+      final isTooShort = ChatModerationService.isMessageTooShort(finalFilteredText);
+
+      debugPrint('🔎 İhlal kontrolü: violating=$isViolating, tooLong=$isTooLong, tooShort=$isTooShort');
+
+      if (isViolating || isTooLong || isTooShort) {
         _showModerationWarning("Mesajınız topluluk kurallarına aykırı olduğu için engellendi.");
       } else {
         await _sendFinalMessage(content: finalFilteredText);
       }
-      
+
     } catch (e) {
-      print('Hata: $e');
+      debugPrint('❌ Filtreleme hatası: $e');
       await _sendFinalMessage(content: text);
     } finally {
       if (mounted) setState(() => _isAnalyzing = false);
