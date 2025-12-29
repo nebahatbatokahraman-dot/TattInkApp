@@ -223,7 +223,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
       // 1. Randevuyu Kaydet
       await appointmentRef.set(appointment.toMap());
 
-      // 2. Bildirim Gönder (Düzeltildi)
+      // 2. Bildirim Gönder
       await NotificationService.sendNotification(
         receiverId: widget.artistId,
         currentUserId: customerId,

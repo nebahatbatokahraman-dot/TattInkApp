@@ -8,43 +8,37 @@ class AppConstants {
   static const String roleArtistUnapproved = 'artist_unapproved';
   static const String roleAdmin = 'admin';
   
-  // Service Types (Eski sabitler - Kod içinde kıyaslama yaparken lazım olabilir)
-  static const String serviceTattoo = 'dövme';
-  static const String servicePiercing = 'piercing';
-  static const String serviceTemporaryTattoo = 'geçici_dövme';
-  static const String serviceMakeup = 'makyaj';
-  static const String serviceKina = 'kına';
-  static const String serviceImplant = 'implant';
+  // --- MASTER DATA: HİZMET VE STİL EŞLEŞTİRMESİ ---
+  // Burası uygulamanın beynidir. 
+  static const Map<String, List<String>> applicationStylesMap = {
+    'Dövme': [
+      'KAMPANYA','Realistik', 'Minimal', 'Old School', 'Tribal', 'Watercolor', 
+      'Blackwork', 'Dotwork', 'Japanese', 'Neo Traditional', 'Portrait', 
+      'Geometrik', 'Yazı', 'Fine Line', 'Cover Up', 'Abstract', 'Celtic',
+      'Biyomekanik', 'Sketch'
+    ],
+    'Piercing': [
+      'KAMPANYA', 'Kulak', 'Burun', 'Göbek', 'Dudak', 'Kaş', 'Dil', 
+      'Endüstriyel', 'Hızma', 'Septum', 'Tragus', 'Helix', 'Implant'
+    ],
+    'Makyaj': [
+      'KAMPANYA', 'Microblading', 'Dudak Renklendirme', 'Eyeliner', 
+      'Dipliner', 'Kaş Pudralama'
+    ],
+    'Geçici Dövme': [
+      'Hint Kınası', 'Airbrush', 'Spray', 'Sticker'
+    ],
+  };
+
+  // --- DİNAMİK GETTERLAR (HATALARI ÇÖZEN KISIM) ---
   
+  // 1. Uygulama Listesi
+  static List<String> get applications => applicationStylesMap.keys.toList();
 
-  // --- YENİ EKLENEN MASTER LİSTELER (Filtre ve Profil İçin) ---
-  // Artistin seçebileceği ve müşterinin filtreleyebileceği ana liste
-  static const List<String> applications = [
-    'Dövme',
-    'Piercing',
-    'Geçici dövme',
-    'Makyaj',
-    'Kına',
-    'Implant',
-  ];
+  // 2. TÜM STİLLER (Eski kodların 'AppConstants.styles' diyerek aradığı liste)
+  // Haritadaki tüm stilleri tek bir listede birleştirir.
+  static List<String> get styles => applicationStylesMap.values.expand((x) => x).toSet().toList();
 
-  static const List<String> styles = [
-    'KAMPANYA',
-    'Minimalist',
-    'Dotwork',
-    'Realist',
-    'Tribal',
-    'Blackwork',
-    'Watercolor',
-    'Trash Polka',
-    'Fine Line',
-    'Traditional',
-    'Cover up',
-    'Linework',
-    'Abstract',
-    'Celtic',
-    'Text',
-  ];
   // -----------------------------------------------------------
 
   // Sort Options
@@ -74,7 +68,7 @@ class AppConstants {
   static const String storageDocuments = 'documents';
   static const String storageAppImages = 'app_images';
   
-  // Logo URL
+  // Logo URL (Hata veren eksik değişken buydu)
   static const String logoUrl = 'https://firebasestorage.googleapis.com/v0/b/tattinkapp.firebasestorage.app/o/app_images%2Flogo.png?alt=media&token=b58cd8b2-e470-4d77-abca-b88540168eab';
   
   // Image Constraints
@@ -91,12 +85,5 @@ class AppConstants {
     'Diğer',
   ];
 
-  // Gemini AI Configuration
-  // NOT: google_generative_ai v0.4.7 paketi v1beta API kullanıyor
-  // v1beta API'sinde gemini-1.5-flash desteklenmiyor, bu yüzden gemini-pro kullanıyoruz
   static const String geminiModelName = 'gemini-pro';
-  // Alternatif modeller (v1beta API için):
-  // - 'gemini-pro' (desteklenen, stabil model)
-  // - 'gemini-1.5-pro' (v1beta'da desteklenmeyebilir)
-  // - 'gemini-1.5-flash' (sadece v1 API'de destekleniyor)
 }

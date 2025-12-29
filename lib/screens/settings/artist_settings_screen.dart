@@ -4,13 +4,14 @@ import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/slide_route.dart';
 import '../auth/login_screen.dart';
-import 'artist_edit_profile_screen.dart'; // Artist Edit sayfası
+import 'artist_edit_profile_screen.dart';
 import 'email_password_screen.dart';
-import 'notifications_screen.dart'; // Import yolu doğru
 import 'language_screen.dart';
 import 'help_screen.dart';
 
-// DÜZELTME: Sınıf ismini ArtistSettingsScreen yaptık
+// DOĞRU IMPORT:
+import 'notification_settings_screen.dart'; 
+
 class ArtistSettingsScreen extends StatelessWidget {
   const ArtistSettingsScreen({super.key});
 
@@ -25,6 +26,9 @@ class ArtistSettingsScreen extends StatelessWidget {
         ),
       ),
       body: ListView(
+        // 1. DÜZELTME: Kaydırmayı (Scroll) tamamen kapattık. Liste sabit duracak.
+        physics: const NeverScrollableScrollPhysics(),
+        
         padding: const EdgeInsets.all(16.0),
         children: [
           _buildSectionHeader('Hesap'),
@@ -54,6 +58,8 @@ class ArtistSettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           _buildSectionHeader('Tercihler'),
+          
+          // --- BİLDİRİM AYARLARI KISMI ---
           _buildSettingsTile(
             context,
             icon: Icons.notifications,
@@ -62,11 +68,11 @@ class ArtistSettingsScreen extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                // DÜZELTME: Sınıf ismini NotificationsSettingsScreen yaptık
-                SlideRoute(page: const NotificationsSettingsScreen()),
+                SlideRoute(page: const NotificationSettingsScreen()),
               );
             },
           ),
+          
           _buildSettingsTile(
             context,
             icon: Icons.language,
@@ -123,12 +129,19 @@ class ArtistSettingsScreen extends StatelessWidget {
   }) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(icon, color: AppTheme.primaryColor),
-        title: Text(title),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: onTap,
+      // 2. DÜZELTME: Splash (Dalga) efektini kaldırmak için Theme ile sarmaladık
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          splashColor: Colors.transparent, // Tıklama dalgası yok
+          highlightColor: Colors.transparent, // Basılı tutma griliği yok
+        ),
+        child: ListTile(
+          leading: Icon(icon, color: AppTheme.primaryColor),
+          title: Text(title),
+          subtitle: Text(subtitle),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: onTap,
+        ),
       ),
     );
   }
@@ -138,44 +151,51 @@ class ArtistSettingsScreen extends StatelessWidget {
     
     return Card(
       margin: const EdgeInsets.only(top: 16),
-      child: ListTile(
-        leading: const Icon(Icons.logout, color: Colors.red),
-        title: const Text(
-          'Çıkış Yap',
-          style: TextStyle(color: Colors.red),
+      // BURADA DA Splash efektini kaldırdık
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
         ),
-        onTap: () async {
-          final shouldLogout = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Çıkış Yap'),
-              content: const Text('Çıkış yapmak istediğinize emin misiniz?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('İptal'),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
+        child: ListTile(
+          leading: const Icon(Icons.logout, color: AppTheme.primaryColor),
+          title: const Text(
+            'Çıkış Yap',
+            style: TextStyle(color: AppTheme.primaryColor),
+          ),
+          onTap: () async {
+            final shouldLogout = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Çıkış Yap'),
+                content: const Text('Çıkış yapmak istediğinize emin misiniz?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('İptal'),
                   ),
-                  child: const Text('Çıkış Yap'),
-                ),
-              ],
-            ),
-          );
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                    ),
+                    child: const Text('Çıkış Yap'),
+                  ),
+                ],
+              ),
+            );
 
-          if (shouldLogout == true && context.mounted) {
-            await authService.signOut();
-            if (context.mounted) {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                (route) => false,
-              );
+            if (shouldLogout == true && context.mounted) {
+              await authService.signOut();
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
             }
-          }
-        },
+          },
+        ),
       ),
     );
   }

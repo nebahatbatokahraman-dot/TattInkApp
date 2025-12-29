@@ -56,7 +56,7 @@ class AppTheme {
     // 0.0 -> Başlangıç
     // 0.5 -> Tam orta (Işığın en yoğun olduğu yer)
     // 1.0 -> Bitiş
-    stops: [0.3, 0.4, 0.5], 
+    stops: [0.2, 0.5, 0.8], 
   );
 
 

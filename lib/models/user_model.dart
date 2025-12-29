@@ -14,13 +14,18 @@ class UserModel {
   final String? studioAddress;
   final String? district;
   final String? city;
-  final double? latitude;
-  final double? longitude;
+  
+  // --- HARİTA VE ADRES İÇİN GEREKLİ ALANLAR ---
+  final String? address;   // Açık adres
+  final double? latitude;  // Enlem
+  final double? longitude; // Boylam
+  // -------------------------------------------
+
   final String? instagramUsername;
   final String? profileImageUrl;
   final String? coverImageUrl;
   final List<String> portfolioImages;
-  final List<String> studioImageUrls; // YENİ EKLENDİ (Stüdyo fotoları için)
+  final List<String> studioImageUrls;
   final List<String> services; 
   final List<String> applications; 
   final List<String> applicationStyles; 
@@ -47,13 +52,18 @@ class UserModel {
     this.studioAddress,
     this.district,
     this.city,
+    
+    // --- Constructor'a Eklendi ---
+    this.address,
     this.latitude,
     this.longitude,
+    // -----------------------------
+
     this.instagramUsername,
     this.profileImageUrl,
     this.coverImageUrl,
     this.portfolioImages = const [],
-    this.studioImageUrls = const [], // YENİ EKLENDİ
+    this.studioImageUrls = const [],
     this.services = const [],
     this.applications = const [], 
     this.applicationStyles = const [], 
@@ -83,13 +93,18 @@ class UserModel {
       'studioAddress': studioAddress,
       'district': district,
       'city': city,
+      
+      // --- Veritabanına Yazma ---
+      'address': address,
       'latitude': latitude,
       'longitude': longitude,
+      // --------------------------
+
       'instagramUsername': instagramUsername,
       'profileImageUrl': profileImageUrl,
       'coverImageUrl': coverImageUrl,
       'portfolioImages': portfolioImages,
-      'studioImageUrls': studioImageUrls, // YENİ EKLENDİ
+      'studioImageUrls': studioImageUrls,
       'services': services,
       'applications': applications,
       'applicationStyles': applicationStyles,
@@ -120,13 +135,18 @@ class UserModel {
       studioAddress: map['studioAddress'],
       district: map['district'],
       city: map['city'],
-      latitude: map['latitude']?.toDouble(),
-      longitude: map['longitude']?.toDouble(),
+      
+      // --- DÜZELTME: BURADA 'data' DEĞİL 'map' KULLANILMALI ---
+      address: map['address'], 
+      latitude: (map['latitude'] as num?)?.toDouble(), 
+      longitude: (map['longitude'] as num?)?.toDouble(),
+      // -------------------------------------------------------
+
       instagramUsername: map['instagramUsername'],
       profileImageUrl: map['profileImageUrl'],
       coverImageUrl: map['coverImageUrl'],
       portfolioImages: List<String>.from(map['portfolioImages'] ?? []),
-      studioImageUrls: List<String>.from(map['studioImageUrls'] ?? []), // YENİ EKLENDİ
+      studioImageUrls: List<String>.from(map['studioImageUrls'] ?? []),
       services: List<String>.from(map['services'] ?? []),
       applications: List<String>.from(map['applications'] ?? []),
       applicationStyles: List<String>.from(map['applicationStyles'] ?? []),
@@ -161,13 +181,18 @@ class UserModel {
     String? studioAddress,
     String? district,
     String? city,
+    
+    // --- copyWith Parametrelerine Eklendi ---
+    String? address,
     double? latitude,
     double? longitude,
+    // --------------------------------------
+
     String? instagramUsername,
     String? profileImageUrl,
     String? coverImageUrl,
     List<String>? portfolioImages,
-    List<String>? studioImageUrls, // YENİ EKLENDİ
+    List<String>? studioImageUrls,
     List<String>? services,
     List<String>? applications,
     List<String>? applicationStyles,
@@ -194,13 +219,18 @@ class UserModel {
       studioAddress: studioAddress ?? this.studioAddress,
       district: district ?? this.district,
       city: city ?? this.city,
+      
+      // --- copyWith Gövdesine Eklendi ---
+      address: address ?? this.address,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+      // ----------------------------------
+
       instagramUsername: instagramUsername ?? this.instagramUsername,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       coverImageUrl: coverImageUrl ?? this.coverImageUrl,
       portfolioImages: portfolioImages ?? this.portfolioImages,
-      studioImageUrls: studioImageUrls ?? this.studioImageUrls, // YENİ EKLENDİ
+      studioImageUrls: studioImageUrls ?? this.studioImageUrls,
       services: services ?? this.services,
       applications: applications ?? this.applications,
       applicationStyles: applicationStyles ?? this.applicationStyles,

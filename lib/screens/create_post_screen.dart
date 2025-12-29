@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/image_service.dart';
 import '../models/user_model.dart';
-import '../utils/constants.dart'; // Master Data buradan geliyor
+import '../utils/constants.dart'; // AppConstants buradan geliyor
 import '../theme/app_theme.dart';
 
 class CreatePostScreen extends StatefulWidget {
@@ -24,13 +24,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _isUploading = false;
   UserModel? _currentUser;
+  
+  // AppBar Kaydırma Durumu
+  bool _isScrolled = false;
 
-  // --- Filtreleme Seçenekleri ---
+  // Seçimler
   String? _selectedApplication; 
   final List<String> _selectedStyles = [];
-
-  // ESKİ SABİT LİSTELER KALDIRILDI
-  // Artık AppConstants.applications ve AppConstants.styles kullanılıyor.
 
   @override
   void initState() {
@@ -57,6 +57,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
+  // --- OTOMATİK VERİ ÇEKME FONKSİYONU ---
+  List<String> _getRelevantStyles() {
+    if (_selectedApplication == null) return [];
+    
+    // AppConstants içindeki haritadan otomatik çekiyoruz
+    if (AppConstants.applicationStylesMap.containsKey(_selectedApplication)) {
+      return AppConstants.applicationStylesMap[_selectedApplication]!;
+    }
+    return [];
+  }
+
   Future<void> _pickImages() async {
     try {
       final List<XFile> images = await _picker.pickMultiImage();
@@ -66,11 +77,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         });
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Görsel seçilirken hata: $e')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e')));
     }
   }
 
@@ -83,26 +90,18 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         });
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Video seçilirken hata: $e')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e')));
     }
   }
 
   Future<void> _uploadPost() async {
     if (_selectedImages.isEmpty && _selectedVideos.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lütfen en az bir görsel veya video seçin')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lütfen en az bir görsel veya video seçin')));
       return;
     }
 
     if (_selectedApplication == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lütfen bir uygulama türü seçin')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lütfen bir uygulama türü seçin')));
       return;
     }
 
@@ -114,7 +113,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       final imageService = ImageService();
       final List<String> imageUrls = [];
 
-      // Görselleri yükle
       for (final imageFile in _selectedImages) {
         final optimizedImage = await imageService.optimizeImage(imageFile);
         final url = await imageService.uploadImage(
@@ -126,14 +124,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
       final postRef = FirebaseFirestore.instance.collection(AppConstants.collectionPosts).doc();
 
-      double currentArtistScore = (_currentUser!.totalLikes ?? 0).toDouble();
-
-      // Caption'ı hazırla: Filtrelerin %100 çalışması için seçilen etiketleri metnin sonuna görünmez şekilde ekleyebiliriz
-      // Veya olduğu gibi bırakırız. Şimdilik olduğu gibi bırakıyoruz çünkü HomeScreen'i güncelledik.
       String finalCaption = _captionController.text.trim();
-      
-      // ÖNEMLİ: Seçilen etiketleri caption'a ekleyerek metin tabanlı aramayı güçlendiriyoruz.
-      // Kullanıcı "Dövme" seçtiyse ama metne yazmadıysa bile aramada çıksın diye.
+      // Aramada kolay bulunması için etiketleri sona ekliyoruz
       String tagsSuffix = "\n\n${_selectedApplication ?? ''} ${_selectedStyles.join(' ')}";
       finalCaption = "$finalCaption $tagsSuffix".trim();
 
@@ -144,7 +136,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         'artistProfileImageUrl': _currentUser!.profileImageUrl,
         'imageUrls': imageUrls,
         'videoUrls': [],
-        'caption': finalCaption, // Güncellenmiş caption
+        'caption': finalCaption,
         'likeCount': 0,
         'likedBy': [],
         'application': _selectedApplication, 
@@ -154,7 +146,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         'locationString': _currentUser!.locationString.isNotEmpty 
             ? _currentUser!.locationString 
             : "${_currentUser!.district}, ${_currentUser!.city}",
-        'artistScore': currentArtistScore, 
+        'artistScore': (_currentUser!.totalLikes ?? 0).toDouble(),
+        
+        // --- BURASI EKLENDİ ---
+        'isFeatured': false, // Varsayılan olarak öne çıkan değil
+        // ---------------------
+        
         'createdAt': FieldValue.serverTimestamp(),
       };
 
@@ -167,22 +164,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Paylaşım başarıyla yayınlandı'), 
-            backgroundColor: Colors.green
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paylaşım başarıyla yayınlandı'), backgroundColor: Colors.green));
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Paylaşım yüklenirken hata: $e'), 
-            backgroundColor: Colors.red
-          ),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red));
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -190,11 +175,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Dinamik stilleri Constants dosyasından çekiyoruz
+    final relevantStyles = _getRelevantStyles();
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor, // Koyu Tema Arka Plan
+      backgroundColor: AppTheme.backgroundColor,
+      extendBodyBehindAppBar: true, 
       appBar: AppBar(
         title: const Text('Yeni Paylaşım', style: TextStyle(color: AppTheme.textColor)),
-        backgroundColor: Colors.transparent,
+        backgroundColor: _isScrolled ? AppTheme.cardColor : Colors.transparent,
+        scrolledUnderElevation: 0,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppTheme.textColor),
         actions: [
@@ -206,149 +196,158 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Medya Önizleme
-              if (_selectedImages.isNotEmpty || _selectedVideos.isNotEmpty)
-                SizedBox(
-                  height: 200,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      ..._selectedImages.map((image) => _buildImagePreview(image)),
-                      ..._selectedVideos.map((video) => _buildVideoPreview(video)),
-                    ],
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (scrollNotification) {
+          if (scrollNotification is ScrollUpdateNotification) {
+            final isScrolledNow = scrollNotification.metrics.pixels > 0;
+            if (isScrolledNow != _isScrolled) setState(() => _isScrolled = isScrolledNow);
+          }
+          return false;
+        },
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
+              left: 16, right: 16, bottom: 16
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_selectedImages.isNotEmpty || _selectedVideos.isNotEmpty)
+                  SizedBox(
+                    height: 200,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        ..._selectedImages.map((image) => _buildImagePreview(image)),
+                        ..._selectedVideos.map((video) => _buildVideoPreview(video)),
+                      ],
+                    ),
                   ),
+                
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _pickImages,
+                        icon: const Icon(Icons.image, color: AppTheme.textColor),
+                        label: const Text('Fotoğraf Ekle', style: TextStyle(color: AppTheme.textColor)),
+                        style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.grey[800]!), padding: const EdgeInsets.symmetric(vertical: 12)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _pickVideo,
+                        icon: const Icon(Icons.videocam, color: AppTheme.textColor),
+                        label: const Text('Video Ekle', style: TextStyle(color: AppTheme.textColor)),
+                        style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.grey[800]!), padding: const EdgeInsets.symmetric(vertical: 12)),
+                      ),
+                    ),
+                  ],
                 ),
-              
-              const SizedBox(height: 16),
-              
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _pickImages,
-                      icon: const Icon(Icons.image, color: AppTheme.textColor),
-                      label: const Text('Fotoğraf Ekle', style: TextStyle(color: AppTheme.textColor)),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.grey[800]!),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                
+                const Divider(height: 32, color: AppTheme.textColor),
+
+                // --- UYGULAMA TÜRÜ (AppConstants'tan otomatik geliyor) ---
+                const Text('Uygulama Türü', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textColor)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: AppConstants.applications.map((app) {
+                    final isSelected = _selectedApplication == app;
+                    return Theme(
+                      data: Theme.of(context).copyWith(splashColor: Colors.transparent, highlightColor: Colors.transparent),
+                      child: ChoiceChip(
+                        label: Text(app),
+                        selected: isSelected,
+                        showCheckmark: false,
+                        onSelected: (selected) {
+                          setState(() {
+                            // Seçim değişirse Application'ı güncelle, Stilleri sıfırla
+                            _selectedApplication = selected ? app : null;
+                            _selectedStyles.clear();
+                          });
+                        },
+                        selectedColor: AppTheme.primaryColor,
+                        backgroundColor: AppTheme.cardColor,
+                        labelStyle: TextStyle(
+                          color: isSelected ? AppTheme.textColor : Colors.grey[400],
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(color: isSelected ? AppTheme.primaryColor : Colors.transparent),
+                        ),
                       ),
-                    ),
+                    );
+                  }).toList(),
+                ),
+
+                const SizedBox(height: 24),
+
+                // --- STİLLER (Otomatik hesaplanan relevantStyles listesi) ---
+                if (_selectedApplication != null && relevantStyles.isNotEmpty) ...[
+                  const Text('Stiller', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textColor)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: relevantStyles.map((style) {
+                      final isSelected = _selectedStyles.contains(style);
+                      return Theme(
+                        data: Theme.of(context).copyWith(splashColor: Colors.transparent, highlightColor: Colors.transparent),
+                        child: FilterChip(
+                          label: Text(style),
+                          selected: isSelected,
+                          showCheckmark: false,
+                          onSelected: (selected) {
+                            setState(() {
+                              selected ? _selectedStyles.add(style) : _selectedStyles.remove(style);
+                            });
+                          },
+                          selectedColor: AppTheme.primaryColor.withOpacity(0.3),
+                          backgroundColor: AppTheme.cardColor,
+                          labelStyle: TextStyle(
+                            color: isSelected ? AppTheme.textColor : Colors.grey[400],
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(color: isSelected ? AppTheme.primaryColor : Colors.transparent),
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _pickVideo,
-                      icon: const Icon(Icons.videocam, color: AppTheme.textColor),
-                      label: const Text('Video Ekle', style: TextStyle(color: AppTheme.textColor)),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.grey[800]!),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
+                  const SizedBox(height: 24),
                 ],
-              ),
-              
-              const Divider(height: 32, color: AppTheme.textColor),
-
-              // --- Uygulama Türü (MASTER DATA) ---
-              const Text('Uygulama Türü', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textColor)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: AppConstants.applications.map((app) {
-                  final isSelected = _selectedApplication == app;
-                  return ChoiceChip(
-                    label: Text(app),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() => _selectedApplication = selected ? app : null);
-                    },
-                    selectedColor: AppTheme.primaryColor,
-                    backgroundColor: AppTheme.cardColor,
-                    labelStyle: TextStyle(
-                      color: isSelected ? AppTheme.textColor : Colors.grey[400],
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                
+                TextFormField(
+                  controller: _captionController,
+                  maxLines: 4,
+                  style: const TextStyle(color: AppTheme.textColor),
+                  decoration: InputDecoration(
+                    labelText: 'Açıklama',
+                    labelStyle: const TextStyle(color: Colors.grey),
+                    hintText: 'Paylaşımınız hakkında detay verin...',
+                    hintStyle: TextStyle(color: Colors.grey[700]),
+                    alignLabelWithHint: true,
+                    filled: true,
+                    fillColor: AppTheme.cardColor,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppTheme.primaryColor),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: isSelected ? AppTheme.primaryColor : Colors.transparent),
-                    ),
-                  );
-                }).toList(),
-              ),
-
-              const SizedBox(height: 24),
-
-              // --- Stiller (MASTER DATA) ---
-              const Text('Stiller', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textColor)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: AppConstants.styles.map((style) {
-                  final isSelected = _selectedStyles.contains(style);
-                  return FilterChip(
-                    label: Text(style),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedStyles.add(style);
-                        } else {
-                          _selectedStyles.remove(style);
-                        }
-                      });
-                    },
-                    selectedColor: AppTheme.primaryColor.withOpacity(0.3),
-                    backgroundColor: AppTheme.cardColor,
-                    checkmarkColor: AppTheme.primaryColor,
-                    labelStyle: TextStyle(
-                      color: isSelected ? AppTheme.textColor : Colors.grey[400],
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: isSelected ? AppTheme.primaryColor : Colors.transparent),
-                    ),
-                  );
-                }).toList(),
-              ),
-
-              const SizedBox(height: 24),
-              
-              // Açıklama Kutusu
-              TextFormField(
-                controller: _captionController,
-                maxLines: 4,
-                style: const TextStyle(color: AppTheme.textColor),
-                decoration: InputDecoration(
-                  labelText: 'Açıklama',
-                  labelStyle: const TextStyle(color: Colors.grey),
-                  hintText: 'Paylaşımınız hakkında detay verin...',
-                  hintStyle: TextStyle(color: Colors.grey[700]),
-                  alignLabelWithHint: true,
-                  filled: true,
-                  fillColor: AppTheme.cardColor,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppTheme.primaryColor),
                   ),
                 ),
-              ),
-              const SizedBox(height: 80), 
-            ],
+                const SizedBox(height: 80), 
+              ],
+            ),
           ),
         ),
       ),
@@ -362,13 +361,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.file(image, fit: BoxFit.cover),
-          ),
+          ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.file(image, fit: BoxFit.cover)),
           Positioned(
-            top: 4,
-            right: 4,
+            top: 4, right: 4,
             child: GestureDetector(
               onTap: () => setState(() => _selectedImages.remove(image)),
               child: Container(
@@ -387,19 +382,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     return Container(
       width: 150,
       margin: const EdgeInsets.only(right: 8),
-      decoration: BoxDecoration(
-        color: AppTheme.cardColor, 
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[800]!)
-      ),
+      decoration: BoxDecoration(color: AppTheme.cardColor, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey[800]!)),
       child: Stack(
         children: [
-          const Center(
-            child: Icon(Icons.play_circle_outline, size: 48, color: AppTheme.textColor)
-          ),
+          const Center(child: Icon(Icons.play_circle_outline, size: 48, color: AppTheme.textColor)),
            Positioned(
-            top: 4,
-            right: 4,
+            top: 4, right: 4,
             child: GestureDetector(
               onTap: () => setState(() => _selectedVideos.remove(video)),
               child: Container(

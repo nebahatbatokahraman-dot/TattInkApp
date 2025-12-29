@@ -53,6 +53,8 @@ class _LanguageScreenState extends State<LanguageScreen> {
         ),
       ),
       body: ListView(
+        // 1. DÜZELTME: Kaydırmayı kapatmak için bu satırı ekledik
+        physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16.0),
         children: [
           _buildLanguageOption(
@@ -79,13 +81,20 @@ class _LanguageScreenState extends State<LanguageScreen> {
     
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(icon),
-        title: Text(name),
-        trailing: isSelected
-            ? const Icon(Icons.check, color: Colors.green)
-            : null,
-        onTap: () => _saveLanguage(code),
+      // 2. DÜZELTME: Splash (Dalga) efektini kaldırmak için Theme ile sarmaladık
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+        ),
+        child: ListTile(
+          leading: Icon(icon),
+          title: Text(name),
+          trailing: isSelected
+              ? const Icon(Icons.check, color: Colors.green)
+              : null,
+          onTap: () => _saveLanguage(code),
+        ),
       ),
     );
   }
