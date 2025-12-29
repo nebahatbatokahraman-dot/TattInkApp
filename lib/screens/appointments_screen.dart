@@ -10,6 +10,7 @@ import '../services/notification_service.dart';
 import '../utils/constants.dart';
 import '../theme/app_theme.dart';
 import '../models/user_model.dart';
+import 'dart:ui';
 
 class AppointmentsScreen extends StatefulWidget {
   const AppointmentsScreen({super.key});

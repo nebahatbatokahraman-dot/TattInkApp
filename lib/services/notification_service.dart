@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart'; // BuildContext için gerekli
 import '../utils/constants.dart';
+import '../screens/appointments_screen.dart'; // Randevular ekranını buraya import et
 
 class NotificationService {
   
@@ -15,16 +17,14 @@ class NotificationService {
     String? relatedId,                  
   }) async {
     try {
-      // Kişi kendine bildirim göndermesin
       if (currentUserId == receiverId) return;
 
-      // Belge referansı oluştur (ID'yi içine de kaydedebilmek için)
       final notificationRef = FirebaseFirestore.instance
           .collection(AppConstants.collectionNotifications)
           .doc();
 
       await notificationRef.set({
-        'id': notificationRef.id, // Bildirim ID'sini belgeye ekledik, silme/güncelleme için lazım olur
+        'id': notificationRef.id,
         'senderId': currentUserId,
         'senderName': currentUserName,
         'senderAvatar': currentUserAvatar,
@@ -36,8 +36,12 @@ class NotificationService {
         'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // NOT: Eğer gerçek zamanlı push notification (FCM) kullanacaksan 
+      // buraya bir de http post isteği (Cloud Functions) eklemen gerekecektir.
+      // Şu an veritabanına kayıt başarılı.
     } catch (e) {
-      print("Bildirim gönderme hatası: $e");
+      debugPrint("Bildirim gönderme hatası: $e");
     }
   }
 
@@ -51,13 +55,12 @@ class NotificationService {
         type: 'follow',
         title: 'Yeni Takipçi',
         body: '$currentUserName seni takip etmeye başladı.',
-        relatedId: currentUserId, // Profiline tıklanınca gidilebilsin diye
+        relatedId: currentUserId,
       );
   }
 
   // --- 3. BEĞENİ BİLDİRİMİ ---
   static Future<void> sendLikeNotification(String currentUserId, String currentUserName, String? currentUserAvatar, String postOwnerId, String postId) async {
-    // Daha önce bu gönderi için beğeni bildirimi gitmiş mi kontrol et (Spam önleme)
     final query = await FirebaseFirestore.instance
         .collection(AppConstants.collectionNotifications)
         .where('senderId', isEqualTo: currentUserId)
@@ -77,6 +80,20 @@ class NotificationService {
         body: '$currentUserName gönderini beğendi.',
         relatedId: postId,
       );
+    }
+  }
+
+  // --- 4. BİLDİRİM TIKLAMA YÖNETİMİ ---
+  // Uygulama içindeki bildirim listesinden tıklandığında veya Push bildiriminden gelindiğinde çalışır
+  static void handleNotificationClick(BuildContext context, String type, String? relatedId) {
+    if (type == 'appointment_request' || type == 'appointment_update') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AppointmentsScreen()),
+      );
+    } 
+    else if (type == 'follow') {
+      // Örnek: Takip edenin profiline gitme mantığı buraya eklenebilir
     }
   }
 }

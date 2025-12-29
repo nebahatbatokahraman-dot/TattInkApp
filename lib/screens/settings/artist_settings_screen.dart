@@ -8,7 +8,7 @@ import 'artist_edit_profile_screen.dart';
 import 'email_password_screen.dart';
 import 'language_screen.dart';
 import 'help_screen.dart';
-
+import 'legal_documents_screen.dart';
 // DOĞRU IMPORT:
 import 'notification_settings_screen.dart'; 
 
@@ -29,7 +29,7 @@ class ArtistSettingsScreen extends StatelessWidget {
         // 1. DÜZELTME: Kaydırmayı (Scroll) tamamen kapattık. Liste sabit duracak.
         physics: const NeverScrollableScrollPhysics(),
         
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(5.0),
         children: [
           _buildSectionHeader('Hesap'),
           _buildSettingsTile(
@@ -56,7 +56,6 @@ class ArtistSettingsScreen extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 24),
           _buildSectionHeader('Tercihler'),
           
           // --- BİLDİRİM AYARLARI KISMI ---
@@ -85,7 +84,6 @@ class ArtistSettingsScreen extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 24),
           _buildSectionHeader('Destek'),
           _buildSettingsTile(
             context,
@@ -99,7 +97,19 @@ class ArtistSettingsScreen extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 24),
+          _buildSettingsTile(
+            context,
+            icon: Icons.gavel_rounded, // Adalet/Hukuk ikonu
+            title: 'Hukuki Metinler',
+            subtitle: 'Kullanım şartları ve gizlilik politikası',
+            onTap: () {
+              Navigator.push(
+                context,
+                SlideRoute(page: const LegalDocumentsScreen()), // Az önce oluşturduğumuz sayfa
+              );
+            },
+          ),
+          const SizedBox(height: 5),
           _buildLogoutButton(context),
         ],
       ),

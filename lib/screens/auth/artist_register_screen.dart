@@ -10,6 +10,7 @@ import '../../utils/validators.dart';
 import '../../utils/constants.dart';
 import '../../utils/turkey_locations.dart';
 import '../main_screen.dart';
+import '../settings/legal_documents_screen.dart';
 
 class ArtistRegisterScreen extends StatefulWidget {
   const ArtistRegisterScreen({super.key});
@@ -33,6 +34,7 @@ class _ArtistRegisterScreenState extends State<ArtistRegisterScreen> {
   final _cityController = TextEditingController();
   final _instagramController = TextEditingController();
   
+  bool _isTermsAccepted = false;
   bool _isApprovedArtist = true; 
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -519,6 +521,43 @@ class _ArtistRegisterScreenState extends State<ArtistRegisterScreen> {
               ),
               const SizedBox(height: 24),
               
+              Row(
+                  children: [
+                    Checkbox(
+                      value: _isTermsAccepted,
+                      activeColor: AppTheme.primaryColor,
+                      onChanged: (val) => setState(() => _isTermsAccepted = val ?? false),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const LegalDocumentsScreen()),
+                          );
+                        },
+                        child: RichText(
+                          text: TextSpan(
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                            children: [
+                              const TextSpan(text: "Kullanım Şartları ve Sağlık Sorumluluk Reddini "),
+                              TextSpan(
+                                text: "okudum, kabul ediyorum.",
+                                style: TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+
               ElevatedButton(
                 onPressed: _isLoading ? null : _register,
                 style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),

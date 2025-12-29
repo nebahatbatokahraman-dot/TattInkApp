@@ -9,6 +9,8 @@ import 'email_password_screen.dart';
 import 'notifications_screen.dart';
 import 'language_screen.dart';
 import 'help_screen.dart';
+import 'legal_documents_screen.dart';
+import 'notification_settings_screen.dart';
 
 class CustomerSettingsScreen extends StatelessWidget {
   const CustomerSettingsScreen({super.key});
@@ -51,7 +53,6 @@ class CustomerSettingsScreen extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 24),
           _buildSectionHeader('Tercihler'),
           _buildSettingsTile(
             context,
@@ -61,8 +62,7 @@ class CustomerSettingsScreen extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                // DÜZELTME: Sınıf ismi NotificationsSettingsScreen olarak güncellendi ve const kaldırıldı
-                SlideRoute(page: const NotificationsSettingsScreen()),
+                SlideRoute(page: const NotificationSettingsScreen()),
               );
             },
           ),
@@ -78,7 +78,6 @@ class CustomerSettingsScreen extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 24),
           _buildSectionHeader('Destek'),
           _buildSettingsTile(
             context,
@@ -92,7 +91,18 @@ class CustomerSettingsScreen extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 24),
+          _buildSettingsTile(
+            context,
+            icon: Icons.gavel_rounded, // Adalet/Hukuk ikonu
+            title: 'Hukuki Metinler',
+            subtitle: 'Kullanım şartları ve gizlilik politikası',
+            onTap: () {
+              Navigator.push(
+                context,
+                SlideRoute(page: const LegalDocumentsScreen()), // Az önce oluşturduğumuz sayfa
+              );
+            },
+          ),
           _buildLogoutButton(context),
         ],
       ),
@@ -125,10 +135,12 @@ class CustomerSettingsScreen extends StatelessWidget {
   Widget _buildLogoutButton(BuildContext context) {
     final authService = Provider.of<AuthService>(context, listen: false);
     return Card(
+      
       margin: const EdgeInsets.only(top: 16),
       child: ListTile(
-        leading: const Icon(Icons.logout, color: Colors.red),
-        title: const Text('Çıkış Yap', style: TextStyle(color: Colors.red)),
+        
+        leading: const Icon(Icons.logout, color: AppTheme.primaryColor),
+        title: const Text('Çıkış Yap', style: TextStyle(color: AppTheme.primaryColor)),
         onTap: () async {
           final shouldLogout = await showDialog<bool>(
             context: context,
@@ -142,7 +154,7 @@ class CustomerSettingsScreen extends StatelessWidget {
                 ),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
                   child: const Text('Çıkış Yap'),
                 ),
               ],

@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../utils/validators.dart';
 import '../main_screen.dart';
+// ÖNEMLİ: LegalDocumentsScreen importunu buraya eklemelisin
+import '../settings/legal_documents_screen.dart'; 
 
 class CustomerRegisterScreen extends StatefulWidget {
   const CustomerRegisterScreen({super.key});
@@ -17,9 +19,13 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  
+  // --- HUKUKİ ONAY DEĞİŞKENİ ---
+  bool _isTermsAccepted = false;
 
   @override
   void dispose() {
@@ -30,6 +36,14 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
   }
 
   Future<void> _handleRegister() async {
+    // Kutucuk işaretli değilse işlem yapma (Güvenlik önlemi)
+    if (!_isTermsAccepted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Devam etmek için kullanım şartlarını kabul etmelisiniz.')),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -62,7 +76,6 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        // Navigate to home screen
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const MainScreen()),
           (route) => false,
@@ -100,13 +113,13 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 100), 
+                const SizedBox(height: 40), 
                 const Text(
-                'Kayıt işlemini tamamlayarak uygulamayı keşfetmeye başlayabilirsin; ancak tüm özellikleri kullanabilmek için e-posta adresini doğrulaman gerekiyor.',
-                style: TextStyle(fontSize: 11),
-                textAlign: TextAlign.center, // Metni yatayda ortalar
-              ),
-                const SizedBox(height: 24),
+                  'Kayıt işlemini tamamlayarak uygulamayı keşfetmeye başlayabilirsin; ancak tüm özellikleri kullanabilmek için e-posta adresini doğrulaman gerekiyor.',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
                 
                 // Email field
                 TextFormField(
@@ -130,15 +143,9 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                     prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility
-                            : Icons.visibility_off,
+                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
                       ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
+                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                     ),
                   ),
                   validator: Validators.validatePassword,
@@ -154,39 +161,74 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscureConfirmPassword
-                            ? Icons.visibility
-                            : Icons.visibility_off,
+                        _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
                       ),
-                      onPressed: () {
-                        setState(() {
-                          _obscureConfirmPassword = !_obscureConfirmPassword;
-                        });
-                      },
+                      onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
                     ),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Şifre tekrar gereklidir';
-                    }
-                    if (value != _passwordController.text) {
-                      return 'Şifreler eşleşmiyor';
-                    }
+                    if (value == null || value.isEmpty) return 'Şifre tekrar gereklidir';
+                    if (value != _passwordController.text) return 'Şifreler eşleşmiyor';
                     return null;
                   },
                 ),
+                
+                const SizedBox(height: 24),
+
+                // --- HUKUKİ ONAY KUTUCUĞU ---
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _isTermsAccepted,
+                      activeColor: AppTheme.primaryColor,
+                      onChanged: (val) => setState(() => _isTermsAccepted = val ?? false),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const LegalDocumentsScreen()),
+                          );
+                        },
+                        child: RichText(
+                          text: TextSpan(
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                            children: [
+                              const TextSpan(text: "Kullanım Şartları ve Sağlık Sorumluluk Reddini "),
+                              TextSpan(
+                                text: "okudum, kabul ediyorum.",
+                                style: TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                
                 const SizedBox(height: 24),
                 
                 // Register button
                 ElevatedButton(
-                  onPressed: _isLoading ? null : _handleRegister,
+                  // Şartlar kabul edilmediyse buton pasif (null) olur
+                  onPressed: (_isLoading || !_isTermsAccepted) ? null : _handleRegister,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isTermsAccepted ? AppTheme.primaryColor : Colors.grey[800],
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
                   child: _isLoading
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('Üye Ol'),
+                      : const Text('Üye Ol', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -196,4 +238,3 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
     );
   }
 }
-

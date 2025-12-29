@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui'; // KRİTİK: Cam efekti (BackdropFilter) için bu şart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +13,7 @@ import '../services/image_service.dart';
 import '../services/notification_service.dart';
 import '../utils/constants.dart';
 import '../theme/app_theme.dart';
+import '../screens/settings/legal_documents_screen.dart';
 
 class CreateAppointmentScreen extends StatefulWidget {
   final String artistId;
@@ -32,9 +34,10 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
   final _formKey = GlobalKey<FormState>();
   final _notesController = TextEditingController();
   
+  bool _isAppointmentTermsAccepted = false; // Hukuki onay değişkeni
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
-  File? _selectedImageFile; // Galeriden seçilen yeni foto
+  File? _selectedImageFile; 
   bool _isSubmitting = false;
 
   final ImagePicker _picker = ImagePicker();
@@ -169,11 +172,9 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
       
       if (customerId == null) return;
       
-      // Müşteri bilgilerini çekiyoruz (İsim ve Resim için)
       final customer = await authService.getUserModel(customerId);
       if (customer == null) return;
 
-      // Artist bilgisini çek
       final artistDoc = await FirebaseFirestore.instance
           .collection(AppConstants.collectionUsers)
           .doc(widget.artistId)
@@ -182,7 +183,6 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
       if (!artistDoc.exists) throw Exception("Artist bulunamadı");
       final artistData = artistDoc.data() as Map<String, dynamic>;
 
-      // Resim yükleme işlemi...
       String? finalImageUrl = widget.referenceImageUrl;
       if (_selectedImageFile != null) {
         final imageService = ImageService();
@@ -202,7 +202,6 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
 
       final appointmentRef = FirebaseFirestore.instance.collection(AppConstants.collectionAppointments).doc();
 
-      // Müşteri adını belirle
       final String customerName = (customer.fullName != null && customer.fullName!.isNotEmpty) 
           ? customer.fullName! 
           : (customer.username ?? 'Müşteri');
@@ -220,10 +219,8 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
         createdAt: DateTime.now(),
       );
 
-      // 1. Randevuyu Kaydet
       await appointmentRef.set(appointment.toMap());
 
-      // 2. Bildirim Gönder
       await NotificationService.sendNotification(
         receiverId: widget.artistId,
         currentUserId: customerId,
@@ -254,185 +251,256 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Ekranın yüksekliğini al
     final screenHeight = MediaQuery.of(context).size.height;
 
-    return Container(
-      // Ekranın %50'si kadar yükseklik
-      height: screenHeight * 0.50, 
-      decoration: const BoxDecoration(
-        color: AppTheme.backgroundColor,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        
-        body: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // --- REFERANS RESMİ (VARSA VEYA YENİ SEÇİLDİYSE) ---
-                if (_selectedImageFile != null || widget.referenceImageUrl != null)
-                  Stack(
-                    alignment: Alignment.topRight,
-                    children: [
-                      Container(
-                        height: 100,
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(bottom: 10),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey[800]!),
-                          image: DecorationImage(
-                            image: _selectedImageFile != null
-                                ? FileImage(_selectedImageFile!) as ImageProvider
-                                : NetworkImage(widget.referenceImageUrl!),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                      // Resmi kaldırma butonu
-                      if (_selectedImageFile != null)
-                        IconButton(
-                          onPressed: () => setState(() => _selectedImageFile = null),
-                          icon: const CircleAvatar(
-                            backgroundColor: Colors.black54,
-                            child: Icon(Icons.close, color: AppTheme.textColor, size: 20),
-                          ),
-                        ),
-                    ],
-                  ),
-
-                // --- TARİH VE SAAT (YAN YANA) ---
-                Row(
+    // --- BURADA BAŞLIYOR: CAM EFEKTİ SARMALAYICI ---
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8), // Arkayı bulanıklaştırır
+        child: Container(
+          height: screenHeight * 0.50, 
+          decoration: BoxDecoration(
+            color: AppTheme.backgroundColor.withOpacity(0.8), // Hafif saydamlık
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+          ),
+          child: Scaffold(
+            backgroundColor: Colors.transparent, // Cam etkisinin görünmesi için
+            body: Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Tarih Butonu
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _selectDate,
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppTheme.primaryLightColor),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.calendar_today, color: AppTheme.primaryLightColor),
-                            const SizedBox(width: 8), 
-                            Text(
-                              _selectedDate != null
-                                  ? DateFormat('dd/MM/yyyy').format(_selectedDate!)
-                                  : 'Tarih Seç',
-                              style: const TextStyle(color: AppTheme.textColor),
-                            ),
-                          ],
+                    // Tutamaç (Görsel sürükleme çubuğu)
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[700],
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    // Saat Butonu
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _showCustomTimePicker,
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppTheme.primaryLightColor),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.access_time, color: AppTheme.primaryLightColor),
-                            const SizedBox(width: 8),
-                            Text(
-                              _selectedTime != null
-                                  ? "${_selectedTime!.hour.toString().padLeft(2,'0')}:00"
-                                  : 'Saat Seç',
-                              style: const TextStyle(color: AppTheme.textColor),
+
+                    // --- REFERANS RESMİ ---
+                    if (_selectedImageFile != null || widget.referenceImageUrl != null)
+                      Stack(
+                        alignment: Alignment.topRight,
+                        children: [
+                          Container(
+                            height: 100,
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 10),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey[800]!),
+                              image: DecorationImage(
+                                image: _selectedImageFile != null
+                                    ? FileImage(_selectedImageFile!) as ImageProvider
+                                    : NetworkImage(widget.referenceImageUrl!),
+                                fit: BoxFit.cover,
+                              ),
                             ),
-                          ],
+                          ),
+                          if (_selectedImageFile != null)
+                            IconButton(
+                              onPressed: () => setState(() => _selectedImageFile = null),
+                              icon: const CircleAvatar(
+                                backgroundColor: Colors.black54,
+                                child: Icon(Icons.close, color: AppTheme.textColor, size: 20),
+                              ),
+                            ),
+                        ],
+                      ),
+
+                    // --- TARİH VE SAAT (YAN YANA) ---
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _selectDate,
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: AppTheme.primaryLightColor),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.calendar_today, color: AppTheme.primaryLightColor),
+                                const SizedBox(width: 8), 
+                                Text(
+                                  _selectedDate != null
+                                      ? DateFormat('dd/MM/yyyy').format(_selectedDate!)
+                                      : 'Tarih Seç',
+                                  style: const TextStyle(color: AppTheme.textColor),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _showCustomTimePicker,
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: AppTheme.primaryLightColor),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.access_time, color: AppTheme.primaryLightColor),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _selectedTime != null
+                                      ? "${_selectedTime!.hour.toString().padLeft(2,'0')}:00"
+                                      : 'Saat Seç',
+                                  style: const TextStyle(color: AppTheme.textColor),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 15),
+
+                    // --- NOTLAR VE FOTOĞRAF EKLEME ---
+                    IntrinsicHeight( 
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch, 
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _notesController,
+                              maxLines: 4,
+                              style: const TextStyle(color: AppTheme.textColor),
+                              decoration: InputDecoration(
+                                labelText: 'Notlar (Opsiyonel)',
+                                labelStyle: const TextStyle(color: Colors.grey),
+                                filled: true,
+                                fillColor: AppTheme.cardColor.withOpacity(0.3),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          InkWell(
+                            onTap: _pickImage,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              width: 50,
+                              decoration: BoxDecoration(
+                                color: AppTheme.cardColor.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppTheme.primaryLightColor.withOpacity(0.5)),
+                              ),
+                              child: const Icon(Icons.add_a_photo, color: AppTheme.primaryLightColor),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+
+                    const SizedBox(height: 6),
+
+                    // --- HUKUKİ ONAY ---
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardColor.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _isAppointmentTermsAccepted 
+                              ? AppTheme.primaryColor.withOpacity(0.5) 
+                              : Colors.grey.withOpacity(0.2),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: _isAppointmentTermsAccepted,
+                            activeColor: AppTheme.primaryColor,
+                            onChanged: (val) {
+                              setState(() {
+                                _isAppointmentTermsAccepted = val ?? false;
+                              });
+                            },
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const LegalDocumentsScreen()),
+                                );
+                              },
+                              child: RichText(
+                                text: TextSpan(
+                                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                                  children: [
+                                    const TextSpan(text: "İşlem için sağlık engelim olmadığını beyan eder, "),
+                                    TextSpan(
+                                      text: "Sağlık Sorumluluk Reddini",
+                                      style: TextStyle(
+                                        color: AppTheme.primaryColor,
+                                        fontWeight: FontWeight.bold,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                    const TextSpan(text: " kabul ederim."),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // --- GÖNDER BUTONU ---
+                    SizedBox(
+                      height: 50,
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: (_isSubmitting || !_isAppointmentTermsAccepted) 
+                            ? null 
+                            : _submitAppointment,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _isAppointmentTermsAccepted 
+                              ? AppTheme.primaryColor 
+                              : Colors.grey[800],
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.textColor),
+                              )
+                            : Text(
+                                'Randevu Talebi Gönder',
+                                style: TextStyle(
+                                  fontSize: 16, 
+                                  fontWeight: FontWeight.bold, 
+                                  color: _isAppointmentTermsAccepted ? AppTheme.textDarkColor : Colors.grey[600]
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
                   ],
                 ),
-                
-                const SizedBox(height: 15),
-
-                // --- NOTLAR VE FOTOĞRAF EKLEME BUTONU ---
-                IntrinsicHeight( 
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch, 
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _notesController,
-                          maxLines: 4,
-                          style: const TextStyle(color: AppTheme.textColor),
-                          decoration: InputDecoration(
-                            labelText: 'Notlar (Opsiyonel)',
-                            labelStyle: const TextStyle(color: Colors.grey),
-                            hintText: 'Dövme fikri, boyutu vb...',
-                            hintStyle: TextStyle(color: Colors.grey[700]),
-                            filled: true,
-                            fillColor: AppTheme.cardColor,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      // Fotoğraf Ekle İkonu
-                      InkWell(
-                        onTap: _pickImage,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          width: 50,
-                          decoration: BoxDecoration(
-                            color: AppTheme.cardColor,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppTheme.primaryLightColor.withOpacity(0.5)),
-                          ),
-                          child: const Column( 
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.add_a_photo, color: AppTheme.primaryLightColor),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // --- GÖNDER BUTONU ---
-                SizedBox(
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _isSubmitting ? null : _submitAppointment,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.textColor),
-                          )
-                        : const Text(
-                            'Randevu Talebi Gönder',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDarkColor),
-                          ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
+              ),
             ),
           ),
         ),

@@ -9,6 +9,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:io';
 import 'package:carousel_slider/carousel_slider.dart' as cs;
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:tattink_app/screens/create_appointment_screen.dart';
+import 'dart:ui';
 
 // --- SERVICE & MODEL IMPORTS ---
 import '../../services/auth_service.dart';
@@ -754,14 +756,18 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
+                  // --- GLASS EFEKTİ İÇİN KRİTİK AYARLAR ---
+                  backgroundColor: Colors.transparent, // Arka plan tamamen şeffaf olmalı
+                  elevation: 0, 
                   useSafeArea: true,
-                  showDragHandle: true,
-                  backgroundColor: AppTheme.backgroundColor,
+                  // showDragHandle: true, // Bunu kapatıyoruz çünkü CreateAppointmentScreen içinde kendi tutamacımızı yaptık
+                  // ---------------------------------------
                   shape: const RoundedRectangleBorder(
                     borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                   ),
                   builder: (context) => CreateAppointmentScreen(
                     artistId: widget.userId,
+                    // Eğer post üzerinden geliyorsa referenceImageUrl: post.imageUrl ekleyebilirsin
                   ),
                 );
               },
