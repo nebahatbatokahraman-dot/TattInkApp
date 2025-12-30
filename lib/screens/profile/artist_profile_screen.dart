@@ -830,25 +830,54 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
           itemCount: posts.length,
           itemBuilder: (context, index) {
             final post = posts[index];
+
             return GestureDetector(
+              // --- 1. TIKLAMA ÖZELLİĞİ (AYNEN KALIYOR) ---
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => PostDetailScreen(
-                      posts: posts,
-                      initialIndex: index,
+                      posts: posts, // Tüm listeyi gönderiyoruz ki sağa sola kayabilsin
+                      initialIndex: index, // Tıklanan videodan başlasın
                       isOwner: widget.isOwnProfile,
                     ),
                   ),
                 );
               },
-              child: CachedNetworkImage(
-                imageUrl: post.imageUrls.isNotEmpty ? post.imageUrls[0] : '',
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(color: Colors.grey[900]),
-                errorWidget: (context, url, error) => const Icon(Icons.error),
-              ),
+
+              // --- 2. GÖRÜNÜM KISMI (BURAYI GÜNCELLİYORUZ) ---
+              child: (post.videoUrl != null && post.videoUrl!.isNotEmpty)
+                  
+                  // A) Eğer Video ise: Siyah Kutu + Play İkonu Göster
+                  ? Container(
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardColor,
+                        border: Border.all(color: Colors.white24, width: 0.5),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Icon(Icons.play_circle_filled, color: Colors.white.withOpacity(0.8), size: 32),
+                          const Positioned(
+                            top: 4, right: 4,
+                            child: Icon(Icons.videocam, color: Colors.white, size: 16),
+                          ),
+                        ],
+                      ),
+                    )
+                  
+                  // B) Eğer Resim ise: Eskisi gibi resmi yükle
+                  : CachedNetworkImage(
+                      imageUrl: post.imageUrls.isNotEmpty ? post.imageUrls[0] : '',
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(color: Colors.grey[900]),
+                      // Hata olursa (örn: link bozuksa) gri kutu göster, patlamasın
+                      errorWidget: (context, url, error) => Container(
+                        color: Colors.grey[900], 
+                        child: const Icon(Icons.image_not_supported, color: Colors.white24),
+                      ),
+                    ),
             );
           },
         );
@@ -875,18 +904,59 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
               physics: const BouncingScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 2, mainAxisSpacing: 2),
               itemCount: posts.length,
-              itemBuilder: (context, index) {
-                final post = posts[index];
-                return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => PostDetailScreen(posts: posts, initialIndex: index, isOwner: false),
-                        ),
-                      );
-                    },
-                    child: Image.network(post.imageUrls.isNotEmpty ? post.imageUrls[0] : '', fit: BoxFit.cover));
+              // Favoriler sayfasındaki GridView.builder'ın içine bunu yapıştır:
+          itemBuilder: (context, index) {
+            final post = posts[index]; // Favoriler listesindeki post
+
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PostDetailScreen(
+                      posts: posts,
+                      initialIndex: index,
+                      
+                      // DİKKAT: Favorilerdeki postlar başkasınındır.
+                      // Bu yüzden burayı 'false' yapıyoruz.
+                      isOwner: false, 
+                    ),
+                  ),
+                );
+              },
+              
+              // --- GÖRÜNÜM KISMI (PROFİLDEKİYLE AYNI) ---
+              child: (post.videoUrl != null && post.videoUrl!.isNotEmpty)
+                  
+                  // A) Video ise: Siyah Kutu + Play İkonu
+                  ? Container(
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardColor,
+                        border: Border.all(color: Colors.white24, width: 0.5),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Icon(Icons.play_circle_filled, color: Colors.white.withOpacity(0.8), size: 32),
+                          const Positioned(
+                            top: 4, right: 4,
+                            child: Icon(Icons.videocam, color: Colors.white, size: 16),
+                          ),
+                        ],
+                      ),
+                    )
+                  
+                  // B) Resim ise: Resmi Göster
+                  : CachedNetworkImage(
+                      imageUrl: post.imageUrls.isNotEmpty ? post.imageUrls[0] : '',
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(color: Colors.grey[900]),
+                      errorWidget: (context, url, error) => Container(
+                        color: Colors.grey[900], 
+                        child: const Icon(Icons.image_not_supported, color: Colors.white24),
+                      ),
+                    ),
+                );
               },
             );
           },
@@ -1059,6 +1129,92 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
       ),
     );
   }
+// Grid içindeki her bir kareyi çizen fonksiyon
+  Widget _buildGridPostItem(PostModel post) {
+    
+    // --- 1. VİDEO VARSA ---
+    if (post.videoUrl != null && post.videoUrl!.isNotEmpty) {
+      return GestureDetector(
+        onTap: () {
+          // Tıklayınca detay sayfasına (PostDetailScreen) gitmeli
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PostDetailScreen(
+                posts: [post], // Sadece bu postu gönderiyoruz
+                initialIndex: 0,
+                isOwner: true, // Profil sahibi kendi profilindeyse true
+              ),
+            ),
+          );
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black87, // Koyu arka plan
+            border: Border.all(color: Colors.white10), // Hafif çerçeve
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Ortaya Büyük Play İkonu
+              Icon(Icons.play_circle_fill, color: Colors.white.withOpacity(0.8), size: 40),
+              
+              // Sağ Üste Küçük Kamera İkonu (Video olduğunu belli etmek için)
+              const Positioned(
+                top: 8, 
+                right: 8,
+                child: Icon(Icons.videocam, color: Colors.white, size: 20),
+              ),
+              
+              // Alta "Video" yazısı (Opsiyonel)
+              Positioned(
+                bottom: 10,
+                child: Text(
+                  "VİDEO", 
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.6), 
+                    fontSize: 10, 
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.5
+                  )
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // --- 2. RESİM VARSA (Eski Kodun) ---
+    if (post.imageUrls.isNotEmpty) {
+      return GestureDetector(
+        onTap: () {
+          // Detay sayfasına git
+           Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PostDetailScreen(
+                posts: [post], 
+                initialIndex: 0,
+                isOwner: true,
+              ),
+            ),
+          );
+        },
+        child: CachedNetworkImage(
+          imageUrl: post.imageUrls[0],
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(color: Colors.grey[900]),
+          errorWidget: (context, url, error) => const Icon(Icons.error),
+        ),
+      );
+    }
+
+    // --- 3. HİÇBİRİ YOKSA ---
+    return Container(color: Colors.grey[900]);
+  }
+
+
 } // 🔥 _ArtistProfileScreenState BURADA BİTİYOR
 
 // --- DIŞARI ALINAN SINIF (DOĞRU YER) ---
@@ -1078,4 +1234,6 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(_SliverAppBarDelegate oldDelegate) => false;
+
+  
 }

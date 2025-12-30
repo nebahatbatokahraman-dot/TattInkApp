@@ -1,3 +1,4 @@
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -6,11 +7,20 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/image_service.dart';
 import '../models/user_model.dart';
-import '../utils/constants.dart'; // AppConstants buradan geliyor
+import '../models/post_model.dart'; // 1. PostModel import edildi
+import '../utils/constants.dart';
 import '../theme/app_theme.dart';
 
 class CreatePostScreen extends StatefulWidget {
-  const CreatePostScreen({super.key});
+  // 2. Parametreler eklendi
+  final PostModel? post;
+  final bool isEditing;
+
+  const CreatePostScreen({
+    super.key, 
+    this.post, 
+    this.isEditing = false
+  });
 
   @override
   State<CreatePostScreen> createState() => _CreatePostScreenState();
@@ -25,17 +35,49 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   bool _isUploading = false;
   UserModel? _currentUser;
   
-  // AppBar Kaydırma Durumu
   bool _isScrolled = false;
 
-  // Seçimler
   String? _selectedApplication; 
-  final List<String> _selectedStyles = [];
+  // List<String> _selectedStyles = []; // Hata verirse final değil normal liste yap
+  List<String> _selectedStyles = [];
 
   @override
   void initState() {
     super.initState();
     _loadUser();
+    
+    // 3. Düzenleme Modu Kontrolü
+    if (widget.isEditing && widget.post != null) {
+      _loadExistingPostData();
+    }
+  }
+
+  void _loadExistingPostData() {
+    final post = widget.post!;
+    
+    // Açıklamayı hashtag'lerden temizleyip alalım (İsteğe bağlı)
+    // Şimdilik direkt alıyoruz, kullanıcı isterse siler
+    _captionController.text = _extractCaptionWithoutTags(post.caption ?? "");
+    
+    // Uygulama türünü doldur
+    if (post.application != null && AppConstants.applications.contains(post.application)) {
+      _selectedApplication = post.application;
+    }
+    
+    // Stilleri doldur
+    if (post.styles.isNotEmpty) {
+      _selectedStyles.addAll(post.styles);
+    }
+    
+    // NOT: Düzenleme modunda resim değiştirmeyi kapattığımız için 
+    // _selectedImages listesini doldurmuyoruz. Sadece gösterimde kullanacağız.
+  }
+  
+  // Hashtagleri temizleyen yardımcı fonksiyon
+  String _extractCaptionWithoutTags(String fullCaption) {
+    if (!fullCaption.contains('#')) return fullCaption;
+    // İlk # işaretinden öncesini alır
+    return fullCaption.split('#').first.trim();
   }
 
   @override
@@ -57,11 +99,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
-  // --- OTOMATİK VERİ ÇEKME FONKSİYONU ---
   List<String> _getRelevantStyles() {
     if (_selectedApplication == null) return [];
-    
-    // AppConstants içindeki haritadan otomatik çekiyoruz
     if (AppConstants.applicationStylesMap.containsKey(_selectedApplication)) {
       return AppConstants.applicationStylesMap[_selectedApplication]!;
     }
@@ -69,6 +108,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _pickImages() async {
+    // Düzenleme modunda resim eklemeyi engelleyelim
+    if (widget.isEditing) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Düzenleme modunda medya değiştirilemez.")));
+      return;
+    }
     try {
       final List<XFile> images = await _picker.pickMultiImage();
       if (images.isNotEmpty) {
@@ -82,6 +126,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _pickVideo() async {
+    if (widget.isEditing) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Düzenleme modunda medya değiştirilemez.")));
+      return;
+    }
     try {
       final XFile? video = await _picker.pickVideo(source: ImageSource.gallery);
       if (video != null) {
@@ -95,7 +143,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _uploadPost() async {
-    if (_selectedImages.isEmpty && _selectedVideos.isEmpty) {
+    // Düzenleme modunda resim seçili olmayabilir, bu kontrolü atla
+    if (!widget.isEditing && _selectedImages.isEmpty && _selectedVideos.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lütfen en az bir görsel veya video seçin')));
       return;
     }
@@ -110,61 +159,146 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     setState(() => _isUploading = true);
 
     try {
-      final imageService = ImageService();
-      final List<String> imageUrls = [];
-
-      for (final imageFile in _selectedImages) {
-        final optimizedImage = await imageService.optimizeImage(imageFile);
-        final url = await imageService.uploadImage(
-          imageBytes: optimizedImage,
-          path: AppConstants.storagePostImages,
-        );
-        imageUrls.add(url);
-      }
-
-      final postRef = FirebaseFirestore.instance.collection(AppConstants.collectionPosts).doc();
-
       String finalCaption = _captionController.text.trim();
-      // Aramada kolay bulunması için etiketleri sona ekliyoruz
-      String tagsSuffix = "\n\n${_selectedApplication ?? ''} ${_selectedStyles.join(' ')}";
-      finalCaption = "$finalCaption $tagsSuffix".trim();
+      
+      // 4. HASHTAG OLUŞTURMA (Düzeltildi)
+      // Önceki: String tagsSuffix = "\n\n${_selectedApplication ?? ''} ${_selectedStyles.join(' ')}";
+      
+      List<String> allTags = [];
+      if (_selectedApplication != null) allTags.add(_selectedApplication!);
+      allTags.addAll(_selectedStyles);
+      
+      // Her etiketin başına # koy ve boşlukları sil
+      String formattedTags = allTags.map((tag) {
+        final cleanTag = tag.replaceAll(' ', ''); 
+        return "#$cleanTag"; 
+      }).join(' ');
+      
+      finalCaption = "$finalCaption\n\n$formattedTags".trim();
 
-      final postData = {
-        'id': postRef.id,
-        'artistId': _currentUser!.uid,
-        'artistUsername': _currentUser!.username ?? _currentUser!.fullName,
-        'artistProfileImageUrl': _currentUser!.profileImageUrl,
-        'imageUrls': imageUrls,
-        'videoUrls': [],
-        'caption': finalCaption,
-        'likeCount': 0,
-        'likedBy': [],
-        'application': _selectedApplication, 
-        'styles': _selectedStyles,
-        'district': _currentUser!.district,
-        'city': _currentUser!.city,
-        'locationString': _currentUser!.locationString.isNotEmpty 
-            ? _currentUser!.locationString 
-            : "${_currentUser!.district}, ${_currentUser!.city}",
-        'artistScore': (_currentUser!.totalLikes ?? 0).toDouble(),
+      // --- 5. GÜNCELLEME İŞLEMİ ---
+      if (widget.isEditing) {
+        await FirebaseFirestore.instance.collection(AppConstants.collectionPosts).doc(widget.post!.id).update({
+          'caption': finalCaption,
+          'application': _selectedApplication,
+          'styles': _selectedStyles,
+          // updatedAt eklemek istersen:
+          // 'updatedAt': FieldValue.serverTimestamp(),
+        });
         
-        // --- BURASI EKLENDİ ---
-        'isFeatured': false, // Varsayılan olarak öne çıkan değil
-        // ---------------------
+        if (mounted) {
+          // Güncellenmiş post modelini oluşturup geri gönderiyoruz
+          final updatedPost = widget.post!.copyWith(
+            caption: finalCaption,
+            application: _selectedApplication,
+            styles: _selectedStyles,
+          );
+          Navigator.pop(context, updatedPost);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paylaşım güncellendi'), backgroundColor: Colors.green));
+        }
+      } 
+      // --- YENİ PAYLAŞIM İŞLEMİ ---
+      else {
+        final imageService = ImageService();
+        final List<String> imageUrls = [];
+
+        // 1. Resimleri Yükle
+        for (final imageFile in _selectedImages) {
+          final optimizedImage = await imageService.optimizeImage(imageFile);
+          final url = await imageService.uploadImage(
+            imageBytes: optimizedImage,
+            path: AppConstants.storagePostImages,
+          );
+          imageUrls.add(url);
+        }
         
-        'createdAt': FieldValue.serverTimestamp(),
-      };
+        // 2. Videoyu Yükle (YENİ EKLENEN KISIM)
+        // 2. Videoyu Yükle (GARANTİ YÖNTEM: putData)
+        String? uploadedVideoUrl;
+        
+        if (_selectedVideos.isNotEmpty) {
+          File videoFile = _selectedVideos.first;
+          
+          try {
+            // Dosya uzantısını otomatik al (MOV mu MP4 mü?)
+            String fileExtension = videoFile.path.split('.').last.toLowerCase();
+            String fileName = 'post_videos/${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
+            
+            // iOS videoları genelde .mov olur, Android .mp4
+            String contentType = (fileExtension == 'mov' || fileExtension == 'qt') 
+                ? 'video/quicktime' 
+                : 'video/mp4';
 
-      await postRef.set(postData);
+            Reference storageRef = FirebaseStorage.instance.ref().child(fileName);
+            
+            // --- SİHİRLİ DEĞİŞİKLİK BURADA ---
+            // putFile yerine putData kullanıyoruz. 
+            // Dosyayı önce RAM'e okuyup öyle gönderiyoruz.
+            // Bu, iOS Simülatör hatasını %100 çözer.
+            final videoBytes = await videoFile.readAsBytes();
+            
+            UploadTask uploadTask = storageRef.putData(
+              videoBytes,
+              SettableMetadata(contentType: contentType),
+            );
+            
+            TaskSnapshot snapshot = await uploadTask;
+            uploadedVideoUrl = await snapshot.ref.getDownloadURL();
+            print("Video başarıyla yüklendi: $uploadedVideoUrl");
+            
+          } catch (e) {
+            print("Video yükleme hatası detaylı: $e");
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('Video hatası: $e'),
+                backgroundColor: Colors.red,
+              ));
+            }
+            // Hata olsa bile yüklemeyi durdurma (opsiyonel), ama videoyu null geçer.
+            setState(() => _isUploading = false); 
+            return;
+          }
+        }
 
-      await FirebaseFirestore.instance
-          .collection(AppConstants.collectionUsers)
-          .doc(_currentUser!.uid)
-          .update({'tattooCount': FieldValue.increment(1)});
+        final postRef = FirebaseFirestore.instance.collection(AppConstants.collectionPosts).doc();
 
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paylaşım başarıyla yayınlandı'), backgroundColor: Colors.green));
+        final postData = {
+          'id': postRef.id,
+          'artistId': _currentUser!.uid,
+          'artistUsername': _currentUser!.username ?? _currentUser!.fullName,
+          'artistProfileImageUrl': _currentUser!.profileImageUrl,
+          'imageUrls': imageUrls,
+          
+          // BURAYA DİKKAT: Modelimizde tanımladığımız videoUrl alanını dolduruyoruz
+          'videoUrl': uploadedVideoUrl, 
+          
+          'caption': finalCaption,
+          'likeCount': 0,
+          'likedBy': [],
+          'application': _selectedApplication, 
+          'styles': _selectedStyles,
+          'district': _currentUser!.district,
+          'city': _currentUser!.city,
+          'locationString': _currentUser!.locationString.isNotEmpty 
+              ? _currentUser!.locationString 
+              : "${_currentUser!.district}, ${_currentUser!.city}",
+          'artistScore': (_currentUser!.totalLikes ?? 0).toDouble(),
+          'isFeatured': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        };
+
+        await postRef.set(postData);
+
+        // ... Kalan kodlar aynı ...
+        await FirebaseFirestore.instance
+            .collection(AppConstants.collectionUsers)
+            .doc(_currentUser!.uid)
+            .update({'tattooCount': FieldValue.increment(1)});
+
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paylaşım başarıyla yayınlandı'), backgroundColor: Colors.green));
+        }
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red));
@@ -175,14 +309,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Dinamik stilleri Constants dosyasından çekiyoruz
     final relevantStyles = _getRelevantStyles();
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       extendBodyBehindAppBar: true, 
       appBar: AppBar(
-        title: const Text('Yeni Paylaşım', style: TextStyle(color: AppTheme.textColor)),
+        title: Text(widget.isEditing ? 'Gönderiyi Düzenle' : 'Yeni Paylaşım', style: const TextStyle(color: AppTheme.textColor)),
         backgroundColor: _isScrolled ? AppTheme.cardColor : Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
@@ -192,7 +325,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             onPressed: _isUploading ? null : _uploadPost,
             child: _isUploading
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor))
-                : const Text('Paylaş', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 16)),
+                : Text(widget.isEditing ? 'Kaydet' : 'Paylaş', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 16)),
           ),
         ],
       ),
@@ -214,44 +347,67 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (_selectedImages.isNotEmpty || _selectedVideos.isNotEmpty)
-                  SizedBox(
-                    height: 200,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        ..._selectedImages.map((image) => _buildImagePreview(image)),
-                        ..._selectedVideos.map((video) => _buildVideoPreview(video)),
-                      ],
-                    ),
-                  ),
                 
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _pickImages,
-                        icon: const Icon(Icons.image, color: AppTheme.textColor),
-                        label: const Text('Fotoğraf Ekle', style: TextStyle(color: AppTheme.textColor)),
-                        style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.grey[800]!), padding: const EdgeInsets.symmetric(vertical: 12)),
+                // 6. GÖRSEL ALANI (DÜZENLEME vs YENİ PAYLAŞIM)
+                if (!widget.isEditing) ...[
+                  if (_selectedImages.isNotEmpty || _selectedVideos.isNotEmpty)
+                    SizedBox(
+                      height: 200,
+                      child: ListView(
+                        scrollDirection: Axis.horizontal,
+                        children: [
+                          ..._selectedImages.map((image) => _buildImagePreview(image)),
+                          ..._selectedVideos.map((video) => _buildVideoPreview(video)),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _pickVideo,
-                        icon: const Icon(Icons.videocam, color: AppTheme.textColor),
-                        label: const Text('Video Ekle', style: TextStyle(color: AppTheme.textColor)),
-                        style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.grey[800]!), padding: const EdgeInsets.symmetric(vertical: 12)),
+                  
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _pickImages,
+                          icon: const Icon(Icons.image, color: AppTheme.textColor),
+                          label: const Text('Fotoğraf Ekle', style: TextStyle(color: AppTheme.textColor)),
+                          style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.grey[800]!), padding: const EdgeInsets.symmetric(vertical: 12)),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _pickVideo,
+                          icon: const Icon(Icons.videocam, color: AppTheme.textColor),
+                          label: const Text('Video Ekle', style: TextStyle(color: AppTheme.textColor)),
+                          style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.grey[800]!), padding: const EdgeInsets.symmetric(vertical: 12)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  // DÜZENLEME MODUNDA MEVCUT FOTOĞRAFLARI GÖSTER (Sadece Gösterim)
+                   const Text('Mevcut Medya (Düzenlenemez)', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                   const SizedBox(height: 8),
+                   SizedBox(
+                     height: 120,
+                     child: ListView.builder(
+                       scrollDirection: Axis.horizontal,
+                       itemCount: widget.post?.imageUrls.length ?? 0,
+                       itemBuilder: (context, index) {
+                         return Padding(
+                           padding: const EdgeInsets.only(right: 8.0),
+                           child: ClipRRect(
+                             borderRadius: BorderRadius.circular(12),
+                             child: Image.network(widget.post!.imageUrls[index], width: 120, fit: BoxFit.cover),
+                           ),
+                         );
+                       },
+                     ),
+                   ),
+                ],
                 
                 const Divider(height: 32, color: AppTheme.textColor),
 
-                // --- UYGULAMA TÜRÜ (AppConstants'tan otomatik geliyor) ---
                 const Text('Uygulama Türü', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textColor)),
                 const SizedBox(height: 8),
                 Wrap(
@@ -267,7 +423,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         showCheckmark: false,
                         onSelected: (selected) {
                           setState(() {
-                            // Seçim değişirse Application'ı güncelle, Stilleri sıfırla
                             _selectedApplication = selected ? app : null;
                             _selectedStyles.clear();
                           });
@@ -289,7 +444,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
                 const SizedBox(height: 24),
 
-                // --- STİLLER (Otomatik hesaplanan relevantStyles listesi) ---
                 if (_selectedApplication != null && relevantStyles.isNotEmpty) ...[
                   const Text('Stiller', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textColor)),
                   const SizedBox(height: 8),

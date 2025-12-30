@@ -6,7 +6,11 @@ class PostModel {
   final String? artistUsername;
   final String? artistProfileImageUrl;
   final List<String> imageUrls;
-  final List<String> videoUrls;
+  
+  // --- VİDEO İÇİN GEREKLİ ALANLAR ---
+  final List<String> videoUrls; // (Yedek) İlerde çoklu video istersen diye kalsın
+  final String? videoUrl;       // (AKTİF) Şu an kullandığımız tekil video alanı
+
   final String? caption;
   final int likeCount;
   final List<String> likedBy;
@@ -14,12 +18,12 @@ class PostModel {
   final String? city;
   final String? district;
   final Timestamp createdAt;
-  final bool isFeatured; // Premium/Öne çıkan post mu?
-  final double artistScore; // Sıralama için
+  final bool isFeatured; 
+  final double artistScore; 
 
-  // --- YENİ EKLENEN ALANLAR ---
-  final String? application; // Örn: Dövme, Piercing
-  final List<String> styles; // Örn: [Realistik, Minimal]
+  // --- UYGULAMA TÜRÜ VE STİLLER ---
+  final String? application; 
+  final List<String> styles; 
 
   PostModel({
     required this.id,
@@ -27,7 +31,8 @@ class PostModel {
     this.artistUsername,
     this.artistProfileImageUrl,
     required this.imageUrls,
-    this.videoUrls = const [],
+    this.videoUrls = const [], // Varsayılan boş liste
+    this.videoUrl,             // Varsayılan null
     this.caption,
     this.likeCount = 0,
     this.likedBy = const [],
@@ -37,7 +42,6 @@ class PostModel {
     required this.createdAt,
     this.isFeatured = false,
     this.artistScore = 0.0,
-    // Yeni alanları constructor'a ekledik
     this.application, 
     this.styles = const [],
   });
@@ -51,7 +55,11 @@ class PostModel {
       artistUsername: data['artistUsername'],
       artistProfileImageUrl: data['artistProfileImageUrl'],
       imageUrls: List<String>.from(data['imageUrls'] ?? []),
+      
+      // --- VİDEO VERİLERİNİ OKUMA ---
       videoUrls: List<String>.from(data['videoUrls'] ?? []),
+      videoUrl: data['videoUrl'], // Veritabanından string olarak oku
+      
       caption: data['caption'],
       likeCount: data['likeCount'] ?? 0,
       likedBy: List<String>.from(data['likedBy'] ?? []),
@@ -62,7 +70,6 @@ class PostModel {
       isFeatured: data['isFeatured'] ?? false,
       artistScore: (data['artistScore'] ?? 0).toDouble(),
       
-      // --- YENİ ALANLARI VERİTABANINDAN OKUYORUZ ---
       application: data['application'], 
       styles: List<String>.from(data['styles'] ?? []), 
     );
@@ -75,7 +82,11 @@ class PostModel {
       'artistUsername': artistUsername,
       'artistProfileImageUrl': artistProfileImageUrl,
       'imageUrls': imageUrls,
+      
+      // --- VİDEO VERİLERİNİ YAZMA ---
       'videoUrls': videoUrls,
+      'videoUrl': videoUrl,
+      
       'caption': caption,
       'likeCount': likeCount,
       'likedBy': likedBy,
@@ -85,10 +96,51 @@ class PostModel {
       'createdAt': createdAt,
       'isFeatured': isFeatured,
       'artistScore': artistScore,
-      
-      // --- YENİ ALANLARI HARİTAYA EKLİYORUZ ---
       'application': application,
       'styles': styles,
     };
+  }
+
+  // CopyWith metodu
+  PostModel copyWith({
+    String? id,
+    String? artistId,
+    String? artistUsername,
+    String? artistProfileImageUrl,
+    List<String>? imageUrls,
+    List<String>? videoUrls,
+    String? videoUrl, // <-- Eklendi
+    String? caption,
+    int? likeCount,
+    List<String>? likedBy,
+    String? locationString,
+    String? city,
+    String? district,
+    Timestamp? createdAt,
+    bool? isFeatured,
+    double? artistScore,
+    String? application,
+    List<String>? styles,
+  }) {
+    return PostModel(
+      id: id ?? this.id,
+      artistId: artistId ?? this.artistId,
+      artistUsername: artistUsername ?? this.artistUsername,
+      artistProfileImageUrl: artistProfileImageUrl ?? this.artistProfileImageUrl,
+      imageUrls: imageUrls ?? this.imageUrls,
+      videoUrls: videoUrls ?? this.videoUrls,
+      videoUrl: videoUrl ?? this.videoUrl, // <-- Eklendi
+      caption: caption ?? this.caption,
+      likeCount: likeCount ?? this.likeCount,
+      likedBy: likedBy ?? this.likedBy,
+      locationString: locationString ?? this.locationString,
+      city: city ?? this.city,
+      district: district ?? this.district,
+      createdAt: createdAt ?? this.createdAt,
+      isFeatured: isFeatured ?? this.isFeatured,
+      artistScore: artistScore ?? this.artistScore,
+      application: application ?? this.application,
+      styles: styles ?? this.styles,
+    );
   }
 }

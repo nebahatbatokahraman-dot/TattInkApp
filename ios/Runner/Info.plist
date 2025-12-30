@@ -70,6 +70,19 @@
     </array>
     <key>GOOGLE_APP_ID</key>
     <string>1:9143554156:ios:b7600322fd925fef1e0849</string>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
+
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Uygulama, gönderi paylaşabilmeniz için galeriye erişim izni ister.</string>
+
+    <key>NSCameraUsageDescription</key>
+    <string>Uygulama, video çekebilmeniz için kameraya erişim izni ister.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Uygulama, sesli video kaydı için mikrofona erişim izni ister.</string>
 
 </dict>
 </plist>

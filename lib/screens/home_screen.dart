@@ -1,3 +1,4 @@
+import '../widgets/video_post_player.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
@@ -31,27 +32,44 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => HomeScreenState(); 
 }
 
-class HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
+  
+  // --- 1. BÖLÜM: DEĞİŞKENLER (Sınıfın En Başında) ---
   final ScrollController _scrollController = ScrollController();
-
-  // --- FİLTRE DEĞİŞKENLERİ ---
+  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
+  
+  // Filtre Değişkenleri
   final List<String> _selectedApplications = [];
   final List<String> _selectedStyles = [];
   String? _selectedDistrict;
   String _nameSearchQuery = "";
   String? _selectedCity;
   double _minScore = 0.0;
-  String? _sortOption = AppConstants.sortNewest; // Varsayılan: En Yeniler
+  String? _sortOption = AppConstants.sortNewest; 
 
+  // --- 2. BÖLÜM: KEEPALIVE VE SCROLL FONKSİYONU ---
+  @override
+  bool get wantKeepAlive => true;
+
+// --- GÜNCELLENMİŞ AKILLI SCROLL FONKSİYONU ---
   void scrollToTop() {
     if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeOutQuart,
-      );
+      // Sayfa aşağıdaysa yukarı kaydır
+      if (_scrollController.offset > 0) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeOutQuart,
+        );
+      } else {
+        // Zaten tepedeysek YENİLEME SİMGESİNİ ÇIKAR
+        // Bu komut hem yuvarlak şeyi döndürür hem de _handleRefresh'i çalıştırır.
+        _refreshIndicatorKey.currentState?.show();
+      }
     }
   }
+
+  // --- 3. BÖLÜM: DİĞER FONKSİYONLAR ---
 
   Future<void> _handleRefresh() async {
     await Future.delayed(const Duration(milliseconds: 800));
@@ -98,8 +116,11 @@ class HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  // --- 4. BÖLÜM: BUILD METODU ---
   @override
   Widget build(BuildContext context) {
+    super.build(context); // KeepAlive için gerekli
+
     const double blurAmount = 10.0;
     const double headerHeight = 0.0; 
 
@@ -281,10 +302,13 @@ class HomeScreenState extends State<HomeScreen> {
         }).toList();
 
         return RefreshIndicator(
+          key: _refreshIndicatorKey,
           onRefresh: _handleRefresh,
           color: AppTheme.primaryColor,
           backgroundColor: AppTheme.cardColor,
+          edgeOffset: 130,
           child: ListView.builder(
+            key: const PageStorageKey('home_post_list'),
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(), 
             padding: const EdgeInsets.only(top: 170, bottom: 100),
@@ -492,8 +516,10 @@ class HomeScreenState extends State<HomeScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
+                            // BU BLOĞU KOMPLE KOPYALA VE ESKİSİYLE DEĞİŞTİR
                             Expanded(
                               child: InkWell(
+                                // Kendi profilinse tıklanmasın, başkasıysa profile gitsin
                                 onTap: isOwnPost ? null : () {
                                   Navigator.push(
                                     context, 
@@ -507,23 +533,44 @@ class HomeScreenState extends State<HomeScreen> {
                                 },
                                 child: Row(
                                   children: [
+                                    // --- İŞTE DÜZELTİLMİŞ PROFİL RESMİ KISMI ---
                                     CircleAvatar(
                                       radius: 18,
                                       backgroundColor: Colors.grey[800],
-                                      backgroundImage: post.artistProfileImageUrl != null && post.artistProfileImageUrl!.isNotEmpty
-                                          ? CachedNetworkImageProvider(post.artistProfileImageUrl!) : null,
-                                      child: post.artistProfileImageUrl == null || post.artistProfileImageUrl!.isEmpty
-                                          ? const Icon(Icons.person, size: 20, color: AppTheme.textColor) : null,
+                                      // Resim URL'si var mı VE 'http' ile başlıyor mu kontrolü:
+                                      backgroundImage: (post.artistProfileImageUrl != null && 
+                                                        post.artistProfileImageUrl!.isNotEmpty && 
+                                                        post.artistProfileImageUrl!.startsWith('http'))
+                                          ? CachedNetworkImageProvider(post.artistProfileImageUrl!) 
+                                          : null,
+                                      // Resim yoksa veya hatalıysa İkon göster:
+                                      child: (post.artistProfileImageUrl == null || 
+                                              post.artistProfileImageUrl!.isEmpty || 
+                                              !post.artistProfileImageUrl!.startsWith('http'))
+                                          ? const Icon(Icons.person, size: 20, color: AppTheme.textColor) 
+                                          : null,
                                     ),
+                                    // ---------------------------------------------
+                                    
                                     const SizedBox(width: 10),
+                                    
+                                    // İSİM VE LOKASYON KISMI
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           if (post.artistUsername != null)
-                                            Text(post.artistUsername!, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textColor, fontSize: 14), overflow: TextOverflow.ellipsis),
+                                            Text(
+                                              post.artistUsername!, 
+                                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textColor, fontSize: 14), 
+                                              overflow: TextOverflow.ellipsis
+                                            ),
                                           if (post.locationString.isNotEmpty)
-                                            Text(post.locationString, style: TextStyle(fontSize: 11, color: Colors.grey[400]), overflow: TextOverflow.ellipsis),
+                                            Text(
+                                              post.locationString, 
+                                              style: TextStyle(fontSize: 11, color: Colors.grey[400]), 
+                                              overflow: TextOverflow.ellipsis
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -605,9 +652,20 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPostMedia(PostModel post) {
+    // --- 1. ÖNCE VİDEO KONTROLÜ (EN ÜSTTE OLACAK) ---
+    // Eğer videourl doluysa direkt video oynatıcıyı döndür
+    if (post.videoUrl != null && post.videoUrl!.isNotEmpty) {
+      return VideoPostPlayer(videoUrl: post.videoUrl!);
+    }
+
+    // --- 2. VİDEO YOKSA RESİMLERE BAK ---
     if (post.imageUrls.isEmpty) return const SizedBox.shrink();
 
+    // Tek Resim Varsa
     if (post.imageUrls.length == 1) {
+      // GÜVENLİK KİLİDİ: Link 'http' ile başlamıyorsa (hatalıysa) gösterme
+      if (!post.imageUrls[0].startsWith('http')) return const SizedBox.shrink();
+
       return CachedNetworkImage(
         imageUrl: post.imageUrls[0],
         width: double.infinity,
@@ -625,6 +683,7 @@ class HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    // Çoklu Resim Varsa (Slider)
     return HomePostSlider(
       imageUrls: post.imageUrls,
       onTap: () => _openFullScreenPost(post),

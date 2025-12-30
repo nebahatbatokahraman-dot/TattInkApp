@@ -1,3 +1,4 @@
+import 'dart:async'; // StreamSubscription için gerekli
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart'; 
 import 'package:provider/provider.dart';
@@ -25,13 +26,35 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   UserModel? _currentUser;
+  StreamSubscription<User?>? _authSubscription; // Auth dinleyicisi
   
+  // HomeScreen'in durumunu korumak için Key
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
 
   @override
   void initState() {
     super.initState();
-    _loadUser();
+    _loadUser(); // İlk açılışta kullanıcıyı yükle
+    _setupAuthListener(); // Dinleyiciyi başlat
+  }
+
+  // StreamBuilder yerine bu dinleyiciyi kullanıyoruz.
+  // Bu sayede build metodu her seferinde tetiklenip sayfayı sıfırlamaz.
+  void _setupAuthListener() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    _authSubscription = authService.authStateChanges.listen((User? firebaseUser) {
+      if (firebaseUser == null) {
+        // Çıkış yapıldıysa
+        if (mounted) {
+          setState(() {
+            _currentUser = null;
+          });
+        }
+      } else {
+        // Giriş yapıldıysa veya kullanıcı değiştiyse veriyi güncelle
+        _loadUser();
+      }
+    });
   }
 
   Future<void> _loadUser() async {
@@ -40,56 +63,37 @@ class _MainScreenState extends State<MainScreen> {
 
     if (user != null) {
       final userModel = await authService.getUserModel(user.uid);
-      
-      if (mounted) {
-        if (userModel == null) {
-          await authService.signOut();
-          setState(() {
-            _currentUser = null;
-          });
-        } else {
-          setState(() {
-            _currentUser = userModel;
-          });
-        }
-      }
-    } else {
       if (mounted) {
         setState(() {
-          _currentUser = null;
+          _currentUser = userModel;
         });
       }
     }
   }
 
   @override
+  void dispose() {
+    _authSubscription?.cancel(); // Hafıza sızıntısını önlemek için dinleyiciyi kapat
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: StreamBuilder<User?>(
-        stream: Provider.of<AuthService>(context, listen: false).authStateChanges,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.active) {
-             final firebaseUser = snapshot.data;
-             
-             if (firebaseUser == null && _currentUser != null) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if(mounted) setState(() => _currentUser = null);
-                });
-             }
-             else if (firebaseUser != null && _currentUser == null) {
-                _loadUser();
-             }
-          }
-
-          return IndexedStack(
-            index: _currentIndex,
-            children: [
-              HomeScreen(key: _homeKey),
-              const StudiosScreen(),
-              _buildProfileScreen(), 
-            ],
-          );
-        },
+      // ARTIK STREAMBUILDER YOK. IndexedStack doğrudan çalışıyor.
+      // Bu sayede HomeScreen hafızada hep canlı kalıyor.
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          // 1. Sayfa: HomeScreen (KeepAliveMixin sayesinde durumu korunacak)
+          HomeScreen(key: _homeKey),
+          
+          // 2. Sayfa: Stüdyolar (Const olduğu için zaten sabit)
+          const StudiosScreen(),
+          
+          // 3. Sayfa: Profil (Kullanıcı durumuna göre değişir)
+          _buildProfileScreen(), 
+        ],
       ),
       bottomNavigationBar: Theme(
         data: Theme.of(context).copyWith(
@@ -98,10 +102,23 @@ class _MainScreenState extends State<MainScreen> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
+          // MainScreen.dart içindeki BottomNavigationBar -> onTap kısmı:
           onTap: (index) {
+
+            // 1. Tıklamayı algılıyor mu?
+            print("Tıklama Algılandı! Tıklanan: $index, Mevcut: $_currentIndex");
+
             if (index == 0 && _currentIndex == 0) {
+              print("Çift tıklama koşulu sağlandı. Akıllı scroll/refresh tetikleniyor...");
+
+              // HomeScreen'in scrollToTop fonksiyonunu çağır
+              // Bu fonksiyon otomatik olarak scroll veya refresh yapar
               _homeKey.currentState?.scrollToTop();
+
+              print("✅ Akıllı scroll/refresh tamamlandı!");
+              return; // Erken çıkış yap
             }
+
             setState(() {
               _currentIndex = index;
             });
@@ -116,24 +133,25 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // --- PROFİL EKRANI YÖNETİMİ (GÜNCELLENDİ) ---
+  // --- PROFİL EKRANI YÖNETİMİ ---
   Widget _buildProfileScreen() {
+    // Auth servisini buradan alıyoruz
     final authService = Provider.of<AuthService>(context, listen: false);
     
+    // Firebase Auth tarafında kullanıcı yoksa Misafir göster
     if (authService.currentUser == null) {
       return _buildGuestProfileView();
     }
 
+    // Kullanıcı var ama modeli henüz yüklenmediyse loading göster
     if (_currentUser == null) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
       );
     }
 
     final role = _currentUser!.role;
 
-    // GÜNCELLEME: Admin ise direkt Dashboard'a atmıyoruz. 
-    // Önce kendi profilini görsün, profilin içinden Dashboard'a gitsin.
     if (role == 'admin' || role == 'customer') {
       return CustomerProfileScreen(userId: _currentUser!.uid);
     }
