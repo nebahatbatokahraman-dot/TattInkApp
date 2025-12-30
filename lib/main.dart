@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_messaging/firebase_messaging.dart'; // <--- EKLENDİ
+import '../screens/splash_screen.dart';
 
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
@@ -68,7 +69,8 @@ class MyApp extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         locale: const Locale('tr', 'TR'),
-        home: const AuthWrapper(),
+        // AuthWrapper yerine SplashScreen'i başlangıç ekranı yaptık.
+        home: const SplashScreen(), 
       ),
     );
   }

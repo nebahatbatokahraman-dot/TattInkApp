@@ -15,11 +15,14 @@ class UserModel {
   final String? district;
   final String? city;
   
+  // --- ÖNE ÇIKARMA ALANLARI ---
+  bool? isFeatured; 
+  DateTime? featuredUntil;
+  
   // --- HARİTA VE ADRES İÇİN GEREKLİ ALANLAR ---
   final String? address;   // Açık adres
   final double? latitude;  // Enlem
   final double? longitude; // Boylam
-  // -------------------------------------------
 
   final String? instagramUsername;
   final String? profileImageUrl;
@@ -52,13 +55,11 @@ class UserModel {
     this.studioAddress,
     this.district,
     this.city,
-    
-    // --- Constructor'a Eklendi ---
+    this.isFeatured, 
+    this.featuredUntil,
     this.address,
     this.latitude,
     this.longitude,
-    // -----------------------------
-
     this.instagramUsername,
     this.profileImageUrl,
     this.coverImageUrl,
@@ -77,7 +78,6 @@ class UserModel {
     this.updatedAt,
   });
 
-  // Veritabanına yazarken kullanılan metod
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,
@@ -93,13 +93,11 @@ class UserModel {
       'studioAddress': studioAddress,
       'district': district,
       'city': city,
-      
-      // --- Veritabanına Yazma ---
+      'isFeatured': isFeatured,
+      'featuredUntil': featuredUntil != null ? Timestamp.fromDate(featuredUntil!) : null,
       'address': address,
       'latitude': latitude,
       'longitude': longitude,
-      // --------------------------
-
       'instagramUsername': instagramUsername,
       'profileImageUrl': profileImageUrl,
       'coverImageUrl': coverImageUrl,
@@ -119,7 +117,6 @@ class UserModel {
     };
   }
 
-  // Firestore Map'inden oluştururken kullanılan metod
   factory UserModel.fromMap(Map<String, dynamic> map, String id) {
     return UserModel(
       uid: id,
@@ -135,13 +132,13 @@ class UserModel {
       studioAddress: map['studioAddress'],
       district: map['district'],
       city: map['city'],
-      
-      // --- DÜZELTME: BURADA 'data' DEĞİL 'map' KULLANILMALI ---
+      isFeatured: map['isFeatured'] ?? false,
+      featuredUntil: map['featuredUntil'] != null 
+          ? (map['featuredUntil'] as Timestamp).toDate() 
+          : null,
       address: map['address'], 
       latitude: (map['latitude'] as num?)?.toDouble(), 
       longitude: (map['longitude'] as num?)?.toDouble(),
-      // -------------------------------------------------------
-
       instagramUsername: map['instagramUsername'],
       profileImageUrl: map['profileImageUrl'],
       coverImageUrl: map['coverImageUrl'],
@@ -161,12 +158,10 @@ class UserModel {
     );
   }
 
-  // DocumentSnapshot'tan oluştururken kullanılan metod
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
     return UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
   }
 
-  // copyWith Metodu
   UserModel copyWith({
     String? uid,
     String? email,
@@ -181,13 +176,11 @@ class UserModel {
     String? studioAddress,
     String? district,
     String? city,
-    
-    // --- copyWith Parametrelerine Eklendi ---
+    bool? isFeatured,
+    DateTime? featuredUntil,
     String? address,
     double? latitude,
     double? longitude,
-    // --------------------------------------
-
     String? instagramUsername,
     String? profileImageUrl,
     String? coverImageUrl,
@@ -219,13 +212,11 @@ class UserModel {
       studioAddress: studioAddress ?? this.studioAddress,
       district: district ?? this.district,
       city: city ?? this.city,
-      
-      // --- copyWith Gövdesine Eklendi ---
+      isFeatured: isFeatured ?? this.isFeatured,
+      featuredUntil: featuredUntil ?? this.featuredUntil,
       address: address ?? this.address,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
-      // ----------------------------------
-
       instagramUsername: instagramUsername ?? this.instagramUsername,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       coverImageUrl: coverImageUrl ?? this.coverImageUrl,

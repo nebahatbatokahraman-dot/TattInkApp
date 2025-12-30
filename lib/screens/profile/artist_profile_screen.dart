@@ -410,21 +410,40 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
                       ),
 
                     // 🔥 ÖNE ÇIKAR BUTONU
+                    // --- 1. ADIM: BUTON KISMI (Widget build içindeki Stack/Positioned altına) ---
                     if (isOwnProfile)
                       Positioned(
                         top: 40,
                         right: 60,
-                        child: ElevatedButton.icon(
-                          onPressed: () => _showPromoteBottomSheet(context, _user?.fullName),
-                          icon: const Icon(Icons.auto_graph, color: AppTheme.textColor, size: 18),
-                          label: const Text("Öne Çıkar", style: TextStyle(fontSize: 12)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.amber.shade700,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          ),
-                        ),
+                        child: _user?.isFeatured == true 
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withOpacity(0.9),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.check_circle, color: Colors.white, size: 16),
+                                    SizedBox(width: 4),
+                                    Text("Öne Çıkarıldı", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              )
+                            : ElevatedButton.icon(
+                                onPressed: () => _showPromoteBottomSheet(context, _user?.fullName),
+                                icon: const Icon(Icons.auto_graph, color: AppTheme.textColor, size: 18),
+                                label: const Text("Öne Çıkar", style: TextStyle(fontSize: 12)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.amber.shade700,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                ),
+                              ),
                       ),
+
+                    
 
                     // --- AYARLAR BUTONU ---
                     if (isOwnProfile)
@@ -674,6 +693,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
                           ),
                         ),
                       ),
+                  
                   ],
                 ),
                 const SizedBox(height: 80),
@@ -1116,70 +1136,101 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
 
   void _handleCreatePost() => Navigator.push(context, MaterialPageRoute(builder: (context) => const CreatePostScreen()));
 
-  void _showPromoteBottomSheet(BuildContext context, String? artistName) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        decoration: const BoxDecoration(
-          color: Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-        ),
-        child: Column(
-          children: [
-            const SizedBox(height: 15),
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(10))),
-            const SizedBox(height: 30),
-            const Icon(Icons.rocket_launch, size: 70, color: Colors.amber),
-            const SizedBox(height: 20),
-            const Text(
-              "TattInk Zirvesine Çık!",
-              style: TextStyle(color: AppTheme.textColor, fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-              child: Text(
-                "Profilini öne çıkararak bölgendeki müşterilere 5 kat daha fazla görün ve randevularını anında doldur.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 15),
-              ),
-            ),
-            const SizedBox(height: 20),
-            _buildPackageItem("7 Günlük Vitrin", "199 TL", Icons.flash_on),
-            _buildPackageItem("30 Günlük Pro", "599 TL", Icons.workspace_premium),
-            const Spacer(),
-            Padding(
-              padding: const EdgeInsets.all(25.0),
-              child: SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final name = artistName ?? 'Değerli Sanatçımız';
-                    Navigator.pop(context);
+  // --- BURADAN BAŞLIYOR ---
 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text("$name, talebiniz alındı! Sizinle iletişime geçeceğiz."),
-                        backgroundColor: AppTheme.primaryColor,
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                  ),
-                  child: const Text("HEMEN BAŞVUR", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+// --- 2. ADIM: FONKSİYONLAR (Class'ın en altına, build metodunun dışına) ---
+
+                    void _showPromoteBottomSheet(BuildContext context, String? artistName) {
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: AppTheme.backgroundColor,
+                        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+                        isScrollControlled: true,
+                        builder: (context) => Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(2))),
+                              const SizedBox(height: 20),
+                              const Icon(Icons.auto_graph, color: Colors.amber, size: 48),
+                              const SizedBox(height: 16),
+                              const Text("Profilini Zirveye Taşı 🚀", style: TextStyle(color: AppTheme.textColor, fontSize: 20, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 8),
+                              Text("$artistName, gönderilerini ana sayfada en üstte sergileyerek daha fazla randevu talebi alabilirsin.",
+                                textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                              const SizedBox(height: 30),
+                              _buildPricingCard(
+                                title: "Haftalık Boost",
+                                price: "₺199",
+                                description: "7 gün boyunca ana sayfada öne çıkın.",
+                                icon: Icons.flash_on,
+                                onTap: () => _handlePayment(7),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildPricingCard(
+                                title: "Aylık Elite",
+                                price: "₺599",
+                                description: "30 gün boyunca kesintisiz görünürlük.",
+                                icon: Icons.workspace_premium,
+                                isHighlight: true,
+                                onTap: () => _handlePayment(30),
+                              ),
+                              const SizedBox(height: 30),
+                              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Vazgeç", style: TextStyle(color: Colors.grey))),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    Widget _buildPricingCard({required String title, required String price, required String description, required IconData icon, bool isHighlight = false, required VoidCallback onTap}) {
+                      return GestureDetector(
+                        onTap: onTap,
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isHighlight ? AppTheme.primaryColor.withOpacity(0.1) : AppTheme.cardColor,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: isHighlight ? AppTheme.primaryColor : Colors.grey.shade800, width: isHighlight ? 2 : 1),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(icon, color: isHighlight ? AppTheme.primaryColor : Colors.white, size: 30),
+                              const SizedBox(width: 16),
+                              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text(title, style: const TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text(description, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                              ])),
+                              Text(price, style: const TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold, fontSize: 18)),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    Future<void> _handlePayment(int days) async {
+                      try {
+                        final String? uid = _user?.uid;
+                        if (uid != null) {
+                          await FirebaseFirestore.instance.collection('users').doc(uid).update({
+                            'isFeatured': true,
+                            'featuredUntil': Timestamp.fromDate(DateTime.now().add(Duration(days: days))),
+                          });
+                          
+                          if (mounted) {
+                            setState(() { _user?.isFeatured = true; });
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Ödeme Başarılı! Artık öne çıkıyorsun. 🎉"), backgroundColor: Colors.green)
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        debugPrint("Hata: $e");
+                      }
+                    }
+// --- BURADA BİTTİ ---
 
   Widget _buildPackageItem(String title, String price, IconData icon) {
     return Container(
