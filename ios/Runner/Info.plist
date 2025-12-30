@@ -83,6 +83,12 @@
     <string>Uygulama, video çekebilmeniz için kameraya erişim izni ister.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Uygulama, sesli video kaydı için mikrofona erişim izni ister.</string>
-
+    <key>NSAppTransportSecurity</key>
+<dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <true/>
+    <key>NSAllowsArbitraryLoadsInWebContent</key>
+    <true/>
+</dict>
 </dict>
 </plist>

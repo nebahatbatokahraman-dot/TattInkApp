@@ -267,7 +267,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                           children: [
                             // A) LOGO VE BİLDİRİM
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -446,74 +446,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     );
   }
 
-  // --- ÖNE ÇIKAN ARTİST KARTLARI ---
-  Widget _buildFeaturedArtistCard({
-    required String title,
-    required String subtitle,
-    required String content,
-    String? imageUrl,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.amber.shade700.withOpacity(0.5), width: 1.5), // Altın kenarlık
-        boxShadow: [
-          BoxShadow(color: Colors.amber.shade900.withOpacity(0.1), blurRadius: 15, spreadRadius: 2),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                child: SizedBox(
-                  height: 250, width: double.infinity,
-                  child: imageUrl != null 
-                    ? CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover)
-                    : Container(color: Colors.black26, child: const Icon(Icons.person, size: 50)),
-                ),
-              ),
-              Positioned(
-                top: 12, left: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.amber)),
-                  child: const Row(children: [
-                    Icon(Icons.stars, color: Colors.amber, size: 14),
-                    SizedBox(width: 4),
-                    Text("ÖNE ÇIKAN ARTİST", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                  ]),
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                const CircleAvatar(radius: 20, backgroundColor: AppTheme.backgroundColor, child: Icon(Icons.verified, color: Colors.blue, size: 18)),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, style: const TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold, fontSize: 16)),
-                  Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                ])),
-                ElevatedButton(
-                  onPressed: onTap,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber.shade700),
-                  child: const Text("Profili Gör", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   //REKLAM KARTLARI//
   Widget _buildStandardAdCard({
@@ -524,7 +457,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     required VoidCallback onTap,
   }) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: AppTheme.cardColor,
         borderRadius: BorderRadius.circular(16),
@@ -550,75 +483,32 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
   //BUILD DYNAMIC ADS//
   Widget _buildDynamicAds() {
-    return Column(
-      children: [
-        // --- BÖLÜM 1: ÖNE ÇIKAN ARTİSTLER (isFeatured: true olanlar) ---
-        StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('users')
-              .where('isFeatured', isEqualTo: true)
-              .snapshots(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) return const SizedBox();
-            return Column(
-              children: snapshot.data!.docs.map((doc) {
-                final data = doc.data() as Map<String, dynamic>;
-                return _buildFeaturedArtistCard(
-                  title: data['studioName'] ?? data['firstName'] ?? "Sanatçı",
-                  subtitle: "${data['district'] ?? ''}, ${data['city'] ?? ''}",
-                  content: data['biography'] ?? "",
-                  imageUrl: data['profileImageUrl'],
-                  onTap: () {
-                    final String? targetId = doc.id; // Artistin ID'si
-                    final String? currentUserId = FirebaseAuth.instance.currentUser?.uid; // Giriş yapmış kişinin ID'si
-
-                    if (targetId != null) {
-                      if (targetId == currentUserId) {
-                        // Artist kendi reklamına tıkladıysa:
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Bu senin kendi reklamın! Profilin diğer kullanıcılara böyle görünüyor. ✨")),
-                        );
-                      } else {
-                        // Başka biriyse profile git:
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ArtistProfileScreen(
-                              userId: targetId,
-                              isOwnProfile: false,
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                );
-              }).toList(),
-            );
-          },
-        ),
-
-        // --- BÖLÜM 2: DIŞ REKLAMLAR (ads koleksiyonu) ---
-        StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('ads')
-              .where('isActive', isEqualTo: true)
-              .snapshots(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const SizedBox();
-            final adData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
-            return _buildStandardAdCard(
-              title: adData['title'] ?? "TattInk",
-              subtitle: "Sponsorlu",
-              content: adData['content'] ?? "",
-              imageUrl: adData['imageUrl'],
-              onTap: () { /* Reklam linkine git */ },
-            );
-          },
-        ),
-      ],
-    );
-  }
+  return Column(
+    children: [
+      // --- SADECE DIŞ REKLAMLAR (Sponsorlu İçerik) ---
+      StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('ads')
+            .where('isActive', isEqualTo: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          
+          final adData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+          return _buildStandardAdCard(
+            title: adData['title'] ?? "TattInk",
+            subtitle: "Sponsorlu",
+            content: adData['content'] ?? "",
+            imageUrl: adData['imageUrl'],
+            onTap: () { /* Reklam linkine git */ },
+          );
+        },
+      ),
+    ],
+  );
+}
 
 
   // --- POST DETAYLARI ---
@@ -650,7 +540,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                               (artistSnapshot.data?.data() as Map<String, dynamic>?)?['isFeatured'] == true;
 
         return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             boxShadow: isPremium ? [
@@ -981,9 +871,12 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                 child: Container(
                   height: MediaQuery.of(context).size.height * 0.85,
                   decoration: BoxDecoration(
-                    color: AppTheme.backgroundColor.withOpacity(0.85),
+                    color: AppTheme.backgroundColor.withOpacity(0.8),
                     border: Border(
                       top: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+                      left: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+                      right: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+                      bottom: BorderSide.none, // Alt kenarı tamamen devre dışı bıraktık
                     ),
                   ),
                   child: Column(
@@ -1030,7 +923,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                             
                                             // --- RENK AYARLARI ---
                                             // Seçili olduğunda içi dolu (Primary Renk)
-                                            selectedColor: AppTheme.primaryColor, 
+                                            selectedColor: AppTheme.primaryColor.withOpacity(0.5),
                                             // Seçili DEĞİLKEN içi şeffaf (Outlined görünümü sağlayan kısım)
                                             backgroundColor: Colors.transparent, 
                                             
@@ -1179,19 +1072,33 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
                       // Uygula Butonu
                       Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.white.withOpacity(0.05))), color: AppTheme.backgroundColor.withOpacity(0.5)),
-                        child: SizedBox(
-                          width: double.infinity, height: 50,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              setState(() {}); // Ana ekranı güncelle
-                              Navigator.pop(context);
-                            },
-                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
-                            child: const Text('Sonuçları Göster', style: TextStyle(color: AppTheme.textColor, fontSize: 16, fontWeight: FontWeight.bold)),
+                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+                        decoration: BoxDecoration(
+                          
+                          color: Colors.transparent,
+                        ),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() {}); 
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            // BURASI KRİTİK: Genişliği sonsuz, yüksekliği 50 yapıyoruz
+                            minimumSize: const Size(double.infinity, 50), 
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Sonuçları Göster',
+                            style: TextStyle(
+                              color: AppTheme.textColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
+                      
                       ),
                     ],
                   ),

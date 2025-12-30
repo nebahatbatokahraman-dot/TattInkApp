@@ -1,3 +1,4 @@
+import '../widgets/featured_artist_card.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -182,9 +183,12 @@ class _StudiosScreenState extends State<StudiosScreen> {
                 child: Container(
                   height: MediaQuery.of(context).size.height * 0.85,
                   decoration: BoxDecoration(
-                    color: AppTheme.backgroundColor.withOpacity(0.85),
+                    color: AppTheme.backgroundColor.withOpacity(0.8),
                     border: Border(
                       top: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+                      left: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+                      right: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+                      bottom: BorderSide.none, // Alt kenarı tamamen devre dışı bıraktık
                     ),
                   ),
                   child: Column(
@@ -294,7 +298,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                                             selected: isSelected,
                                             showCheckmark: false,
                                             // -- Outlined Tasarım Ayarları --
-                                            selectedColor: AppTheme.primaryColor,
+                                            selectedColor: AppTheme.primaryColor.withOpacity(0.5),
                                             backgroundColor: Colors.transparent, // Seçili değilken şeffaf
                                             labelStyle: TextStyle(
                                               color: isSelected ? AppTheme.textColor : Colors.grey[400], 
@@ -303,7 +307,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8), 
                                               side: BorderSide(
-                                                color: isSelected ? AppTheme.primaryColor : Colors.grey[700]!, // Çerçeve rengi
+                                                color: isSelected ? AppTheme.primaryColor.withOpacity(0.8) : Colors.grey[700]!, // Çerçeve rengi
                                                 width: 1
                                               )
                                             ),
@@ -366,21 +370,35 @@ class _StudiosScreenState extends State<StudiosScreen> {
                         ),
                       ),
 
-                      // UYGULA BUTONU
+                      // Uygula Butonu
                       Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.white.withOpacity(0.05))), color: AppTheme.backgroundColor.withOpacity(0.5)),
-                        child: SizedBox(
-                          width: double.infinity, height: 50,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              setState(() {}); // Ana ekranı güncelle
-                              Navigator.pop(context);
-                            },
-                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 0),
-                            child: const Text('Sonuçları Göster', style: TextStyle(color: AppTheme.textColor, fontSize: 16, fontWeight: FontWeight.bold)),
+                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+                        decoration: BoxDecoration(
+                          
+                          color: Colors.transparent,
+                        ),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() {}); 
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            // BURASI KRİTİK: Genişliği sonsuz, yüksekliği 50 yapıyoruz
+                            minimumSize: const Size(double.infinity, 50), 
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Sonuçları Göster',
+                            style: TextStyle(
+                              color: AppTheme.textColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
+                      
                       ),
                     ],
                   ),
@@ -424,7 +442,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                     children: [
                       // Carousel (Sadece listede görünsün)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 0.0),
+                        padding: const EdgeInsets.fromLTRB(12.0, 0, 12.0, 0.0),
                         child: cs.CarouselSlider(
                           options: cs.CarouselOptions(
                             height: 40,
@@ -464,7 +482,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                     child: Padding(
                       padding: EdgeInsets.only(
                         top: MediaQuery.of(context).padding.top + 8, 
-                        bottom: 10, left: 16, right: 16
+                        bottom: 10, left: 12, right: 12
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -619,7 +637,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
     );
   }
 
-  // --- LİSTE OLUŞTURMA ---
+  // --- LİSTE OLUŞTURMA (GÜNCELLENMİŞ VIP VERSİYON) ---
   Widget _buildArtistList({bool shrinkWrap = false}) {
     Query query = FirebaseFirestore.instance.collection(AppConstants.collectionUsers)
         .where('role', whereIn: [AppConstants.roleArtistApproved, AppConstants.roleArtistUnapproved])
@@ -639,7 +657,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
         var docs = snapshot.data!.docs;
         List<UserModel> artists = docs.map((d) => UserModel.fromFirestore(d)).toList();
 
-        // FİLTRELEME MANTIĞI
+        // --- 1. FİLTRELEME MANTIKLARI (Aynı Kalıyor) ---
         if (_selectedSearchCity != null) {
           artists = artists.where((artist) {
             bool cityMatch = artist.city != null && artist.city!.toLowerCase() == _selectedSearchCity!.toLowerCase();
@@ -688,8 +706,8 @@ class _StudiosScreenState extends State<StudiosScreen> {
           });
         }
 
-        if (artists.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(20.0), child: Text('Sonuç yok', style: TextStyle(color: Colors.grey))));
-
+        // Eğer hiçbir artist yoksa ve VIP de yoksa diye kontrolü aşağıya alacağız
+        
         return MediaQuery.removePadding(
           context: context,
           removeTop: true,
@@ -697,9 +715,77 @@ class _StudiosScreenState extends State<StudiosScreen> {
             shrinkWrap: shrinkWrap, 
             physics: const NeverScrollableScrollPhysics(), 
             padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
-            itemCount: artists.length,
+            // +1 ekliyoruz çünkü listenin 0. elemanı bizim VIP alanımız olacak
+            itemCount: artists.length + 1,
             itemBuilder: (context, index) {
-              return _buildArtistCard(artists[index]);
+              
+              // --- 2. EN TEPEYE VIP (ÖNE ÇIKANLAR) EKLEME ---
+              if (index == 0) {
+                return StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection(AppConstants.collectionUsers)
+                      .where('isFeatured', isEqualTo: true)
+                      // ÖNEMLİ: Bazı durumlarda Firestore Timestamp hassasiyeti sorun çıkarabilir.
+                      // Query'yi burada yapıp, tarihi aşağıda manuel kontrol etmek daha güvenlidir:
+                      .snapshots(),
+                  builder: (context, vipSnapshot) {
+                    if (!vipSnapshot.hasData || vipSnapshot.data!.docs.isEmpty) {
+                      return const SizedBox.shrink(); 
+                    }
+
+                    // Gelen verileri burada tarih filtresinden geçiriyoruz (Client-side filtering)
+                    final now = DateTime.now();
+                    final featuredDocs = vipSnapshot.data!.docs.where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      if (data['featuredEndDate'] == null) return false;
+                      
+                      // Firebase'den gelen Timestamp'i DateTime'a çevirip kıyaslıyoruz
+                      final expiry = (data['featuredEndDate'] as Timestamp).toDate();
+                      return expiry.isAfter(now);
+                    }).toList();
+
+                    if (featuredDocs.isEmpty) return const SizedBox.shrink();
+
+                    return Column(
+                      children: featuredDocs.map((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        
+                        // Şehir filtresi varsa burada uygula
+                        if (_selectedSearchCity != null) {
+                          if (data['city']?.toString().toLowerCase() != _selectedSearchCity!.toLowerCase()) {
+                            return const SizedBox.shrink();
+                          }
+                        }
+
+                        return FeaturedArtistCard(
+                          title: data['studioName'] ?? data['firstName'] ?? "Sanatçı",
+                          subtitle: "${data['district'] ?? ''}, ${data['city'] ?? ''}",
+                          imageUrl: data['profileImageUrl'],
+                          onTap: () {
+                            Navigator.push(context, MaterialPageRoute(
+                              builder: (context) => ArtistProfileScreen(userId: doc.id, isOwnProfile: false),
+                            ));
+                          },
+                        );
+                      }).toList(),
+                    );
+                  },
+                );
+              }
+
+              // --- 3. NORMAL LİSTE (Index kaydırarak devam eder) ---
+              // Eğer normal liste boşsa "Sonuç yok" uyarısı göster
+              if (artists.isEmpty) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0), 
+                    child: Text('Sonuç yok', style: TextStyle(color: Colors.grey))
+                  )
+                );
+              }
+
+              // index-1 yapıyoruz çünkü 0. index'i VIP'ye ayırdık
+              return _buildArtistCard(artists[index - 1]);
             },
           ),
         );
@@ -747,7 +833,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
      }
 
      return Card(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       color: AppTheme.cardColor,
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -805,7 +891,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
             ),
             const SizedBox(height: 30), 
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

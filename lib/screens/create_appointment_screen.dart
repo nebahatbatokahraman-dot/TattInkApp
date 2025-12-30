@@ -263,7 +263,12 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
           decoration: BoxDecoration(
             color: AppTheme.backgroundColor.withOpacity(0.8), // Hafif saydamlık
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+            border: Border(
+                top: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+                left: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+                right: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
+                bottom: BorderSide.none, // Alt kenarı tamamen devre dışı bıraktık
+              ),
           ),
           child: Scaffold(
             backgroundColor: Colors.transparent, // Cam etkisinin görünmesi için

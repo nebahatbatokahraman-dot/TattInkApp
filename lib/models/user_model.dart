@@ -17,7 +17,8 @@ class UserModel {
   
   // --- ÖNE ÇIKARMA ALANLARI ---
   bool? isFeatured; 
-  DateTime? featuredUntil;
+  DateTime? featuredUntil; // Eski alanın (isteğe bağlı kalabilir)
+  DateTime? featuredEndDate; // Yeni kullandığımız alan
   
   // --- HARİTA VE ADRES İÇİN GEREKLİ ALANLAR ---
   final String? address;   // Açık adres
@@ -57,6 +58,7 @@ class UserModel {
     this.city,
     this.isFeatured, 
     this.featuredUntil,
+    this.featuredEndDate, // Buraya eklendi
     this.address,
     this.latitude,
     this.longitude,
@@ -95,6 +97,7 @@ class UserModel {
       'city': city,
       'isFeatured': isFeatured,
       'featuredUntil': featuredUntil != null ? Timestamp.fromDate(featuredUntil!) : null,
+      'featuredEndDate': featuredEndDate != null ? Timestamp.fromDate(featuredEndDate!) : null, // Buraya eklendi
       'address': address,
       'latitude': latitude,
       'longitude': longitude,
@@ -136,6 +139,9 @@ class UserModel {
       featuredUntil: map['featuredUntil'] != null 
           ? (map['featuredUntil'] as Timestamp).toDate() 
           : null,
+      featuredEndDate: map['featuredEndDate'] != null 
+          ? (map['featuredEndDate'] as Timestamp).toDate() 
+          : null, // Buraya eklendi
       address: map['address'], 
       latitude: (map['latitude'] as num?)?.toDouble(), 
       longitude: (map['longitude'] as num?)?.toDouble(),
@@ -178,6 +184,7 @@ class UserModel {
     String? city,
     bool? isFeatured,
     DateTime? featuredUntil,
+    DateTime? featuredEndDate, // Buraya eklendi
     String? address,
     double? latitude,
     double? longitude,
@@ -214,6 +221,7 @@ class UserModel {
       city: city ?? this.city,
       isFeatured: isFeatured ?? this.isFeatured,
       featuredUntil: featuredUntil ?? this.featuredUntil,
+      featuredEndDate: featuredEndDate ?? this.featuredEndDate, // Buraya eklendi
       address: address ?? this.address,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
