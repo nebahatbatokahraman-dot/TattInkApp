@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-
+import 'package:firebase_auth/firebase_auth.dart'; // FirebaseAuth hatasını çözer
+import '../../services/report_service.dart'; // ReportService hatasını çözer (yoksa ekle)
 import '../../services/auth_service.dart';
 import '../../services/image_service.dart';
 import '../../models/user_model.dart';
@@ -427,6 +428,80 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
           ],
         ),
       ),
+        // --- MÜŞTERİ PROFİLİNE EKLE (DÜZELTİLMİŞ HALİ) ---
+          // Eğer giriş yapan kullanıcı ile bu profilin sahibi FARKLIYSA butonu göster
+          if (FirebaseAuth.instance.currentUser?.uid != widget.userId)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 10,
+              right: 16,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.4),
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context, // Ana context (Profil Sayfası)
+                      backgroundColor: AppTheme.cardColor,
+                      builder: (sheetContext) => SafeArea(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 4,
+                              margin: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(color: Colors.grey[700], borderRadius: BorderRadius.circular(2)),
+                            ),
+
+                            // ŞİKAYET ET
+                            ListTile(
+                              leading: const Icon(Icons.flag, color: Colors.redAccent),
+                              title: const Text("Kullanıcıyı Şikayet Et", style: TextStyle(color: Colors.white)),
+                              onTap: () {
+                                Navigator.pop(sheetContext); // Menüyü kapat
+                                
+                                // Servisi çağır (Ana context ile)
+                                ReportService.showReportDialog(
+                                  context: context,
+                                  contentId: widget.userId,
+                                  contentType: 'user',
+                                  reportedUserId: widget.userId,
+                                );
+                              },
+                            ),
+
+                            // ENGELLE
+                            ListTile(
+                              leading: const Icon(Icons.block, color: Colors.white70),
+                              title: const Text("Engelle", style: TextStyle(color: Colors.white70)),
+                              onTap: () {
+                                Navigator.pop(sheetContext); // Menüyü kapat
+                                
+                                final user = FirebaseAuth.instance.currentUser;
+                                if (user != null) {
+                                  // Servisi çağır (Ana context ile)
+                                  ReportService.blockUser(
+                                    context: context,
+                                    currentUserId: user.uid,
+                                    blockedUserId: widget.userId,
+                                  );
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+    
+    
     ],
   );
 }
@@ -490,30 +565,98 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
           builder: (context, uSnap) {
             if (!uSnap.hasData) return const Center(child: CircularProgressIndicator());
             final users = uSnap.data!.docs.map((d) => UserModel.fromFirestore(d)).toList();
-            return ListView.builder(itemCount: users.length, itemBuilder: (c, i) => ListTile(leading: CircleAvatar(backgroundImage: users[i].profileImageUrl != null ? NetworkImage(users[i].profileImageUrl!) : null), title: Text(users[i].fullName, style: const TextStyle(color: AppTheme.textColor)), onTap: () => Navigator.push(context, SlideRoute(page: ArtistProfileScreen(userId: users[i].uid)))));
+            
+            return ListView.builder(
+              itemCount: users.length, 
+              itemBuilder: (c, i) => Theme(
+                data: Theme.of(context).copyWith(
+                  // --- SPLASH EFEKTİ AYARLARI ---
+                  // Tıklandığında hiçbir parlama olmasın istiyorsan her ikisini de Colors.transparent yap.
+                  // Eğer çok hafif bir renk istersen AppTheme.primaryColor.withOpacity(0.1) kullanabilirsin.
+                  splashColor: AppTheme.cardColor, 
+                  highlightColor: Colors.transparent,
+                ),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundImage: users[i].profileImageUrl != null 
+                        ? NetworkImage(users[i].profileImageUrl!) 
+                        : null
+                  ), 
+                  title: Text(
+                    users[i].fullName, 
+                    style: const TextStyle(color: AppTheme.textColor)
+                  ), 
+                  onTap: () => Navigator.push(
+                    context, 
+                    SlideRoute(page: ArtistProfileScreen(userId: users[i].uid))
+                  )
+                ),
+              )
+            );
           },
         );
       },
     );
   }
 
-  Widget _buildMessagesList(String uid) {
+  // --- YENİ: SOHBETİ VERİTABANINDAN (KİŞİYE ÖZEL) SİLME FONKSİYONU ---
+Future<void> _deleteChatFromProfile(String chatId, String currentUserId) async {
+  try {
+    final batch = FirebaseFirestore.instance.batch();
+
+    // 1. Sohbet özetinden kullanıcıyı çıkar
+    final chatRef = FirebaseFirestore.instance.collection(AppConstants.collectionChats).doc(chatId);
+    batch.update(chatRef, {
+      'users': FieldValue.arrayRemove([currentUserId])
+    });
+
+    // 2. Bu sohbetteki mesajları kullanıcı için "silindi" işaretle
+    final messagesSnapshot = await FirebaseFirestore.instance
+        .collection(AppConstants.collectionMessages)
+        .where('chatId', isEqualTo: chatId)
+        .get();
+
+    for (var doc in messagesSnapshot.docs) {
+      batch.update(doc.reference, {
+        'deletedBy': FieldValue.arrayUnion([currentUserId])
+      });
+    }
+
+    await batch.commit();
+  } catch (e) {
+    debugPrint("Profil mesaj silme hatası: $e");
+  }
+}
+
+// --- GÜNCELLENMİŞ MESAJ LİSTESİ ---
+Widget _buildMessagesList(String uid) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection(AppConstants.collectionMessages).orderBy('createdAt', descending: true).snapshots(),
       builder: (context, snap) {
         if (!snap.hasData || snap.data!.docs.isEmpty) return _empty(Icons.mail_outline, 'Mesaj yok');
+        
         final chats = <String, MessageModel>{};
         for (var d in snap.data!.docs) {
+          final data = d.data() as Map<String, dynamic>;
           final m = MessageModel.fromFirestore(d);
-          if ((m.senderId == uid || m.receiverId == uid) && !chats.containsKey(m.chatId)) chats[m.chatId] = m;
+          
+          final List deletedBy = data['deletedBy'] ?? [];
+          if ((m.senderId == uid || m.receiverId == uid) && 
+              !chats.containsKey(m.chatId) && 
+              !deletedBy.contains(uid)) {
+            chats[m.chatId] = m;
+          }
         }
+        
         final list = chats.values.toList();
+        
         return ListView.builder(
           padding: EdgeInsets.zero,
           itemCount: list.length,
           itemBuilder: (c, i) {
             final m = list[i];
             final otherId = m.senderId == uid ? m.receiverId : m.senderId;
+            
             return StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance.collection(AppConstants.collectionUsers).doc(otherId).snapshots(),
               builder: (context, userSnap) {
@@ -524,12 +667,59 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
                   displayName = userData['fullName'] ?? userData['username'] ?? "Kullanıcı";
                   displayImage = userData['profileImageUrl'];
                 }
-                return ListTile(
-                  leading: CircleAvatar(backgroundImage: displayImage != null ? NetworkImage(displayImage) : null, child: displayImage == null ? const Icon(Icons.person) : null),
-                  title: Text(displayName, style: const TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold)),
-                  subtitle: Text(m.content, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey)),
-                  trailing: Text(DateFormat('HH:mm').format(m.createdAt), style: const TextStyle(color: Colors.grey, fontSize: 10)),
-                  onTap: () => Navigator.push(context, SlideRoute(page: ChatScreen(receiverId: otherId, receiverName: displayName))),
+
+                // --- GÜNCELLEME: DISMISSIBLE KALDIRILDI, THEME KORUNDU ---
+                return Theme(
+                  data: Theme.of(context).copyWith(
+                    splashColor: AppTheme.cardColor, 
+                    highlightColor: Colors.transparent,
+                  ),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundImage: displayImage != null ? NetworkImage(displayImage) : null, 
+                      child: displayImage == null ? const Icon(Icons.person) : null
+                    ),
+                    title: Text(displayName, style: const TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold)),
+                    subtitle: Text(m.content, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey)),
+                    trailing: Text(DateFormat('HH:mm').format(m.createdAt), style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                    onTap: () => Navigator.push(context, SlideRoute(page: ChatScreen(receiverId: otherId, receiverName: displayName))),
+                    
+                    // --- UZUN BASINCA SİLME MENÜSÜ BURADA ---
+                    onLongPress: () {
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: AppTheme.backgroundColor.withOpacity(0.95),
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 20), decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))),
+                              Text("$displayName ile sohbeti sil?", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 20),
+                              ListTile(
+                                leading: const Icon(Icons.delete_forever, color: Colors.redAccent),
+                                title: const Text("Sohbeti Benden Sil", style: TextStyle(color: Colors.redAccent)),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  _deleteChatFromProfile(m.chatId, uid);
+                                },
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.close, color: Colors.grey),
+                                title: const Text("İptal", style: TextStyle(color: Colors.white70)),
+                                onTap: () => Navigator.pop(context),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 );
               }
             );
@@ -538,6 +728,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
       },
     );
   }
+
+  
 
   Widget _empty(IconData icon, String txt) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, size: 40, color: Colors.grey), Text(txt, style: const TextStyle(color: Colors.grey))]));
 }

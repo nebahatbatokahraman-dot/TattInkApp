@@ -11,6 +11,8 @@ import '../services/gemini_service.dart';
 import '../utils/constants.dart';
 import '../theme/app_theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../services/report_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ChatScreen extends StatefulWidget {
   final String receiverId;
@@ -58,17 +60,13 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  // --- KRİTİK DÜZELTME BURADA YAPILDI ---
   void _initializeChat() {
     final authService = Provider.of<AuthService>(context, listen: false);
     final senderId = authService.currentUser?.uid;
     if (senderId != null) {
-      // MessageModel.generateChatId yerine kendi yazdığımız alfabetik sıralayan fonksiyonu kullanıyoruz.
-      // Bu sayede Ahmet -> Mehmet ile Mehmet -> Ahmet aynı odayı görür.
       _chatId = getChatRoomId(senderId, widget.receiverId);
     }
   }
-  // --------------------------------------
 
   Future<void> _autoSendReferenceImage() async {
     if (widget.referenceImageUrl != null && _chatId != null) {
@@ -99,15 +97,14 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // --- MODERN DOSYA SEÇİCİ MENÜSÜ ---
   Future<void> _pickAndSendImage() async {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent, // Şeffaf zemin (köşeler için)
+      backgroundColor: Colors.transparent, 
       builder: (context) => Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: AppTheme.backgroundColor.withOpacity(0.75), // Koyu yarı saydam zemin
+          color: AppTheme.backgroundColor.withOpacity(0.75), 
           borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
           border: Border(
             top: BorderSide(color: AppTheme.primaryLightColor.withOpacity(0.1), width: 1),
@@ -116,7 +113,6 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Gri Tutamaç
             Container(
               width: 40,
               height: 4,
@@ -126,27 +122,22 @@ class _ChatScreenState extends State<ChatScreen> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            
-            // Yan Yana Butonlar
             Row(
               children: [
-                // 1. KAMERA (Turuncu/Sarı Tonlar)
                 Expanded(
                   child: _buildAttachmentOption(
                     icon: Icons.camera_alt_rounded,
                     label: "Fotoğraf Çek",
-                    color: AppTheme.primaryColor, // Amber/Sarı
+                    color: AppTheme.primaryColor, 
                     onTap: () => _processImage(ImageSource.camera),
                   ),
                 ),
-                const SizedBox(width: 16), // Boşluk
-                
-                // 2. GALERİ (Mavi/Cyan Tonlar)
+                const SizedBox(width: 16),
                 Expanded(
                   child: _buildAttachmentOption(
                     icon: Icons.photo_library_rounded,
                     label: "Galeriden Seç",
-                    color: AppTheme.primaryColor, // Açık Mavi
+                    color: AppTheme.primaryColor, 
                     onTap: () => _processImage(ImageSource.gallery),
                   ),
                 ),
@@ -160,18 +151,16 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _processImage(ImageSource source) async {
-    Navigator.pop(context); // Menüyü kapat
-    FocusScope.of(context).unfocus(); // Klavyeyi kapat
+    Navigator.pop(context); 
+    FocusScope.of(context).unfocus(); 
 
     try {
       final XFile? image = await _picker.pickImage(source: source, imageQuality: 70);
       if (image == null) return;
 
-      // YÜKLEME GÖSTERGESİNİ BAŞLAT
       setState(() => _isAnalyzing = true);
 
       final imageService = ImageService();
-      // Dosya çakışmasını önlemek için zaman damgası
       final String fileName = "${DateTime.now().millisecondsSinceEpoch}.jpg";
       
       final imageUrl = await imageService.uploadImage(
@@ -186,7 +175,6 @@ class _ChatScreenState extends State<ChatScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Resim yüklenemedi: $e")));
       }
     } finally {
-      // İşlem bitince göstergeyi durdur
       if (mounted) setState(() => _isAnalyzing = false);
     }
   }
@@ -196,27 +184,15 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty) return;
     
     _messageController.clear();
-    
-    // AI analizi göstergesi
     setState(() => _isAnalyzing = true);
     
     try {
-      // GEÇİCİ: Sadece temel filtreleme kullan (Gemini API çalışmıyor)
       final tempFilteredText = ChatModerationService.filterMessage(text);
-      debugPrint('🔍 Temel filtreleme sonucu: "$tempFilteredText"');
-
-      // Gemini filtresi geçici olarak devre dışı
-      // final String finalFilteredText = await GeminiService.filterMessage(tempFilteredText);
       final String finalFilteredText = tempFilteredText;
 
-      debugPrint('✅ Final mesaj: "$finalFilteredText"');
-
-      // İhlal kontrolü
       final isViolating = ChatModerationService.isMessageViolating(finalFilteredText);
       final isTooLong = ChatModerationService.isMessageTooLong(finalFilteredText);
       final isTooShort = ChatModerationService.isMessageTooShort(finalFilteredText);
-
-      debugPrint('🔎 İhlal kontrolü: violating=$isViolating, tooLong=$isTooLong, tooShort=$isTooShort');
 
       if (isViolating || isTooLong || isTooShort) {
         _showModerationWarning("Mesajınız topluluk kurallarına aykırı olduğu için engellendi.");
@@ -225,7 +201,6 @@ class _ChatScreenState extends State<ChatScreen> {
       }
 
     } catch (e) {
-      debugPrint('❌ Filtreleme hatası: $e');
       await _sendFinalMessage(content: text);
     } finally {
       if (mounted) setState(() => _isAnalyzing = false);
@@ -241,6 +216,24 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  // --- YENİ EKLENEN SİLME FONKSİYONU ---
+  Future<void> _deleteMessageForMe(String messageId) async {
+    final currentUserId = Provider.of<AuthService>(context, listen: false).currentUser?.uid;
+    if (currentUserId != null) {
+      await FirebaseFirestore.instance
+          .collection(AppConstants.collectionMessages)
+          .doc(messageId)
+          .update({
+        'deletedBy': FieldValue.arrayUnion([currentUserId])
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Mesaj benden silindi"), duration: Duration(seconds: 1))
+        );
+      }
+    }
+  }
+
   Future<void> _sendFinalMessage({required String content, String? imagePath}) async {
     final authService = Provider.of<AuthService>(context, listen: false);
     final senderId = authService.currentUser?.uid;
@@ -248,7 +241,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (senderId == null || _chatId == null) return;
 
-    // 1. MESAJI KAYDET (Eski kodun aynısı)
     final messageRef = FirebaseFirestore.instance.collection(AppConstants.collectionMessages).doc();
     
     await messageRef.set({
@@ -262,40 +254,33 @@ class _ChatScreenState extends State<ChatScreen> {
       'imageUrl': imagePath,
       'isRead': false,
       'createdAt': FieldValue.serverTimestamp(),
+      'deletedBy': [], // Silenleri tutacak boş liste eklendi
     });
     
-    // --- 2. YENİ EKLENEN KISIM: SOHBET ÖZETİNİ GÜNCELLE ---
-    // Bu kısım sayesinde MessagesScreen'deki liste güncellenecek
     final chatRef = FirebaseFirestore.instance.collection(AppConstants.collectionChats).doc(_chatId);
     
-    // Mesaj metin mi resim mi?
     String previewText = content;
     if (imagePath != null) {
       previewText = "📷 Fotoğraf";
     }
 
-    // --- 3. YENİ: BİLDİRİM OLUŞTUR ---
-    // Bu kısım sayesinde "Bildirimler" ekranına veri düşecek.
     await FirebaseFirestore.instance.collection(AppConstants.collectionNotifications).add({
       'type': 'message',
       'senderId': senderId,
       'senderName': sender?.fullName ?? 'Kullanıcı',
       'senderAvatar': sender?.profileImageUrl,
-      'receiverId': widget.receiverId, // Mesajı alan kişi
-      'relatedId': _chatId, // Tıklayınca hangi sohbete gideceği
+      'receiverId': widget.receiverId, 
+      'relatedId': _chatId, 
       'isRead': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
-    // ---------------------------------
-
 
     await chatRef.set({
-      'users': [senderId, widget.receiverId], // Sohbetin kimler arasında olduğunu kaydet
-      'lastMessage': previewText,             // Son mesaj içeriği
-      'lastMessageTime': FieldValue.serverTimestamp(), // Son mesaj zamanı
-      'updatedAt': FieldValue.serverTimestamp(),       // Sıralama için
-    }, SetOptions(merge: true)); // Varsa güncelle, yoksa oluştur
-    // -----------------------------------------------------
+      'users': [senderId, widget.receiverId], 
+      'lastMessage': previewText,             
+      'lastMessageTime': FieldValue.serverTimestamp(), 
+      'updatedAt': FieldValue.serverTimestamp(),       
+    }, SetOptions(merge: true)); 
 
     if (_scrollController.hasClients) {
       _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
@@ -304,24 +289,106 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. ADIM: Gradient Arka Plan (Performans ve Şıklık için)
+    final currentUserId = Provider.of<AuthService>(context, listen: false).currentUser?.uid;
+
     return Container(
       decoration: const BoxDecoration(
         gradient: AppTheme.atmosphericBackgroundGradient, 
       ),
       child: Scaffold(
-        backgroundColor: Colors.transparent, // Şeffaf, gradient görünsün
-        
+        backgroundColor: Colors.transparent, 
         appBar: AppBar(
-          title: Text(widget.receiverName), 
+          title: Text(widget.receiverName),
           centerTitle: true,
-          backgroundColor: Colors.transparent, // Şeffaf
+          backgroundColor: Colors.transparent,
           elevation: 0,
-          scrolledUnderElevation: 0, // Kaydırma sırasındaki renk değişimini engeller
+          scrolledUnderElevation: 0,
           iconTheme: const IconThemeData(color: AppTheme.primaryColor),
-          titleTextStyle: const TextStyle(color: AppTheme.textColor, fontSize: 18, fontWeight: FontWeight.bold),
+          titleTextStyle: const TextStyle(
+            color: AppTheme.textColor, 
+            fontSize: 18, 
+            fontWeight: FontWeight.bold
+          ),
+          actions: [
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: AppTheme.primaryColor),
+              onSelected: (value) async { 
+                if (value == 'report') {
+                  if (_chatId != null && _chatId!.isNotEmpty) {
+                    final messagesSnapshot = await FirebaseFirestore.instance
+                        .collection(AppConstants.collectionMessages)
+                        .where('chatId', isEqualTo: _chatId)
+                        .orderBy('createdAt', descending: true)
+                        .limit(20)
+                        .get();
+
+                    List<Map<String, dynamic>> evidenceWithTimestamps = [];
+                    
+                    for (var doc in messagesSnapshot.docs) {
+                      final mData = doc.data();
+                      // Eğer raporlayan kişi mesajı kendinden sildiyse bile admin görebilmeli, o yüzden deletedBy kontrolü yapmıyoruz
+                      evidenceWithTimestamps.add({
+                        'message': mData['content'],
+                        'senderId': mData['senderId'],
+                        'timestamp': mData['createdAt'], 
+                        'imageUrl': mData['imageUrl'],   
+                      });
+                    }
+
+                    if (context.mounted) {
+                      ReportService.showReportDialog(
+                        context: context,
+                        contentId: _chatId!,
+                        contentType: 'chat',
+                        reportedUserId: widget.receiverId,
+                        evidenceMessages: evidenceWithTimestamps, 
+                      );
+                    }
+                  } else {
+                    ReportService.showReportDialog(
+                      context: context,
+                      contentId: widget.receiverId,
+                      contentType: 'user', 
+                      reportedUserId: widget.receiverId,
+                    );
+                  }
+                } else if (value == 'block') {
+                  final currentUser = FirebaseAuth.instance.currentUser;
+                  if (currentUser != null) {
+                    ReportService.blockUser(
+                      context: context,
+                      currentUserId: currentUser.uid,
+                      blockedUserId: widget.receiverId,
+                    );
+                  }
+                }
+              },
+              itemBuilder: (BuildContext context) => [
+                const PopupMenuItem<String>(
+                  value: 'report',
+                  child: Row(
+                    children: [
+                      Icon(Icons.flag_outlined, color: Colors.redAccent, size: 20),
+                      SizedBox(width: 10),
+                      Text("Şikayet Et", style: TextStyle(color: Colors.white)),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'block',
+                  child: Row(
+                    children: [
+                      Icon(Icons.block, color: Colors.white70, size: 20),
+                      SizedBox(width: 10),
+                      Text("Engelle", style: TextStyle(color: Colors.white)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 8),
+          ],
         ),
-        
         body: Column(
           children: [
             Expanded(
@@ -337,17 +404,24 @@ class _ChatScreenState extends State<ChatScreen> {
                     return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
                   }
                   
-                  final docs = snapshot.data?.docs ?? [];
+                  // --- MESAJLARI FİLTRELEME (deletedBy kontrolü) ---
+                  final allDocs = snapshot.data?.docs ?? [];
+                  final visibleDocs = allDocs.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final List deletedBy = data['deletedBy'] ?? [];
+                    return !deletedBy.contains(currentUserId);
+                  }).toList();
 
                   return ListView.builder(
                     controller: _scrollController,
                     reverse: true,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                    itemCount: docs.length,
+                    itemCount: visibleDocs.length,
                     itemBuilder: (context, index) {
-                      final data = docs[index].data() as Map<String, dynamic>;
-                      final bool isMe = data['senderId'] == Provider.of<AuthService>(context, listen: false).currentUser?.uid;
-                      return _buildBubble(data, isMe);
+                      final data = visibleDocs[index].data() as Map<String, dynamic>;
+                      final String messageId = visibleDocs[index].id;
+                      final bool isMe = data['senderId'] == currentUserId;
+                      return _buildBubble(data, isMe, messageId);
                     },
                   );
                 },
@@ -360,46 +434,83 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildBubble(Map<String, dynamic> data, bool isMe) {
+  Widget _buildBubble(Map<String, dynamic> data, bool isMe, String messageId) {
     const Color customMeColor = AppTheme.backgroundSecondaryColor;
 
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 6),
-        padding: const EdgeInsets.all(12),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-        decoration: BoxDecoration(
-          color: isMe ? customMeColor : AppTheme.cardColor,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(isMe ? 16 : 4),
-            bottomRight: Radius.circular(isMe ? 4 : 16),
+    return GestureDetector(
+      // --- MESAJIN ÜSTÜNE UZUN BASINCA SİLME MENÜSÜ ---
+      onLongPress: () {
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          builder: (context) => Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: AppTheme.cardColor,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  title: const Text("Benden sil", style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _deleteMessageForMe(messageId);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.copy, color: Colors.white70),
+                  title: const Text("Kopyala", style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // Kopyalama fonksiyonu eklenebilir
+                  },
+                ),
+              ],
+            ),
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (data['imageUrl'] != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: CachedNetworkImage(
-                    imageUrl: data['imageUrl'],
-                    placeholder: (context, url) => const SizedBox(
-                      height: 100, 
-                      child: Center(child: CircularProgressIndicator(strokeWidth: 2))
+        );
+      },
+      child: Align(
+        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.all(12),
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+          decoration: BoxDecoration(
+            color: isMe ? customMeColor : AppTheme.cardColor,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft: Radius.circular(isMe ? 16 : 4),
+              bottomRight: Radius.circular(isMe ? 4 : 16),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (data['imageUrl'] != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: CachedNetworkImage(
+                      imageUrl: data['imageUrl'],
+                      placeholder: (context, url) => const SizedBox(
+                        height: 100, 
+                        child: Center(child: CircularProgressIndicator(strokeWidth: 2))
+                      ),
                     ),
                   ),
                 ),
+              Text(
+                data['content'] ?? '',
+                style: const TextStyle(color: AppTheme.textColor, fontSize: 15),
               ),
-            Text(
-              data['content'] ?? '',
-              style: const TextStyle(color: AppTheme.textColor, fontSize: 15),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -408,7 +519,6 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildInputArea() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      // Input alanı hafif şeffaf olsun ki arkadaki gradient hissedilsin
       color: AppTheme.cardColor.withOpacity(0.3),
       child: SafeArea(
         child: Row(
@@ -455,7 +565,6 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  // --- HELPER METHOD: Sohbet ID'sini Alfabetik Oluşturur ---
   String getChatRoomId(String user1, String user2) {
     if (user1.toLowerCase().compareTo(user2.toLowerCase()) > 0) {
       return '${user2}_$user1';
@@ -464,7 +573,6 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // --- MODERN DOSYA SEÇİM KUTUCUKLARI ---
   Widget _buildAttachmentOption({
     required IconData icon,
     required String label,
@@ -475,17 +583,17 @@ class _ChatScreenState extends State<ChatScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        height: 120, // Kutunun yüksekliği
+        height: 120, 
         decoration: BoxDecoration(
-          color: AppTheme.cardColor, // Koyu zemin
+          color: AppTheme.cardColor, 
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: color.withOpacity(0.2), // Çerçeve
+            color: color.withOpacity(0.2), 
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.1), // Glow efekti
+              color: color.withOpacity(0.1), 
               blurRadius: 12,
               spreadRadius: 0.5,
             )

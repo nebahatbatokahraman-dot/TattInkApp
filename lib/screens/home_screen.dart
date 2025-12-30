@@ -6,6 +6,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math' as math;
 import 'dart:ui'; // Glass effect ve ImageFilter için gerekli
+import 'dart:async';
+import '../services/report_service.dart';
 
 // --- IMPORTS ---
 import '../models/post_model.dart';
@@ -38,6 +40,10 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
   
+  // 1. YASAKLI LİSTESİ İÇİN DEĞİŞKEN
+  List<String> _blockedUserIds = [];
+  StreamSubscription? _blockSubscription;
+
   // Filtre Değişkenleri
   final List<String> _selectedApplications = [];
   final List<String> _selectedStyles = [];
@@ -47,9 +53,76 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   double _minScore = 0.0;
   String? _sortOption = AppConstants.sortNewest; 
 
+  @override
+    void initState() {
+      super.initState();
+      _fetchBlockedUsers(); // Listeyi çekmeye başla
+    }
+
   // --- 2. BÖLÜM: KEEPALIVE VE SCROLL FONKSİYONU ---
   @override
   bool get wantKeepAlive => true;
+
+  //Sikayet Butonu//
+  void _showPostOptions(BuildContext context, PostModel post) {
+  // 1. Önce gerekli araçları (messenger ve navigator) ana context'ten çekip hazırlıyoruz
+  final scaffoldMessenger = ScaffoldMessenger.of(context);
+  final currentUser = FirebaseAuth.instance.currentUser;
+
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: AppTheme.cardColor,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 8),
+          // ŞİKAYET ET BUTONU
+          ListTile(
+            leading: const Icon(Icons.flag, color: Colors.redAccent),
+            title: const Text("Şikayet Et", style: TextStyle(color: Colors.white)),
+            onTap: () {
+              Navigator.pop(sheetContext); // Menüyü kapat
+              ReportService.showReportDialog(
+                context: context, // Ana context kullan
+                contentId: post.id!,
+                contentType: 'post',
+                reportedUserId: post.artistId,
+              );
+            },
+          ),
+          // ENGELLE BUTONU
+          ListTile(
+            leading: const Icon(Icons.block, color: Colors.white70),
+            title: const Text("Sanatçıyı Engelle", style: TextStyle(color: Colors.white70)),
+            onTap: () async {
+              // DİKKAT: Önce menüyü kapatıyoruz
+              Navigator.pop(sheetContext);
+              
+              if (currentUser != null) {
+                // Çökmeyi engellemek için blockUser çağrısından önce 
+                // context'in hala canlı olup olmadığını kontrol eden bir yapı kurduk
+                try {
+                  await ReportService.blockUser(
+                    context: context, // Ana context'i gönderiyoruz
+                    currentUserId: currentUser.uid,
+                    blockedUserId: post.artistId,
+                  );
+                } catch (e) {
+                  print("Engelleme sırasında hata: $e");
+                }
+              }
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
+      ),
+    ),
+  );
+}
 
 // --- GÜNCELLENMİŞ AKILLI SCROLL FONKSİYONU ---
   void scrollToTop() {
@@ -74,6 +147,31 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   Future<void> _handleRefresh() async {
     await Future.delayed(const Duration(milliseconds: 800));
     if (mounted) setState(() { });
+  }
+
+  // 3. ENGELLENENLERİ SÜREKLİ DİNLEYEN FONKSİYON (GÜNCEL)
+  void _fetchBlockedUsers() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Önce eski bir dinleme varsa iptal et (çakışmasın)
+    _blockSubscription?.cancel();
+
+    // Şimdi kulağımızı veritabanına dayıyoruz (.snapshots ile)
+    _blockSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('blocked_users')
+        .snapshots() // <--- ARTIK CANLI YAYIN
+        .listen((snapshot) {
+          if (mounted) {
+            setState(() {
+              // Liste her değiştiğinde burası çalışır ve ekranı yeniler
+              _blockedUserIds = snapshot.docs.map((doc) => doc.id).toList();
+            });
+            print("Engellenenler listesi güncellendi: ${_blockedUserIds.length} kişi");
+          }
+        });
   }
 
   // --- KULLANICI KONTROLLERİ ---
@@ -286,7 +384,15 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
         final filteredPosts = snapshot.data!.docs
             .map((doc) => PostModel.fromFirestore(doc))
             .where((post) {
-          // Client-side Filtreleme
+          
+          // --- 1. YENİ EKLENEN: ENGEL KONTROLÜ (EN BAŞTA OLMALI) ---
+          // Eğer postun sahibi engellenenler listesinde varsa, direkt ele (false döndür).
+          if (_blockedUserIds.contains(post.artistId)) {
+            return false;
+          }
+          // ---------------------------------------------------------
+
+          // Client-side Filtreleme (Mevcut Kodların)
           if (_selectedDistrict != null) {
             if (!post.locationString.toLowerCase().contains(_selectedDistrict!.toLowerCase())) return false;
           }
@@ -301,6 +407,11 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           return true;
         }).toList();
 
+        // Eğer filtreleme (veya engelleme) sonucu liste boşaldıysa:
+        if (filteredPosts.isEmpty) {
+           return const Center(child: Text('Gösterilecek gönderi bulunamadı.'));
+        }
+
         return RefreshIndicator(
           key: _refreshIndicatorKey,
           onRefresh: _handleRefresh,
@@ -312,12 +423,15 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(), 
             padding: const EdgeInsets.only(top: 170, bottom: 100),
+            // Reklam mantığı olduğu için itemCount hesaplaması
             itemCount: filteredPosts.length + (filteredPosts.length ~/ 3),
             itemBuilder: (context, index) {
+              // Reklam alanı
               if (index % 4 == 3) {
                 return _buildDynamicAds();
               }
 
+              // Post indexini reklamlara göre ayarla
               final postIndex = index - (index ~/ 4);
               if (postIndex >= filteredPosts.length) return const SizedBox.shrink();
 
@@ -504,6 +618,23 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                           ),
                         ),
                       ),
+                    
+                    // --- YENİ: SAĞ ÜST ÜÇ NOKTA BUTONU ---
+                    if (!isOwnPost) // Kendi postunda şikayet butonu çıkmasın
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.4),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            icon: const Icon(Icons.more_vert, color: Colors.white, size: 20),
+                            onPressed: () => _showPostOptions(context, post), // Menüyü açar
+                          ),
+                        ),
+                      ),
                   ],
                 ),
                 Container(
@@ -516,10 +647,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            // BU BLOĞU KOMPLE KOPYALA VE ESKİSİYLE DEĞİŞTİR
                             Expanded(
                               child: InkWell(
-                                // Kendi profilinse tıklanmasın, başkasıysa profile gitsin
                                 onTap: isOwnPost ? null : () {
                                   Navigator.push(
                                     context, 
@@ -533,28 +662,21 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                 },
                                 child: Row(
                                   children: [
-                                    // --- İŞTE DÜZELTİLMİŞ PROFİL RESMİ KISMI ---
                                     CircleAvatar(
                                       radius: 18,
                                       backgroundColor: Colors.grey[800],
-                                      // Resim URL'si var mı VE 'http' ile başlıyor mu kontrolü:
                                       backgroundImage: (post.artistProfileImageUrl != null && 
                                                         post.artistProfileImageUrl!.isNotEmpty && 
                                                         post.artistProfileImageUrl!.startsWith('http'))
                                           ? CachedNetworkImageProvider(post.artistProfileImageUrl!) 
                                           : null,
-                                      // Resim yoksa veya hatalıysa İkon göster:
                                       child: (post.artistProfileImageUrl == null || 
                                               post.artistProfileImageUrl!.isEmpty || 
                                               !post.artistProfileImageUrl!.startsWith('http'))
                                           ? const Icon(Icons.person, size: 20, color: AppTheme.textColor) 
                                           : null,
                                     ),
-                                    // ---------------------------------------------
-                                    
                                     const SizedBox(width: 10),
-                                    
-                                    // İSİM VE LOKASYON KISMI
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -583,7 +705,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                 Transform.translate(
                                   offset: const Offset(0, -2),
                                   child: Transform.rotate(
-                                    angle: -45 * math.pi / 180,
+                                    angle: -45 * 3.14159 / 180,
                                     child: IconButton(
                                       onPressed: () => _handleMessagePost(post),
                                       icon: const Icon(Icons.send_rounded, color: AppTheme.primaryColor, size: 24),

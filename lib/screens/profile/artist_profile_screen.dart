@@ -11,8 +11,10 @@ import 'package:carousel_slider/carousel_slider.dart' as cs;
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:tattink_app/screens/create_appointment_screen.dart';
 import 'dart:ui';
+import 'package:firebase_auth/firebase_auth.dart';
 
 // --- SERVICE & MODEL IMPORTS ---
+import '../../services/report_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/image_service.dart';
 import '../../services/notification_service.dart';
@@ -602,6 +604,76 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
                         ],
                       ),
                     ),
+                    // --- BU KISMI STACK'İN EN SONUNA EKLE ---
+                    // Sadece başkasının profiliyse göster (Kendi profilinde ayarlara gidersin)
+                    if (!widget.isOwnProfile)
+                      Positioned(
+                        top: MediaQuery.of(context).padding.top, // Çentik payı + 10px boşluk
+                        right: 16, // Sağdan boşluk
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.4), // Arkası hafif siyah olsun ki resim üstünde görünsün
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            icon: const Icon(Icons.more_vert, color: Colors.white),
+                            // ... butonun olduğu yer ...
+                          onPressed: () {
+                            showModalBottomSheet(
+                              context: context, // <-- BURADAKİ 'context' ANA SAYFANIN context'i (Bunu kullanmalıyız)
+                              backgroundColor: AppTheme.cardColor,
+                              builder: (sheetContext) => SafeArea( // <-- DİKKAT: Buradaki isimi 'context' yerine 'sheetContext' yaptık!
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // ... süsleme çizgin ...
+                                    
+                                    // ŞİKAYET ET BUTONU
+                                    ListTile(
+                                      leading: const Icon(Icons.flag, color: Colors.redAccent),
+                                      title: const Text("Kullanıcıyı Şikayet Et", style: TextStyle(color: Colors.white)),
+                                      onTap: () {
+                                        Navigator.pop(sheetContext); // Menüyü kapat
+                                        
+                                        // Servisi çağır (Eksik parametreler eklendi)
+                                        ReportService.showReportDialog(
+                                          context: context, // Ana sayfanın context'i
+                                          contentId: widget.userId, // Şikayet edilen ID (ZORUNLU)
+                                          contentType: 'user',      // Şikayet türü (ZORUNLU)
+                                          reportedUserId: widget.userId, // Kim şikayet ediliyor
+                                        );
+                                      },
+                                    ),
+
+                                    // ENGELLE BUTONU (HATA VEREN YER BURASIYDI)
+                                    ListTile(
+                                      leading: const Icon(Icons.block, color: Colors.white70),
+                                      title: const Text("Engelle", style: TextStyle(color: Colors.white70)),
+                                      onTap: () {
+                                        // 1. Önce Menüyü Kapat (sheetContext ile)
+                                        Navigator.pop(sheetContext); 
+                                        
+                                        // 2. Servisi çağır ama ANA SAYFANIN 'context'ini gönder
+                                        // sheetContext gönderirsen hata alırsın çünkü o öldü.
+                                        final currentUser = FirebaseAuth.instance.currentUser;
+                                        if (currentUser != null) {
+                                          ReportService.blockUser(
+                                            context: context, // <--- İŞTE ÇÖZÜM: Ana 'context' burada yaşıyor
+                                            currentUserId: currentUser.uid,
+                                            blockedUserId: widget.userId,
+                                          );
+                                        }
+                                      },
+                                    ),
+                                    const SizedBox(height: 10),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                          ),
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 80),

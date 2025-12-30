@@ -4,12 +4,12 @@ import 'send_notification_screen.dart';
 import 'ad_management_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Eksik olan import eklendi
+import 'package:cloud_firestore/cloud_firestore.dart'; 
 import '../../services/auth_service.dart';
 import '../../models/user_model.dart';
-import '../../utils/constants.dart'; // AppConstants için gerekli
-import '../../theme/app_theme.dart';   // AppTheme için gerekli
+import '../../utils/constants.dart'; 
 import 'artist_approval_screen.dart';
+import 'admin_reports_screen.dart';
 
 class AdminDashboard extends StatelessWidget {
   const AdminDashboard({super.key});
@@ -31,7 +31,6 @@ class AdminDashboard extends StatelessWidget {
           }
 
           final adminUser = snapshot.data;
-          // Güvenlik kontrolü
           if (adminUser == null || adminUser.role != 'admin') {
             return const Center(
               child: Text('Bu sayfaya erişim yetkiniz yok'),
@@ -48,7 +47,6 @@ class AdminDashboard extends StatelessWidget {
                     .where('status', isEqualTo: 'pending')
                     .snapshots(),
                 builder: (context, snapshot) {
-                  // Veri yüklenirken veya hata oluşursa 0 göster
                   int count = (snapshot.hasData) ? snapshot.data!.docs.length : 0;
                   
                   return Container(
@@ -98,14 +96,77 @@ class AdminDashboard extends StatelessWidget {
                 },
               ),
 
-              // --- LİSTE KARTLARI ---
+              // --- 1. MADDE: ŞİKAYET YÖNETİMİ (YANDAN KAYARAK AÇILMA EKLENDİ) ---
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance.collection('reports').snapshots(),
+                  builder: (context, snapshot) {
+                    int reportCount = 0;
+                    if (snapshot.hasData) {
+                      reportCount = snapshot.data!.docs.length;
+                    }
+
+                    return ListTile(
+                      leading: const Icon(
+                        Icons.report_problem_rounded, 
+                        size: 30, 
+                        color: Colors.redAccent
+                      ),
+                      title: const Text(
+                        'Şikayet Yönetimi', 
+                        style: TextStyle(fontWeight: FontWeight.bold)
+                      ),
+                      subtitle: const Text('Gelen kullanıcı şikayetlerini incele'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (reportCount > 0)
+                            Container(
+                              margin: const EdgeInsets.only(right: 10),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                "$reportCount", 
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)
+                              ),
+                            ),
+                          const Icon(Icons.arrow_forward_ios, size: 16),
+                        ],
+                      ),
+                      onTap: () {
+                        // --- ÖZEL YANDAN KAYMA EFEKTİ ---
+                        Navigator.push(
+                          context,
+                          PageRouteBuilder(
+                            pageBuilder: (context, animation, secondaryAnimation) => const AdminReportsScreen(),
+                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                              const begin = Offset(1.0, 0.0); // Sağdan başla
+                              const end = Offset.zero; // Ortada bitir
+                              const curve = Curves.easeInOut;
+                              var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                              var offsetAnimation = animation.drive(tween);
+                              return SlideTransition(position: offsetAnimation, child: child);
+                            },
+                          ),
+                        );
+                      },
+                    );
+                  }
+                ),
+              ),
+
+              // --- ARTİST ONAYLARI ---
               Card(
                 elevation: 2,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)
                 ),
                 child: ListTile(
-                  // Burada 'const' sildik çünkü color dinamik AppTheme'den geliyor
                   leading: Icon(
                     Icons.how_to_reg, 
                     size: 30, 
@@ -128,7 +189,7 @@ class AdminDashboard extends StatelessWidget {
                 ),
               ),
 
-              //REKLAM YONETIM//
+              // --- REKLAM YÖNETİMİ ---
               Card(
                 elevation: 2,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -146,7 +207,7 @@ class AdminDashboard extends StatelessWidget {
                 ),
               ),
 
-              //TOPLU BILDIRIM GONDER//
+              // --- TOPLU BİLDİRİM GÖNDER ---
               Card(
                 elevation: 2,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -164,7 +225,7 @@ class AdminDashboard extends StatelessWidget {
                 ),
               ),
 
-              //DETAYLI ISTATISTIKLER//
+              // --- DETAYLI İSTATİSTİKLER ---
               Card(
                 elevation: 2,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

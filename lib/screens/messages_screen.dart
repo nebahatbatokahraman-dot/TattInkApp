@@ -13,19 +13,34 @@ import 'chat_screen.dart';
 class MessagesScreen extends StatelessWidget {
   const MessagesScreen({super.key});
 
-  // --- SİLME İŞLEMİ (SOHBETİ GİZLEME) ---
+  // --- SİLME İŞLEMİ (SOHBETİ GİZLEME VE TÜM MESAJLARI "BENDEN SİL" YAPMA) ---
   Future<void> _deleteChat(BuildContext context, String chatId, String currentUserId) async {
     try {
-      await FirebaseFirestore.instance
-          .collection(AppConstants.collectionChats)
-          .doc(chatId)
-          .update({
+      final batch = FirebaseFirestore.instance.batch();
+
+      // 1. Kullanıcıyı sohbetin aktif kullanıcılar listesinden çıkar
+      final chatRef = FirebaseFirestore.instance.collection(AppConstants.collectionChats).doc(chatId);
+      batch.update(chatRef, {
         'users': FieldValue.arrayRemove([currentUserId])
       });
+
+      // 2. Bu sohbetteki TÜM mesajları bu kullanıcı için silinmiş işaretle
+      final messagesQuery = await FirebaseFirestore.instance
+          .collection(AppConstants.collectionMessages)
+          .where('chatId', isEqualTo: chatId)
+          .get();
+
+      for (var doc in messagesQuery.docs) {
+        batch.update(doc.reference, {
+          'deletedBy': FieldValue.arrayUnion([currentUserId])
+        });
+      }
+
+      await batch.commit();
       
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Sohbet silindi"), duration: Duration(seconds: 2)),
+          const SnackBar(content: Text("Sohbet ve geçmişi benden silindi"), duration: Duration(seconds: 2)),
         );
       }
     } catch (e) {
@@ -41,9 +56,9 @@ class MessagesScreen extends StatelessWidget {
       builder: (context) => Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: AppTheme.backgroundColor.withOpacity(0.5),
+          color: AppTheme.backgroundColor.withOpacity(0.95), // Okunabilirlik için opaklık artırıldı
           borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-          border: Border(top: BorderSide(color: Colors.white.withOpacity(0.3), width: 1)),
+          border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1), width: 1)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -55,8 +70,14 @@ class MessagesScreen extends StatelessWidget {
               decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2)),
             ),
             Text(
-              "$otherUserName ile sohbeti sil?",
+              "$otherUserName ile sohbeti benden sil?",
               style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Bu işlem sohbet geçmişini sadece sizin ekranınızdan temizler.",
+              style: TextStyle(color: Colors.white38, fontSize: 12),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
             
@@ -78,10 +99,10 @@ class MessagesScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(color: Colors.redAccent.withOpacity(0.1), shape: BoxShape.circle),
-                      child: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 24),
+                      child: const Icon(Icons.delete_sweep_outlined, color: Colors.redAccent, size: 24),
                     ),
                     const SizedBox(width: 16),
-                    const Text("Sohbeti Sil", style: TextStyle(color: Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold)),
+                    const Text("Konuşmayı Benden Sil", style: TextStyle(color: Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -163,7 +184,6 @@ class MessagesScreen extends StatelessWidget {
 
               if (otherUserId.isEmpty) return const SizedBox();
 
-              // 1. KATMAN: Kullanıcı Verisini Çekiyoruz
               return StreamBuilder<DocumentSnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection(AppConstants.collectionUsers)
@@ -186,141 +206,158 @@ class MessagesScreen extends StatelessWidget {
                   final lastMessage = chatData['lastMessage'] ?? '';
                   final Timestamp? lastTime = chatData['lastMessageTime'];
                   
-                  // 2. KATMAN: Okunmamış Mesaj Sayısını Çekiyoruz (YENİ EKLENDİ)
                   return StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
                         .collection(AppConstants.collectionMessages)
                         .where('chatId', isEqualTo: chatId)
-                        .where('receiverId', isEqualTo: currentUser.uid) // Bize gelenler
-                        .where('isRead', isEqualTo: false) // Okunmamışlar
+                        .where('receiverId', isEqualTo: currentUser.uid) 
+                        .where('isRead', isEqualTo: false) 
                         .snapshots(),
                     builder: (context, unreadSnapshot) {
                       
-                      // Okunmamış mesaj sayısı
                       int unreadCount = 0;
                       if (unreadSnapshot.hasData) {
                         unreadCount = unreadSnapshot.data!.docs.length;
                       }
 
-                      // Okunmamış mesaj varsa stil değişecek
                       final bool hasUnread = unreadCount > 0;
 
-                      return Theme(
-                        data: Theme.of(context).copyWith(
-                          highlightColor: AppTheme.cardColor,
-                          splashColor: AppTheme.cardLightColor.withOpacity(0.4),
+                      // --- GÜNCELLEME: DISMISSIBLE (KAYDIRARAK SİLME) ---
+                      return Dismissible(
+                        key: Key(chatId),
+                        direction: DismissDirection.endToStart, // Sağdan sola kaydırma
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          color: Colors.redAccent.withOpacity(0.8),
+                          child: const Icon(Icons.delete_sweep, color: Colors.white, size: 30),
                         ),
-                        child: ListTile(
-                          // Okunmamış mesaj varsa arka planı çok hafif daha parlak yapabiliriz
-                          tileColor: hasUnread 
-                              ? AppTheme.cardLightColor.withOpacity(0.3)
-                              : AppTheme.cardColor.withOpacity(0.3),
-                          
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          
-                          leading: Stack(
-                            children: [
-                              CircleAvatar(
-                                radius: 28,
-                                backgroundColor: Colors.grey[800],
-                                backgroundImage: (profileImage != null && profileImage.isNotEmpty)
-                                    ? NetworkImage(profileImage)
-                                    : null,
-                                child: (profileImage == null || profileImage.isEmpty)
-                                    ? Text(displayName.isNotEmpty ? displayName[0].toUpperCase() : '?', 
-                                        style: const TextStyle(color: AppTheme.textColor))
-                                    : null,
-                              ),
-                              // Online durumu eklenebilir (opsiyonel)
-                            ],
+                        confirmDismiss: (direction) async {
+                          final bool? res = await showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                backgroundColor: AppTheme.cardColor,
+                                title: const Text("Sohbeti Sil", style: TextStyle(color: Colors.white)),
+                                content: Text("$displayName ile olan sohbet geçmişini silmek istediğinize emin misiniz?", style: const TextStyle(color: Colors.white70)),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                    child: const Text("İPTAL", style: TextStyle(color: Colors.grey)),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(true),
+                                    child: const Text("SİL", style: TextStyle(color: Colors.redAccent)),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                          return res;
+                        },
+                        onDismissed: (direction) {
+                          _deleteChat(context, chatId, currentUser.uid);
+                        },
+                        child: Theme(
+                          data: Theme.of(context).copyWith(
+                            // --- BURADAN RENKLERİ AYARLAYABİLİRSİN ---
+                            highlightColor: AppTheme.cardColor, // Basılı tutunca arkada kalan renk
+                            splashColor: AppTheme.cardColor,    // Tıklayınca yayılan dalga efekti
                           ),
-                          
-                          title: Text(
-                            displayName,
-                            style: TextStyle(
-                              color: Colors.white, 
-                              // Okunmamış mesaj varsa isim de daha kalın olsun
-                              fontWeight: hasUnread ? FontWeight.w900 : FontWeight.bold, 
-                              fontSize: 16
+                          child: ListTile(
+                            tileColor: hasUnread 
+                                ? AppTheme.cardLightColor.withOpacity(0.3)
+                                : AppTheme.cardColor.withOpacity(0.3),
+                            
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            
+                            leading: CircleAvatar(
+                              radius: 28,
+                              backgroundColor: Colors.grey[800],
+                              backgroundImage: (profileImage != null && profileImage.isNotEmpty)
+                                  ? NetworkImage(profileImage)
+                                  : null,
+                              child: (profileImage == null || profileImage.isEmpty)
+                                  ? Text(displayName.isNotEmpty ? displayName[0].toUpperCase() : '?', 
+                                      style: const TextStyle(color: AppTheme.textColor))
+                                  : null,
                             ),
-                          ),
-                          
-                          subtitle: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  // Mesaj fotoğraf ise "📷 Fotoğraf" yazar
-                                  lastMessage.startsWith('http') && lastMessage.contains('firebasestorage') 
-                                      ? '📷 Fotoğraf' 
-                                      : lastMessage,
-                                  style: TextStyle(
-                                    // Okunmamış varsa mesaj PARLAK BEYAZ, yoksa GRİ
-                                    color: hasUnread ? Colors.grey : Colors.grey[500], 
-                                    // Okunmamış varsa mesaj KALIN
-                                    fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
-                                    fontSize: 14,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                            
+                            title: Text(
+                              displayName,
+                              style: TextStyle(
+                                color: Colors.white, 
+                                fontWeight: hasUnread ? FontWeight.w900 : FontWeight.bold, 
+                                fontSize: 16
                               ),
-                            ],
-                          ),
-                          
-                          trailing: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              if (lastTime != null)
-                                Text(
-                                  _formatDate(lastTime.toDate()),
-                                  style: TextStyle(
-                                    // Zaman damgası da parlak olsun okunmamışsa
-                                    color: hasUnread ? AppTheme.primaryLightColor : Colors.grey[600],
-                                    fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
-                                    fontSize: 12
-                                  ),
-                                ),
-                              
-                              const SizedBox(height: 6),
-                              
-                              // --- BİLDİRİM BALONU (BADGE) ---
-                              if (hasUnread)
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: const BoxDecoration(
-                                    color: AppTheme.primaryColor, // Kırmızı/Ana Renk
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Text(
-                                    unreadCount > 9 ? '9+' : unreadCount.toString(),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold
+                            ),
+                            
+                            subtitle: Text(
+                              lastMessage.startsWith('http') && lastMessage.contains('firebasestorage') 
+                                  ? '📷 Fotoğraf' 
+                                  : lastMessage,
+                              style: TextStyle(
+                                color: hasUnread ? Colors.grey : Colors.grey[500], 
+                                fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
+                                fontSize: 14,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                if (lastTime != null)
+                                  Text(
+                                    _formatDate(lastTime.toDate()),
+                                    style: TextStyle(
+                                      color: hasUnread ? AppTheme.primaryLightColor : Colors.grey[600],
+                                      fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
+                                      fontSize: 12
                                     ),
                                   ),
-                                )
-                              else
-                                Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey[700]),
-                            ],
+                                
+                                const SizedBox(height: 6),
+                                
+                                if (hasUnread)
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: const BoxDecoration(
+                                      color: AppTheme.primaryColor,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Text(
+                                      unreadCount > 9 ? '9+' : unreadCount.toString(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey[700]),
+                              ],
+                            ),
+                            
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                SlideRoute(page: ChatScreen(
+                                  receiverId: otherUserId,
+                                  receiverName: displayName,
+                                )),
+                              );
+                            },
+                            onLongPress: () {
+                              _showDeleteOption(context, chatId, currentUser.uid, displayName);
+                            },
                           ),
-                          
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              SlideRoute(page: ChatScreen(
-                                receiverId: otherUserId,
-                                receiverName: displayName,
-                              )),
-                            );
-                          },
-                          onLongPress: () {
-                            _showDeleteOption(context, chatId, currentUser.uid, displayName);
-                          },
                         ),
                       );
-                    }
+                    },
                   );
                 },
               );

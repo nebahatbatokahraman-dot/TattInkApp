@@ -8,11 +8,11 @@ import '../../utils/slide_route.dart';
 import '../auth/login_screen.dart';
 import 'customer_edit_profile_screen.dart'; 
 import 'email_password_screen.dart';
-import 'notifications_screen.dart';
 import 'language_screen.dart';
 import 'help_screen.dart';
 import 'legal_documents_screen.dart';
 import 'notification_settings_screen.dart';
+import 'blocked_users_screen.dart'; // <-- UNUTMA: Bunu import etmelisin
 
 class CustomerSettingsScreen extends StatelessWidget {
   const CustomerSettingsScreen({super.key});
@@ -26,13 +26,15 @@ class CustomerSettingsScreen extends StatelessWidget {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.cardColor,
         title: const Text('Hesabı Sil', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
         content: const Text(
-            'Hesabınızı silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve tüm randevularınız, mesajlarınız ve profil verileriniz kalıcı olarak silinecektir.'),
+            'Hesabınızı silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve tüm randevularınız, mesajlarınız ve profil verileriniz kalıcı olarak silinecektir.',
+            style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Vazgeç'),
+            child: const Text('Vazgeç', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
@@ -74,10 +76,12 @@ class CustomerSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Ayarlar'),
+        title: const Text('Ayarlar', style: TextStyle(color: AppTheme.textColor)),
+        backgroundColor: AppTheme.cardColor,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back, color: AppTheme.textColor),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -109,6 +113,7 @@ class CustomerSettingsScreen extends StatelessWidget {
               );
             },
           ),
+          
           _buildSectionHeader('Tercihler'),
           _buildSettingsTile(
             context,
@@ -134,6 +139,23 @@ class CustomerSettingsScreen extends StatelessWidget {
               );
             },
           ),
+
+          // --- YENİ EKLENEN: GİZLİLİK BÖLÜMÜ ---
+          _buildSectionHeader('Gizlilik'),
+          _buildSettingsTile(
+            context,
+            icon: Icons.block,
+            title: 'Engellenen Kullanıcılar',
+            subtitle: 'Engellediğiniz kişileri yönetin',
+            onTap: () {
+              Navigator.push(
+                context,
+                SlideRoute(page: const BlockedUsersScreen()),
+              );
+            },
+          ),
+          // ------------------------------------
+
           _buildSectionHeader('Destek'),
           _buildSettingsTile(
             context,
@@ -170,10 +192,10 @@ class CustomerSettingsScreen extends StatelessWidget {
 
   Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0, top: 8.0),
+      padding: const EdgeInsets.only(bottom: 8.0, top: 16.0),
       child: Text(
-        title,
-        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey[400]),
+        title.toUpperCase(),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey[500], letterSpacing: 1.1),
       ),
     );
   }
@@ -182,17 +204,17 @@ class CustomerSettingsScreen extends StatelessWidget {
       {required IconData icon, required String title, required String subtitle, required VoidCallback onTap}) {
     return Theme(
       data: Theme.of(context).copyWith(
-        // Tıklama dalga rengi (Primary rengin hafif tonu)
         splashColor: AppTheme.backgroundColor.withOpacity(0.6),
         highlightColor: AppTheme.backgroundColor.withOpacity(0.1),
       ),
       child: Card(
+        color: AppTheme.cardColor,
         margin: const EdgeInsets.only(bottom: 8),
         child: ListTile(
           leading: Icon(icon, color: AppTheme.primaryColor),
-          title: Text(title),
-          subtitle: Text(subtitle),
-          trailing: const Icon(Icons.chevron_right),
+          title: Text(title, style: const TextStyle(color: AppTheme.textColor)),
+          subtitle: Text(subtitle, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+          trailing: const Icon(Icons.chevron_right, color: Colors.grey),
           onTap: onTap,
         ),
       ),
@@ -207,25 +229,27 @@ class CustomerSettingsScreen extends StatelessWidget {
         highlightColor: AppTheme.backgroundColor.withOpacity(0.1),
       ),
       child: Card(
+        color: AppTheme.cardColor,
         margin: const EdgeInsets.only(bottom: 8),
         child: ListTile(
           leading: const Icon(Icons.logout, color: AppTheme.primaryColor),
-          title: const Text('Çıkış Yap', style: TextStyle(color: AppTheme.primaryColor)),
+          title: const Text('Çıkış Yap', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
           onTap: () async {
             final shouldLogout = await showDialog<bool>(
               context: context,
               builder: (context) => AlertDialog(
-                title: const Text('Çıkış Yap'),
-                content: const Text('Çıkış yapmak istediğinize emin misiniz?'),
+                backgroundColor: AppTheme.cardColor,
+                title: const Text('Çıkış Yap', style: TextStyle(color: AppTheme.textColor)),
+                content: const Text('Çıkış yapmak istediğinize emin misiniz?', style: TextStyle(color: Colors.white70)),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context, false),
-                    child: const Text('İptal'),
+                    child: const Text('İptal', style: TextStyle(color: Colors.grey)),
                   ),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context, true),
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-                    child: const Text('Çıkış Yap'),
+                    child: const Text('Çıkış Yap', style: TextStyle(color: AppTheme.backgroundColor)),
                   ),
                 ],
               ),
@@ -249,16 +273,17 @@ class CustomerSettingsScreen extends StatelessWidget {
   Widget _buildDeleteAccountButton(BuildContext context) {
     return Theme(
       data: Theme.of(context).copyWith(
-        // Hesap silme için kırmızı splash efekti
         splashColor: Colors.red.withOpacity(0.2),
         highlightColor: Colors.red.withOpacity(0.1),
       ),
       child: Card(
+        color: Colors.redAccent.withOpacity(0.1),
+        elevation: 0,
         margin: const EdgeInsets.only(top: 8),
         child: ListTile(
           leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
           title: const Text('Hesabımı Sil', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-          subtitle: const Text('Tüm verileriniz kalıcı olarak kaldırılır', style: TextStyle(fontSize: 12)),
+          subtitle: const Text('Tüm verileriniz kalıcı olarak kaldırılır', style: TextStyle(fontSize: 12, color: Colors.grey)),
           onTap: () => _handleDeleteAccount(context),
         ),
       ),

@@ -4,7 +4,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../models/post_model.dart';
 import '../theme/app_theme.dart';
 import 'create_post_screen.dart';
-import '../widgets/video_post_player.dart'; // Video oynatıcın burada
+import '../widgets/video_post_player.dart';
+import '../services/report_service.dart'; 
 
 class PostDetailScreen extends StatefulWidget {
   final List<PostModel> posts;
@@ -135,30 +136,56 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           leading: const BackButton(color: Colors.white), 
           centerTitle: true,
           actions: [
-            if (widget.isOwner)
-              Theme(
-                data: Theme.of(context).copyWith(
-                  cardColor: AppTheme.cardColor,
-                  iconTheme: const IconThemeData(color: Colors.white),
-                ),
-                child: PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, color: Colors.white),
-                  onSelected: (value) {
-                    if (value == 'edit') _editPost();
-                    if (value == 'delete') _deletePost();
-                  },
-                  itemBuilder: (BuildContext context) => [
-                    const PopupMenuItem(
-                      value: 'edit', 
-                      child: Row(children: [Icon(Icons.edit, color: AppTheme.textColor, size: 20), SizedBox(width: 8), Text('Düzenle', style: TextStyle(color: AppTheme.textColor))])
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete', 
-                      child: Row(children: [Icon(Icons.delete, color: Colors.redAccent, size: 20), SizedBox(width: 8), Text('Sil', style: TextStyle(color: Colors.redAccent))])
-                    ),
-                  ],
-                ),
+            Theme(
+              data: Theme.of(context).copyWith(
+                cardColor: AppTheme.cardColor,
+                iconTheme: const IconThemeData(color: Colors.white),
               ),
+              child: PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, color: Colors.white),
+                onSelected: (value) {
+                  // SAHİBİ İŞLEMLERİ
+                  if (value == 'edit') _editPost();
+                  if (value == 'delete') _deletePost();
+                  
+                  // ZİYARETÇİ İŞLEMİ
+                  if (value == 'report') {
+                    // Servisi çağır (Import etmeyi unutma!)
+                    ReportService.showReportDialog(
+                      context: context, 
+                      contentId: currentPost.id, 
+                      contentType: 'post',
+                      reportedUserId: currentPost.artistId,
+                    );
+                  }
+                },
+                itemBuilder: (BuildContext context) {
+                  // EĞER POST SAHİBİ BAKIYORSA:
+                  if (widget.isOwner) {
+                    return [
+                      const PopupMenuItem(
+                        value: 'edit', 
+                        child: Row(children: [Icon(Icons.edit, color: AppTheme.textColor, size: 20), SizedBox(width: 8), Text('Düzenle', style: TextStyle(color: AppTheme.textColor))])
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete', 
+                        child: Row(children: [Icon(Icons.delete, color: Colors.redAccent, size: 20), SizedBox(width: 8), Text('Sil', style: TextStyle(color: Colors.redAccent))])
+                      ),
+                    ];
+                  } 
+                  
+                  // EĞER BAŞKASI BAKIYORSA (ŞİKAYET ET):
+                  else {
+                    return [
+                      const PopupMenuItem(
+                        value: 'report', 
+                        child: Row(children: [Icon(Icons.flag, color: Colors.redAccent, size: 20), SizedBox(width: 8), Text('Şikayet Et', style: TextStyle(color: Colors.redAccent))])
+                      ),
+                    ];
+                  }
+                },
+              ),
+            ),
           ],
         ),
         
