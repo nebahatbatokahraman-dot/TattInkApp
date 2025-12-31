@@ -21,10 +21,17 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  
+
+  // BURAYA EKLEDİK:
+    String? token = await FirebaseMessaging.instance.getToken();
+    print("---------- FCM TOKEN ----------");
+    print(token);
+    print("-------------------------------");
+
+
   // Bildirim izinlerini iste (Uygulama ilk açıldığında sorar)
   FirebaseMessaging messaging = FirebaseMessaging.instance;
-  await messaging.requestPermission(
+  NotificationSettings settings = await messaging.requestPermission(
     alert: true,
     badge: true,
     sound: true,
