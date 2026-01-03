@@ -2,13 +2,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
+// Firestore importunu kaldırdım çünkü artık bu sayfada kullanılmıyor
 import 'package:tattink_app/main.dart';
 
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/constants.dart';
 import 'appointments_screen.dart';
-import 'auth/login_screen.dart'; // Senin giriş ekranın hangisiyse ismini düzenle
+import 'auth/login_screen.dart'; 
 import 'home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -38,7 +39,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _controller.forward();
 
-    // --- 3 SANİYE SONRA KONTROLLERE BAŞLA ---
+    // --- 3 SANİYE SONRA YÖNLENDİR ---
     Timer(const Duration(seconds: 3), () {
       _checkStatusAndNavigate();
     });
@@ -46,11 +47,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   Future<void> _checkStatusAndNavigate() async {
     if (mounted) {
-        // Giriş kontrolünü tamamen devre dışı bıraktık.
-        // Herkesi doğrudan AuthWrapper veya MainNavigation ekranına gönderiyoruz.
         Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => AuthWrapper()), 
+        MaterialPageRoute(builder: (context) => const AuthWrapper()), 
         );
     }
   }
@@ -71,17 +70,16 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // --- LOGO ALANI (ÖZGÜR VE AYARLANABİLİR) ---
-              // --- PARLAKLIK EKLENMİŞ LOGO ALANI ---
+                // --- PARLAKLIK EKLENMİŞ LOGO ALANI ---
                 Container(
-                height: 200, // Logo yüksekliği
+                height: 200, 
                 decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     boxShadow: [
                     BoxShadow(
-                        color: AppTheme.cardLightColor.withOpacity(0.9), // Parlaklık rengi (Kırmızı/Altın vb.)
-                        blurRadius: 90, // Yayılma yumuşaklığı (Artırırsan daha geniş parlar)
-                        spreadRadius: 8, // Işığın yoğunluğu
+                        color: AppTheme.cardLightColor.withOpacity(0.9), 
+                        blurRadius: 90, 
+                        spreadRadius: 8, 
                     ),
                     ],
                 ),
@@ -94,9 +92,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.grey),
                 ),
                 ),
-              
-              
-            
               
               const SizedBox(height: 80),
               

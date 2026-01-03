@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/auth_service.dart';
 import '../../utils/validators.dart';
+import '../../app_localizations.dart'; // Çeviri sınıfını ekledik
 
 class EmailPasswordScreen extends StatefulWidget {
   const EmailPasswordScreen({super.key});
@@ -63,7 +64,7 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
 
     if (newEmail == user.email) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Yeni email adresi mevcut email ile aynı olamaz')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.translate('email_same_error'))),
       );
       return;
     }
@@ -78,17 +79,17 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Email adresi başarıyla güncellendi'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.translate('email_update_success')),
             backgroundColor: Colors.green,
           ),
         );
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
-        String errorMessage = 'Email değiştirilirken hata oluştu';
+        String errorMessage = AppLocalizations.of(context)!.translate('email_change_error');
         if (e.code == 'requires-recent-login') {
-          errorMessage = 'Bu işlem için tekrar giriş yapmanız gerekiyor';
+          errorMessage = AppLocalizations.of(context)!.translate('relogin_required');
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -101,7 +102,7 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Hata: $e'),
+            content: Text('${AppLocalizations.of(context)!.translate('error')}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -122,8 +123,8 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
 
     if (_newPasswordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Yeni şifreler eşleşmiyor'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.translate('passwords_not_match')),
           backgroundColor: Colors.red,
         ),
       );
@@ -142,14 +143,12 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
     });
 
     try {
-      // Re-authenticate user
       final credential = EmailAuthProvider.credential(
         email: user.email!,
         password: _currentPasswordController.text,
       );
       await user.reauthenticateWithCredential(credential);
 
-      // Update password
       await user.updatePassword(_newPasswordController.text);
 
       if (mounted) {
@@ -157,19 +156,19 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
         _newPasswordController.clear();
         _confirmPasswordController.clear();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Şifre başarıyla güncellendi'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.translate('password_update_success')),
             backgroundColor: Colors.green,
           ),
         );
       }
     } on FirebaseAuthException catch (e) {
       if (mounted) {
-        String errorMessage = 'Şifre değiştirilirken hata oluştu';
+        String errorMessage = AppLocalizations.of(context)!.translate('password_change_error');
         if (e.code == 'wrong-password') {
-          errorMessage = 'Mevcut şifre yanlış';
+          errorMessage = AppLocalizations.of(context)!.translate('wrong_password_error');
         } else if (e.code == 'weak-password') {
-          errorMessage = 'Yeni şifre çok zayıf';
+          errorMessage = AppLocalizations.of(context)!.translate('weak_password_error');
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -182,7 +181,7 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Hata: $e'),
+            content: Text('${AppLocalizations.of(context)!.translate('error')}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -199,8 +198,9 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Email ve Şifre'),
+        title: Text(AppLocalizations.of(context)!.translate('email_password_title')),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -213,6 +213,7 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
           children: [
             // Change Email Section
             Card(
+              color: AppTheme.cardColor,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Form(
@@ -220,20 +221,22 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Email Değiştir',
-                        style: TextStyle(
+                      Text(
+                        AppLocalizations.of(context)!.translate('change_email'),
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
+                          color: AppTheme.textColor,
                         ),
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          labelText: 'Yeni Email',
-                          prefixIcon: Icon(Icons.email),
+                        style: const TextStyle(color: AppTheme.textColor),
+                        decoration: InputDecoration(
+                          labelText: AppLocalizations.of(context)!.translate('new_email'),
+                          prefixIcon: const Icon(Icons.email),
                         ),
                         validator: Validators.validateEmail,
                       ),
@@ -242,13 +245,17 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: _isChangingEmail ? null : _changeEmail,
+                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
                           child: _isChangingEmail
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.backgroundColor),
                                 )
-                              : const Text('Email Değiştir'),
+                              : Text(
+                                  AppLocalizations.of(context)!.translate('change_email'),
+                                  style: const TextStyle(color: AppTheme.backgroundColor, fontWeight: FontWeight.bold),
+                                ),
                         ),
                       ),
                     ],
@@ -260,6 +267,7 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
             
             // Change Password Section
             Card(
+              color: AppTheme.cardColor,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Form(
@@ -267,19 +275,21 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Şifre Değiştir',
-                        style: TextStyle(
+                      Text(
+                        AppLocalizations.of(context)!.translate('change_password'),
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
+                          color: AppTheme.textColor,
                         ),
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _currentPasswordController,
                         obscureText: _obscureCurrentPassword,
+                        style: const TextStyle(color: AppTheme.textColor),
                         decoration: InputDecoration(
-                          labelText: 'Mevcut Şifre',
+                          labelText: AppLocalizations.of(context)!.translate('current_password'),
                           prefixIcon: const Icon(Icons.lock),
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -300,8 +310,9 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
                       TextFormField(
                         controller: _newPasswordController,
                         obscureText: _obscureNewPassword,
+                        style: const TextStyle(color: AppTheme.textColor),
                         decoration: InputDecoration(
-                          labelText: 'Yeni Şifre',
+                          labelText: AppLocalizations.of(context)!.translate('new_password'),
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -322,8 +333,9 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
                       TextFormField(
                         controller: _confirmPasswordController,
                         obscureText: _obscureConfirmPassword,
+                        style: const TextStyle(color: AppTheme.textColor),
                         decoration: InputDecoration(
-                          labelText: 'Yeni Şifre Tekrar',
+                          labelText: AppLocalizations.of(context)!.translate('confirm_new_password'),
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -340,10 +352,10 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Şifre tekrar gereklidir';
+                            return AppLocalizations.of(context)!.translate('confirm_password_required');
                           }
                           if (value != _newPasswordController.text) {
-                            return 'Şifreler eşleşmiyor';
+                            return AppLocalizations.of(context)!.translate('passwords_not_match');
                           }
                           return null;
                         },
@@ -353,13 +365,17 @@ class _EmailPasswordScreenState extends State<EmailPasswordScreen> {
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: _isChangingPassword ? null : _changePassword,
+                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
                           child: _isChangingPassword
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.backgroundColor),
                                 )
-                              : const Text('Şifre Değiştir'),
+                              : Text(
+                                  AppLocalizations.of(context)!.translate('change_password'),
+                                  style: const TextStyle(color: AppTheme.backgroundColor, fontWeight: FontWeight.bold),
+                                ),
                         ),
                       ),
                     ],

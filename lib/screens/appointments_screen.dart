@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../services/auth_service.dart';
 import '../models/appointment_model.dart';
 import '../services/notification_service.dart';
+import '../app_localizations.dart';
 import '../utils/constants.dart';
 import '../theme/app_theme.dart';
 import '../models/user_model.dart';
@@ -64,7 +65,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
     final authService = Provider.of<AuthService>(context, listen: false);
     final currentUserId = authService.currentUser?.uid;
 
-    if (currentUserId == null) return const Scaffold(body: Center(child: Text("Giriş yapmalısınız")));
+    if (currentUserId == null) return Scaffold(body: Center(child: Text(AppLocalizations.of(context)!.translate('login_required'))));
 
     if (_isLoading) {
       return const Scaffold(
@@ -77,7 +78,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
       return Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(
-          title: const Text('Randevular', style: TextStyle(color: AppTheme.textColor)),
+          title: Text(AppLocalizations.of(context)!.translate('appointments_title'), style: TextStyle(color: AppTheme.textColor)),
           backgroundColor: AppTheme.backgroundColor,
           iconTheme: const IconThemeData(color: AppTheme.textColor),
           bottom: TabBar(
@@ -85,9 +86,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
             labelColor: AppTheme.primaryColor,
             unselectedLabelColor: Colors.grey,
             indicatorColor: AppTheme.primaryColor,
-            tabs: const [
-              Tab(text: 'Gelen Talepler'),
-              Tab(text: 'Randevularım'), 
+            tabs: [
+              Tab(text: AppLocalizations.of(context)!.translate('incoming_requests')),
+              Tab(text: AppLocalizations.of(context)!.translate('my_appointments')),
             ],
           ),
         ),
@@ -103,7 +104,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
       return Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(
-          title: const Text('Randevularım', style: TextStyle(color: AppTheme.textColor)),
+          title: Text(AppLocalizations.of(context)!.translate('my_appointments'), style: TextStyle(color: AppTheme.textColor)),
           backgroundColor: AppTheme.backgroundColor,
           iconTheme: const IconThemeData(color: AppTheme.textColor),
         ),
@@ -126,7 +127,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Hata: ${snapshot.error}', style: const TextStyle(color: AppTheme.textColor)));
+          return Center(child: Text('${AppLocalizations.of(context)!.translate('error_prefix')} ${snapshot.error}', style: const TextStyle(color: AppTheme.textColor)));
         }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return Center(
@@ -136,7 +137,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
                 Icon(Icons.calendar_today, size: 60, color: Colors.grey[800]),
                 const SizedBox(height: 16),
                 Text(
-                  isArtistView ? 'Henüz gelen bir talep yok.' : 'Henüz randevu almadınız.',
+                  isArtistView ? AppLocalizations.of(context)!.translate('no_incoming_requests') : AppLocalizations.of(context)!.translate('no_appointments_booked'),
                   style: const TextStyle(color: Colors.grey),
                 ),
               ],
@@ -166,23 +167,23 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
     switch (appointment.status) {
       case AppointmentStatus.pending:
         statusColor = Colors.orange;
-        statusText = 'Bekliyor';
+        statusText = AppLocalizations.of(context)!.translate('pending');
         break;
       case AppointmentStatus.confirmed:
         statusColor = Colors.green;
-        statusText = 'Onaylandı';
+        statusText = AppLocalizations.of(context)!.translate('confirmed');
         break;
       case AppointmentStatus.rejected:
         statusColor = Colors.red;
-        statusText = 'Reddedildi';
+        statusText = AppLocalizations.of(context)!.translate('rejected');
         break;
       case AppointmentStatus.completed:
         statusColor = Colors.blue;
-        statusText = 'Tamamlandı';
+        statusText = AppLocalizations.of(context)!.translate('completed');
         break;
       case AppointmentStatus.cancelled:
         statusColor = Colors.grey;
-        statusText = 'İptal Edildi';
+        statusText = AppLocalizations.of(context)!.translate('cancelled');
         break;
     }
 
@@ -239,8 +240,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
               const SizedBox(height: 6),
               Text(
                 cancelledBy == (_isArtist ? 'artist' : 'customer')
-                    ? "• Sizin tarafınızdan iptal edildi"
-                    : "• Karşı taraf tarafından iptal edildi",
+                    ? "• ${AppLocalizations.of(context)!.translate('cancelled_by_you')}"
+                    : "• ${AppLocalizations.of(context)!.translate('cancelled_by_other')}",
                 style: TextStyle(color: Colors.grey[500], fontSize: 11, fontStyle: FontStyle.italic),
               ),
             ],
@@ -261,8 +262,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
                     Expanded(
                       child: Text(
                         requestedBy == (isArtistView ? 'customer' : 'artist')
-                            ? "${DateFormat('dd.MM.yyyy - HH:mm').format(requestedDate)} için onayınız bekleniyor"
-                            : "${DateFormat('dd.MM.yyyy - HH:mm').format(requestedDate)} için karşı tarafın onayı bekleniyor",
+                            ? "${DateFormat('dd.MM.yyyy - HH:mm').format(requestedDate)} ${AppLocalizations.of(context)!.translate('waiting_for_your_approval')}"
+                            : "${DateFormat('dd.MM.yyyy - HH:mm').format(requestedDate)} ${AppLocalizations.of(context)!.translate('waiting_for_other_approval')}",
                         style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -301,7 +302,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
             if (appointment.notes != null && appointment.notes!.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(
-                "Not: ${appointment.notes}",
+                "${AppLocalizations.of(context)!.translate('note')} ${appointment.notes}",
                 style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
               ),
             ],
@@ -315,20 +316,20 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end, // Sağa yasla
                   children: [
-                    const Text("Yeni Saat Onayı:", style: TextStyle(color: Colors.white70, fontSize: 11)),
+                    Text(AppLocalizations.of(context)!.translate('new_time_approval'), style: TextStyle(color: Colors.white70, fontSize: 11)),
                     const SizedBox(width: 8),
                     Row(
                       children: [
                         TextButton(
                           onPressed: () => _handleRescheduleResponse(appointment, false),
                           style: tightButtonStyle,
-                          child: const Text('Reddet', style: TextStyle(color: Colors.redAccent, fontSize: 13)),
+                          child: Text(AppLocalizations.of(context)!.translate('reject'), style: TextStyle(color: Colors.redAccent, fontSize: 13)),
                         ),
                         const SizedBox(width: 4),
                         TextButton(
                           onPressed: () => _handleRescheduleResponse(appointment, true),
                           style: tightButtonStyle,
-                          child: const Text('Onayla', style: TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.bold)),
+                          child: Text(AppLocalizations.of(context)!.translate('approve'), style: TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -345,14 +346,14 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
                           onPressed: () => _updateStatus(appointment, AppointmentStatus.cancelled),
                           style: tightButtonStyle,
                           icon: const Icon(Icons.close, size: 16, color: Colors.redAccent),
-                          label: const Text('İptal Et', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+                          label: Text(AppLocalizations.of(context)!.translate('cancel_appointment'), style: TextStyle(color: Colors.redAccent, fontSize: 12)),
                         ),
                         const SizedBox(width: 4),
                         TextButton.icon(
                           onPressed: () => _showEditDialog(appointment),
                           style: tightButtonStyle,
                           icon: const Icon(Icons.edit, size: 16, color: Colors.blueAccent),
-                          label: const Text('Düzenle', style: TextStyle(color: Colors.blueAccent, fontSize: 12)),
+                          label: Text(AppLocalizations.of(context)!.translate('edit_appointment'), style: TextStyle(color: Colors.blueAccent, fontSize: 12)),
                         ),
                       ],
                     ),
@@ -361,7 +362,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
                         onPressed: () => _updateStatus(appointment, AppointmentStatus.confirmed),
                         style: tightButtonStyle,
                         icon: const Icon(Icons.check_circle_outline, size: 16, color: Colors.green),
-                        label: const Text('Onayla', style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text(AppLocalizations.of(context)!.translate('confirm'), style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
                   ],
                 ),
@@ -395,7 +396,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Randevu Düzenle", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(AppLocalizations.of(context)!.translate('edit_appointment_title'), style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 20),
                   
                   ListTile(
@@ -414,7 +415,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
                   ),
                   
                   const SizedBox(height: 10),
-                  const Text("Saat Seçin", style: TextStyle(color: Colors.grey, fontSize: 14)),
+                  Text(AppLocalizations.of(context)!.translate('select_time'), style: TextStyle(color: Colors.grey, fontSize: 14)),
                   const SizedBox(height: 10),
 
                   Wrap(
@@ -459,7 +460,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
                         _rescheduleAppointment(appointment, newFullDate);
                       },
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-                      child: const Text("Güncelleme Talebi Gönder", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      child: Text(AppLocalizations.of(context)!.translate('send_update_request'), style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -503,7 +504,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
         );
       }
 
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Değişiklik talebi iletildi.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.translate('change_request_sent'))));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e')));
     }
@@ -550,15 +551,15 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
         currentUserName: me?.fullName ?? 'Kullanıcı',
         currentUserAvatar: me?.profileImageUrl ?? '',
         receiverId: receiverId,
-        title: isAccepted ? 'Tarih Değişikliği Kabul Edildi ✅' : 'Tarih Değişikliği Reddedildi ❌',
-        body: isAccepted 
-            ? 'Randevu saati ${DateFormat('dd.MM.yyyy HH:mm').format(requestedTs.toDate())} olarak güncellendi.' 
-            : 'Randevu saati değişikliği reddedildi. Farklı bir tarih deneyin.',
+        title: isAccepted ? AppLocalizations.of(context)!.translate('date_change_accepted') : AppLocalizations.of(context)!.translate('date_change_rejected'),
+        body: isAccepted
+            ? '${AppLocalizations.of(context)!.translate('appointment_time_updated')} ${DateFormat('dd.MM.yyyy HH:mm').format(requestedTs.toDate())}.'
+            : AppLocalizations.of(context)!.translate('appointment_time_change_rejected'),
         type: 'appointment_update',
         relatedId: appointment.id,
       );
 
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isAccepted ? 'Yeni saat onaylandı' : 'Talep reddedildi')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isAccepted ? AppLocalizations.of(context)!.translate('new_time_approved') : AppLocalizations.of(context)!.translate('request_rejected'))));
     } catch (e) {
       debugPrint("Cevap verme hatası: $e");
     }
@@ -587,14 +588,14 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
       String body = '';
 
       if (newStatus == AppointmentStatus.confirmed) {
-        title = 'Randevunuz Onaylandı! ✅';
-        body = '${me?.fullName} randevu talebinizi onayladı.';
+        title = AppLocalizations.of(context)!.translate('appointment_confirmed');
+        body = '${me?.fullName} ${AppLocalizations.of(context)!.translate('appointment_confirmed').toLowerCase().replaceAll('!', '')}.';
       } else if (newStatus == AppointmentStatus.rejected) {
-        title = 'Randevu Talebi Reddedildi ❌';
-        body = '${me?.fullName} randevu talebinizi reddetti.';
+        title = AppLocalizations.of(context)!.translate('appointment_request_rejected');
+        body = '${me?.fullName} ${AppLocalizations.of(context)!.translate('appointment_request_rejected').toLowerCase().replaceAll('❌', '').trim()}.';
       } else if (newStatus == AppointmentStatus.cancelled) {
-        title = 'Randevu İptal Edildi ⚠️';
-        body = '${me?.fullName} randevuyu iptal etti.';
+        title = AppLocalizations.of(context)!.translate('appointment_cancelled');
+        body = '${me?.fullName} ${AppLocalizations.of(context)!.translate('appointment_cancelled').toLowerCase().replaceAll('⚠️', '').trim()}.';
       }
 
       if (title.isNotEmpty) {
@@ -612,7 +613,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with SingleTick
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('İşlem başarılı')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.translate('operation_successful'))),
         );
       }
     } catch (e) {

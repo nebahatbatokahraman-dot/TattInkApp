@@ -10,6 +10,7 @@ import '../../models/user_model.dart';
 import '../../utils/constants.dart'; 
 import 'artist_approval_screen.dart';
 import 'admin_reports_screen.dart';
+import 'admin_ads_screen.dart';
 
 class AdminDashboard extends StatelessWidget {
   const AdminDashboard({super.key});
@@ -194,14 +195,16 @@ class AdminDashboard extends StatelessWidget {
                 elevation: 2,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: ListTile(
-                  leading: Icon(Icons.ad_units, size: 30, color: AppTheme.primaryColor),
+                  // İkonu 'campaign' yaparsan reklam olduğu daha belli olur, ama ad_units de kalabilir.
+                  leading: const Icon(Icons.campaign, size: 30, color: AppTheme.primaryColor),
                   title: const Text('Reklamları Yönet', style: TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: const Text('Anasayfa kampanya kartlarını düzenle'),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: () {
+                    // GÜNCELLEME BURADA: Gelişmiş olan sayfaya yönlendiriyoruz
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => AdManagementScreen()),
+                      MaterialPageRoute(builder: (context) => const AdminAdsScreen()),
                     );
                   },
                 ),

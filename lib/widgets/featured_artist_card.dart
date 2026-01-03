@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_theme.dart'; // Tema dosyanın yolunu kontrol et
+import '../app_localizations.dart';
 
   class FeaturedArtistCard extends StatelessWidget {
   final String title;
@@ -61,10 +62,10 @@ import '../theme/app_theme.dart'; // Tema dosyanın yolunu kontrol et
                     borderRadius: BorderRadius.circular(12), 
                     border: Border.all(color: Colors.amber)
                   ),
-                  child: const Row(children: [
-                    Icon(Icons.stars, color: Colors.amber, size: 14),
-                    SizedBox(width: 4),
-                    Text("ÖNE ÇIKAN ARTİST", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                  child: Row(children: [
+                    const Icon(Icons.stars, color: Colors.amber, size: 14),
+                    const SizedBox(width: 4),
+                    Text(AppLocalizations.of(context)!.translate('featured_artist'), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                   ]),
                 ),
               ),
@@ -95,7 +96,7 @@ import '../theme/app_theme.dart'; // Tema dosyanın yolunu kontrol et
                     backgroundColor: Colors.amber.shade700,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
                   ),
-                  child: const Text("Profili Gör", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                  child: Text(AppLocalizations.of(context)!.translate('view_profile'), style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),

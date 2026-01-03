@@ -10,27 +10,27 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # --- DİL VE YERELLEŞTİRME PAKETLERİ ---
   flutter_localizations:
     sdk: flutter
   intl: ^0.20.2
-  flutter_launcher_icons: ^0.13.1
+  
   # Icons & Fonts
   google_fonts: ^6.2.1
   cupertino_icons: ^1.0.8
+  flutter_launcher_icons: ^0.13.1
 
   timeago: ^3.6.1
   
-  #Studyo Kapak Fotosu Kaydırmalı
-  carousel_slider: ^5.0.0 # Sürüm numarası değişebilir, en güncelini kontrol edin
-  smooth_page_indicator: ^1.0.0 # (Opsiyonel ama önerilir) Alt tarafa nokta göstergeler için
+  # Studyo Kapak Fotosu Kaydırmalı
+  carousel_slider: ^5.0.0
+  smooth_page_indicator: ^1.1.0 
   cached_network_image: ^3.4.1
 
   # Firebase Core & Auth
   firebase_core: ^3.6.0
   firebase_auth: ^5.3.1
-
-  # Google Giriş Paketi Burada
-  google_sign_in: 6.2.0  
+  google_sign_in: ^6.2.0  
   
   # Firebase Services
   cloud_firestore: ^5.4.4
@@ -53,7 +53,7 @@ dependencies:
   file_picker: ^8.1.4
   flutter_slidable: ^3.1.1
   provider: ^6.1.2
-  shared_preferences: ^2.2.2
+  shared_preferences: ^2.2.2 # Dil seçimini hafızada tutmak için burada
   
   # UI
   google_nav_bar: ^5.0.6
@@ -70,9 +70,10 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # Assets ve font eklemelerin varsa buraya eklemeye devam edebilirsin
 
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   image_path: "assets/images/app_icon.png"
-  min_sdk_android: 21 # Projenin min_sdk değerine göre ayarla
+  min_sdk_android: 21

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
+import '../../language_provider.dart'; // Yolunu projene göre kontrol et
+import '../../app_localizations.dart'; // Yolunu projene göre kontrol et
 
 class LanguageScreen extends StatefulWidget {
   const LanguageScreen({super.key});
@@ -10,90 +12,125 @@ class LanguageScreen extends StatefulWidget {
 }
 
 class _LanguageScreenState extends State<LanguageScreen> {
-  String _selectedLanguage = 'tr';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadLanguage();
-  }
-
-  Future<void> _loadLanguage() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _selectedLanguage = prefs.getString('language') ?? 'tr';
-    });
-  }
-
-  Future<void> _saveLanguage(String language) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('language', language);
-    setState(() {
-      _selectedLanguage = language;
-    });
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Dil ayarı kaydedildi. Uygulama yeniden başlatıldığında geçerli olacak.'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final langProvider = Provider.of<LanguageProvider>(context);
+
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Dil'),
+        title: Text(
+          AppLocalizations.of(context)!.translate('change_language'),
+          style: const TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_ios_new, color: AppTheme.primaryColor),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: ListView(
-        // 1. DÜZELTME: Kaydırmayı kapatmak için bu satırı ekledik
-        physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          _buildLanguageOption(
-            'Türkçe',
-            'tr',
-            Icons.language,
-          ),
-          _buildLanguageOption(
-            'English',
-            'en',
-            Icons.language,
-          ),
-        ],
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              AppLocalizations.of(context)!.translate('select_preferred_language'),
+              style: TextStyle(color: Colors.grey[400], fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+            _buildLanguageOption(
+              context,
+              name: 'Türkçe',
+              subName: 'Turkish',
+              code: 'tr',
+              flag: '🇹🇷',
+              langProvider: langProvider,
+            ),
+            const SizedBox(height: 12),
+            _buildLanguageOption(
+              context,
+              name: 'English',
+              subName: 'İngilizce',
+              code: 'en',
+              flag: '🇺🇸',
+              langProvider: langProvider,
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildLanguageOption(
-    String name,
-    String code,
-    IconData icon,
-  ) {
-    final isSelected = _selectedLanguage == code;
-    
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      // 2. DÜZELTME: Splash (Dalga) efektini kaldırmak için Theme ile sarmaladık
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
+    BuildContext context, {
+    required String name,
+    required String subName,
+    required String code,
+    required String flag,
+    required LanguageProvider langProvider,
+  }) {
+    final isSelected = langProvider.appLocale.languageCode == code;
+
+    return GestureDetector(
+      onTap: () {
+        langProvider.changeLanguage(Locale(code));
+        
+        // Kullanıcıya anlık geri bildirim ver
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              code == 'tr' 
+                ? AppLocalizations.of(context)!.translate('language_updated_tr') 
+                : AppLocalizations.of(context)!.translate('language_updated_en')
+            ),
+            backgroundColor: AppTheme.primaryColor,
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected 
+              ? AppTheme.primaryColor.withOpacity(0.1) 
+              : AppTheme.cardColor.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryColor : Colors.white.withOpacity(0.05),
+            width: 1.5,
+          ),
         ),
-        child: ListTile(
-          leading: Icon(icon),
-          title: Text(name),
-          trailing: isSelected
-              ? const Icon(Icons.check, color: Colors.green)
-              : null,
-          onTap: () => _saveLanguage(code),
+        child: Row(
+          children: [
+            Text(flag, style: const TextStyle(fontSize: 24)),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: TextStyle(
+                      color: isSelected ? AppTheme.primaryColor : AppTheme.textColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Text(
+                    subName,
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.check_circle, color: AppTheme.primaryColor)
+            else
+              Icon(Icons.circle_outlined, color: Colors.grey[800]),
+          ],
         ),
       ),
     );

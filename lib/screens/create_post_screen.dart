@@ -7,12 +7,12 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/image_service.dart';
 import '../models/user_model.dart';
-import '../models/post_model.dart'; // 1. PostModel import edildi
+import '../models/post_model.dart'; 
 import '../utils/constants.dart';
+import '../app_localizations.dart';
 import '../theme/app_theme.dart';
 
 class CreatePostScreen extends StatefulWidget {
-  // 2. Parametreler eklendi
   final PostModel? post;
   final bool isEditing;
 
@@ -38,7 +38,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   bool _isScrolled = false;
 
   String? _selectedApplication; 
-  // List<String> _selectedStyles = []; // Hata verirse final değil normal liste yap
   List<String> _selectedStyles = [];
 
   @override
@@ -46,7 +45,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     super.initState();
     _loadUser();
     
-    // 3. Düzenleme Modu Kontrolü
     if (widget.isEditing && widget.post != null) {
       _loadExistingPostData();
     }
@@ -54,29 +52,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   void _loadExistingPostData() {
     final post = widget.post!;
-    
-    // Açıklamayı hashtag'lerden temizleyip alalım (İsteğe bağlı)
-    // Şimdilik direkt alıyoruz, kullanıcı isterse siler
     _captionController.text = _extractCaptionWithoutTags(post.caption ?? "");
     
-    // Uygulama türünü doldur
     if (post.application != null && AppConstants.applications.contains(post.application)) {
       _selectedApplication = post.application;
     }
     
-    // Stilleri doldur
     if (post.styles.isNotEmpty) {
       _selectedStyles.addAll(post.styles);
     }
-    
-    // NOT: Düzenleme modunda resim değiştirmeyi kapattığımız için 
-    // _selectedImages listesini doldurmuyoruz. Sadece gösterimde kullanacağız.
   }
   
-  // Hashtagleri temizleyen yardımcı fonksiyon
   String _extractCaptionWithoutTags(String fullCaption) {
     if (!fullCaption.contains('#')) return fullCaption;
-    // İlk # işaretinden öncesini alır
     return fullCaption.split('#').first.trim();
   }
 
@@ -108,9 +96,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _pickImages() async {
-    // Düzenleme modunda resim eklemeyi engelleyelim
     if (widget.isEditing) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Düzenleme modunda medya değiştirilemez.")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.translate('media_cannot_be_changed_edit_mode'))));
       return;
     }
     try {
@@ -121,13 +108,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         });
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${AppLocalizations.of(context)!.translate('error_prefix')}: $e')));
     }
   }
 
   Future<void> _pickVideo() async {
     if (widget.isEditing) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Düzenleme modunda medya değiştirilemez.")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.translate('media_cannot_be_changed_edit_mode'))));
       return;
     }
     try {
@@ -138,19 +125,18 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         });
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${AppLocalizations.of(context)!.translate('error_prefix')}: $e')));
     }
   }
 
   Future<void> _uploadPost() async {
-    // Düzenleme modunda resim seçili olmayabilir, bu kontrolü atla
     if (!widget.isEditing && _selectedImages.isEmpty && _selectedVideos.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lütfen en az bir görsel veya video seçin')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.translate('please_select_media'))));
       return;
     }
 
     if (_selectedApplication == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lütfen bir uygulama türü seçin')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.translate('please_select_application'))));
       return;
     }
 
@@ -161,14 +147,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     try {
       String finalCaption = _captionController.text.trim();
       
-      // 4. HASHTAG OLUŞTURMA (Düzeltildi)
-      // Önceki: String tagsSuffix = "\n\n${_selectedApplication ?? ''} ${_selectedStyles.join(' ')}";
-      
       List<String> allTags = [];
       if (_selectedApplication != null) allTags.add(_selectedApplication!);
       allTags.addAll(_selectedStyles);
       
-      // Her etiketin başına # koy ve boşlukları sil
       String formattedTags = allTags.map((tag) {
         final cleanTag = tag.replaceAll(' ', ''); 
         return "#$cleanTag"; 
@@ -176,33 +158,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       
       finalCaption = "$finalCaption\n\n$formattedTags".trim();
 
-      // --- 5. GÜNCELLEME İŞLEMİ ---
       if (widget.isEditing) {
         await FirebaseFirestore.instance.collection(AppConstants.collectionPosts).doc(widget.post!.id).update({
           'caption': finalCaption,
           'application': _selectedApplication,
           'styles': _selectedStyles,
-          // updatedAt eklemek istersen:
-          // 'updatedAt': FieldValue.serverTimestamp(),
         });
         
         if (mounted) {
-          // Güncellenmiş post modelini oluşturup geri gönderiyoruz
           final updatedPost = widget.post!.copyWith(
             caption: finalCaption,
             application: _selectedApplication,
             styles: _selectedStyles,
           );
           Navigator.pop(context, updatedPost);
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paylaşım güncellendi'), backgroundColor: Colors.green));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.translate('post_updated')), backgroundColor: Colors.green));
         }
       } 
-      // --- YENİ PAYLAŞIM İŞLEMİ ---
       else {
         final imageService = ImageService();
         final List<String> imageUrls = [];
 
-        // 1. Resimleri Yükle
         for (final imageFile in _selectedImages) {
           final optimizedImage = await imageService.optimizeImage(imageFile);
           final url = await imageService.uploadImage(
@@ -212,29 +188,21 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           imageUrls.add(url);
         }
         
-        // 2. Videoyu Yükle (YENİ EKLENEN KISIM)
-        // 2. Videoyu Yükle (GARANTİ YÖNTEM: putData)
         String? uploadedVideoUrl;
         
         if (_selectedVideos.isNotEmpty) {
           File videoFile = _selectedVideos.first;
           
           try {
-            // Dosya uzantısını otomatik al (MOV mu MP4 mü?)
             String fileExtension = videoFile.path.split('.').last.toLowerCase();
             String fileName = 'post_videos/${DateTime.now().millisecondsSinceEpoch}.$fileExtension';
             
-            // iOS videoları genelde .mov olur, Android .mp4
             String contentType = (fileExtension == 'mov' || fileExtension == 'qt') 
                 ? 'video/quicktime' 
                 : 'video/mp4';
 
             Reference storageRef = FirebaseStorage.instance.ref().child(fileName);
             
-            // --- SİHİRLİ DEĞİŞİKLİK BURADA ---
-            // putFile yerine putData kullanıyoruz. 
-            // Dosyayı önce RAM'e okuyup öyle gönderiyoruz.
-            // Bu, iOS Simülatör hatasını %100 çözer.
             final videoBytes = await videoFile.readAsBytes();
             
             UploadTask uploadTask = storageRef.putData(
@@ -244,17 +212,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             
             TaskSnapshot snapshot = await uploadTask;
             uploadedVideoUrl = await snapshot.ref.getDownloadURL();
-            print("Video başarıyla yüklendi: $uploadedVideoUrl");
             
           } catch (e) {
-            print("Video yükleme hatası detaylı: $e");
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('Video hatası: $e'),
+                content: Text('${AppLocalizations.of(context)!.translate('video_error')}: $e'),
                 backgroundColor: Colors.red,
               ));
             }
-            // Hata olsa bile yüklemeyi durdurma (opsiyonel), ama videoyu null geçer.
             setState(() => _isUploading = false); 
             return;
           }
@@ -268,10 +233,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           'artistUsername': _currentUser!.username ?? _currentUser!.fullName,
           'artistProfileImageUrl': _currentUser!.profileImageUrl,
           'imageUrls': imageUrls,
-          
-          // BURAYA DİKKAT: Modelimizde tanımladığımız videoUrl alanını dolduruyoruz
           'videoUrl': uploadedVideoUrl, 
-          
           'caption': finalCaption,
           'likeCount': 0,
           'likedBy': [],
@@ -289,7 +251,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
         await postRef.set(postData);
 
-        // ... Kalan kodlar aynı ...
         await FirebaseFirestore.instance
             .collection(AppConstants.collectionUsers)
             .doc(_currentUser!.uid)
@@ -297,7 +258,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
         if (mounted) {
           Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paylaşım başarıyla yayınlandı'), backgroundColor: Colors.green));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.translate('post_published_successfully')), backgroundColor: Colors.green));
         }
       }
     } catch (e) {
@@ -315,7 +276,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       backgroundColor: AppTheme.backgroundColor,
       extendBodyBehindAppBar: true, 
       appBar: AppBar(
-        title: Text(widget.isEditing ? 'Gönderiyi Düzenle' : 'Yeni Paylaşım', style: const TextStyle(color: AppTheme.textColor)),
+        title: Text(widget.isEditing ? AppLocalizations.of(context)!.translate('edit_post') : AppLocalizations.of(context)!.translate('new_post'), style: const TextStyle(color: AppTheme.textColor)),
         backgroundColor: _isScrolled ? AppTheme.cardColor : Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
@@ -325,7 +286,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
             onPressed: _isUploading ? null : _uploadPost,
             child: _isUploading
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor))
-                : Text(widget.isEditing ? 'Kaydet' : 'Paylaş', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 16)),
+                : Text(widget.isEditing ? AppLocalizations.of(context)!.translate('save') : AppLocalizations.of(context)!.translate('share_post'), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 16)),
           ),
         ],
       ),
@@ -348,7 +309,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 
-                // 6. GÖRSEL ALANI (DÜZENLEME vs YENİ PAYLAŞIM)
                 if (!widget.isEditing) ...[
                   if (_selectedImages.isNotEmpty || _selectedVideos.isNotEmpty)
                     SizedBox(
@@ -369,7 +329,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         child: OutlinedButton.icon(
                           onPressed: _pickImages,
                           icon: const Icon(Icons.image, color: AppTheme.textColor),
-                          label: const Text('Fotoğraf Ekle', style: TextStyle(color: AppTheme.textColor)),
+                          label: Text(AppLocalizations.of(context)!.translate('add_photo'), style: TextStyle(color: AppTheme.textColor)),
                           style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.grey[800]!), padding: const EdgeInsets.symmetric(vertical: 12)),
                         ),
                       ),
@@ -378,15 +338,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                         child: OutlinedButton.icon(
                           onPressed: _pickVideo,
                           icon: const Icon(Icons.videocam, color: AppTheme.textColor),
-                          label: const Text('Video Ekle', style: TextStyle(color: AppTheme.textColor)),
+                          label: Text(AppLocalizations.of(context)!.translate('add_video'), style: TextStyle(color: AppTheme.textColor)),
                           style: OutlinedButton.styleFrom(side: BorderSide(color: Colors.grey[800]!), padding: const EdgeInsets.symmetric(vertical: 12)),
                         ),
                       ),
                     ],
                   ),
                 ] else ...[
-                  // DÜZENLEME MODUNDA MEVCUT FOTOĞRAFLARI GÖSTER (Sadece Gösterim)
-                   const Text('Mevcut Medya (Düzenlenemez)', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                   Text(AppLocalizations.of(context)!.translate('existing_media_cannot_edit'), style: TextStyle(color: Colors.grey, fontSize: 12)),
                    const SizedBox(height: 8),
                    SizedBox(
                      height: 120,
@@ -408,7 +367,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 
                 const Divider(height: 32, color: AppTheme.textColor),
 
-                const Text('Uygulama Türü', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textColor)),
+                Text(AppLocalizations.of(context)!.translate('application_type'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textColor)),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -418,7 +377,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     return Theme(
                       data: Theme.of(context).copyWith(splashColor: Colors.transparent, highlightColor: Colors.transparent),
                       child: ChoiceChip(
-                        label: Text(app),
+                        // DÜZELTME BURADA YAPILDI: Çeviri eklendi
+                        label: Text(AppLocalizations.of(context)!.translate(app)),
                         selected: isSelected,
                         showCheckmark: false,
                         onSelected: (selected) {
@@ -445,7 +405,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 const SizedBox(height: 24),
 
                 if (_selectedApplication != null && relevantStyles.isNotEmpty) ...[
-                  const Text('Stiller', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textColor)),
+                  Text(AppLocalizations.of(context)!.translate('styles'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textColor)),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -455,7 +415,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       return Theme(
                         data: Theme.of(context).copyWith(splashColor: Colors.transparent, highlightColor: Colors.transparent),
                         child: FilterChip(
-                          label: Text(style),
+                          // DÜZELTME BURADA YAPILDI: Çeviri eklendi
+                          label: Text(AppLocalizations.of(context)!.translate(style)),
                           selected: isSelected,
                           showCheckmark: false,
                           onSelected: (selected) {
@@ -485,9 +446,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   maxLines: 4,
                   style: const TextStyle(color: AppTheme.textColor),
                   decoration: InputDecoration(
-                    labelText: 'Açıklama',
+                    labelText: AppLocalizations.of(context)!.translate('description'),
                     labelStyle: const TextStyle(color: Colors.grey),
-                    hintText: 'Paylaşımınız hakkında detay verin...',
+                    hintText: AppLocalizations.of(context)!.translate('provide_post_details'),
                     hintStyle: TextStyle(color: Colors.grey[700]),
                     alignLabelWithHint: true,
                     filled: true,

@@ -1,4 +1,5 @@
 import '../widgets/featured_artist_card.dart';
+import '../app_localizations.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -18,10 +19,16 @@ class StudiosScreen extends StatefulWidget {
   const StudiosScreen({super.key});
 
   @override
-  State<StudiosScreen> createState() => _StudiosScreenState();
+  // DEĞİŞİKLİK 1: State sınıfını public yaptık (_ kaldırdık)
+  State<StudiosScreen> createState() => StudiosScreenState();
 }
   
-class _StudiosScreenState extends State<StudiosScreen> {
+// DEĞİŞİKLİK 2: Sınıf isminden _ işaretini kaldırdık
+class StudiosScreenState extends State<StudiosScreen> {
+  
+  // DEĞİŞİKLİK 3: ScrollController Tanımladık
+  final ScrollController _scrollController = ScrollController();
+
   UserModel? _selectedMapArtist;
   // --- FİLTRE VE ARAMA DEĞİŞKENLERİ ---
   final List<String> _selectedApplications = [];
@@ -41,7 +48,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
   // Header yüksekliği
   final double headerHeight = 165.0; 
 
-  // Harita Koordinatları
+  // Harita Koordinatları (Senin kodların aynen duruyor)
   final Map<String, LatLng> _cityCoordinates = {
     'istanbul': const LatLng(41.0082, 28.9784),
     'ankara': const LatLng(39.9334, 32.8597),
@@ -65,15 +72,33 @@ class _StudiosScreenState extends State<StudiosScreen> {
   @override
   void initState() {
     super.initState();
-    // ViewportFraction: 0.85 demek, yandaki kartın birazı görünsün demek (Modern görünüm)
     _pageController = PageController(initialPage: 0, viewportFraction: 0.85); 
-    // ...
   }
 
   @override
   void dispose() {
     _mapController?.dispose();
+    _scrollController.dispose(); // DEĞİŞİKLİK 4: Controller'ı dispose ettik
     super.dispose();
+  }
+  
+  // --- DEĞİŞİKLİK 5: YUKARI ÇIKMA FONKSİYONU (MainScreen Çağıracak) ---
+  void scrollToTop() {
+    // Eğer haritadaysa listeye dön (Opsiyonel, istersen kaldırabilirsin)
+    if (_showMap) {
+      setState(() {
+        _showMap = false;
+      });
+    }
+    
+    // Listeyi en başa animasyonlu sar
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   Future<bool> _requestUserLocation() async {
@@ -94,6 +119,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
     } catch (e) { return false; }
   }
 
+  // ... (Zoom ve Jitter fonksiyonların aynen kalıyor) ...
   LatLng _addJitter(LatLng original) {
     final random = Random();
     double offsetLat = (random.nextDouble() - 0.5) * 0.005;
@@ -101,58 +127,272 @@ class _StudiosScreenState extends State<StudiosScreen> {
     return LatLng(original.latitude + offsetLat, original.longitude + offsetLng);
   }
 
-  // Tüm pinleri ve kullanıcıyı ekrana sığdır
   Future<void> _zoomToFitAll(List<UserModel> artists) async {
-    // Harita veya Konum yoksa işlem yapma
-    if (_mapController == null || _currentPosition == null) return;
+      // (Senin mevcut kodun burası)
+      if (_mapController == null || _currentPosition == null) return;
+      var localArtists = artists.where((artist) {
+        if (artist.latitude == null || artist.longitude == null) return false;
+        double latDiff = (artist.latitude! - _currentPosition!.latitude).abs();
+        double lngDiff = (artist.longitude! - _currentPosition!.longitude).abs();
+        return latDiff < 0.5 && lngDiff < 0.5; 
+      }).toList();
 
-    // 1. ADIM: Sadece yakındaki artistleri filtrele
-    // Mantık: Kullanıcının konumundan enlem/boylam olarak en fazla 0.5 derece (yaklaşık 50-60km) uzaktakileri al.
-    // Bu sayede New York'taki adam yüzünden harita tüm dünyayı göstermez.
-    var localArtists = artists.where((artist) {
-      if (artist.latitude == null || artist.longitude == null) return false;
-      
-      double latDiff = (artist.latitude! - _currentPosition!.latitude).abs();
-      double lngDiff = (artist.longitude! - _currentPosition!.longitude).abs();
-
-      return latDiff < 0.5 && lngDiff < 0.5; // ~50km mesafe toleransı
-    }).toList();
-
-    // 2. ADIM: Eğer yakında hiç artist yoksa, sadece kullanıcıya zoom yap
-    if (localArtists.isEmpty) {
-      _mapController!.animateCamera(CameraUpdate.newLatLngZoom(
-        LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-        13 // Varsayılan şehir zoom seviyesi
-      ));
-      return;
-    }
-
-    // 3. ADIM: Bounds Hesaplama (Sadece 'localArtists' ve kullanıcı ile)
-    double minLat = _currentPosition!.latitude;
-    double maxLat = _currentPosition!.latitude;
-    double minLng = _currentPosition!.longitude;
-    double maxLng = _currentPosition!.longitude;
-
-    for (var artist in localArtists) {
-      // Zaten yukarıda null kontrolü yaptık ama yine de güvenli olsun
-      if (artist.latitude != null && artist.longitude != null) {
-        if (artist.latitude! < minLat) minLat = artist.latitude!;
-        if (artist.latitude! > maxLat) maxLat = artist.latitude!;
-        if (artist.longitude! < minLng) minLng = artist.longitude!;
-        if (artist.longitude! > maxLng) maxLng = artist.longitude!;
+      if (localArtists.isEmpty) {
+        _mapController!.animateCamera(CameraUpdate.newLatLngZoom(
+          LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          13 
+        ));
+        return;
       }
-    }
 
-    LatLngBounds bounds = LatLngBounds(
-      southwest: LatLng(minLat, minLng),
-      northeast: LatLng(maxLat, maxLng),
-    );
+      double minLat = _currentPosition!.latitude;
+      double maxLat = _currentPosition!.latitude;
+      double minLng = _currentPosition!.longitude;
+      double maxLng = _currentPosition!.longitude;
 
-    // Kenarlardan biraz daha fazla boşluk (padding) bırakalım ki kartların altında kalmasın
-    _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
+      for (var artist in localArtists) {
+        if (artist.latitude != null && artist.longitude != null) {
+          if (artist.latitude! < minLat) minLat = artist.latitude!;
+          if (artist.latitude! > maxLat) maxLat = artist.latitude!;
+          if (artist.longitude! < minLng) minLng = artist.longitude!;
+          if (artist.longitude! > maxLng) maxLng = artist.longitude!;
+        }
+      }
+
+      LatLngBounds bounds = LatLngBounds(
+        southwest: LatLng(minLat, minLng),
+        northeast: LatLng(maxLat, maxLng),
+      );
+
+      _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
   }
 
+  // --- ANA WIDGET BUILD ---
+  @override
+  Widget build(BuildContext context) {
+    bool isFilterActive = _selectedApplications.isNotEmpty || _selectedStyles.isNotEmpty || _nameSearchQuery.isNotEmpty || _selectedSearchCity != null;
 
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: AppTheme.atmosphericBackgroundGradient,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent, 
+        
+        body: Stack(
+          children: [
+            
+            // DURUM A: HARİTA GÖRÜNÜMÜ
+            if (_showMap)
+              Positioned.fill(
+                child: _buildMapView(), // Senin mevcut fonksiyonun
+              )
+            
+            // DURUM B: LİSTE GÖRÜNÜMÜ
+            else
+              Positioned.fill(
+                child: SingleChildScrollView(
+                  // DEĞİŞİKLİK 6: Controller'ı buraya bağladık!
+                  controller: _scrollController, 
+                  
+                  // Liste için üstten header kadar boşluk bırakıyoruz
+                  padding: EdgeInsets.only(top: headerHeight + MediaQuery.of(context).padding.top), 
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12.0, 0, 12.0, 0.0),
+                        child: cs.CarouselSlider(
+                          options: cs.CarouselOptions(
+                            height: 40,
+                            viewportFraction: 1.0,
+                            autoPlay: true,
+                            autoPlayInterval: const Duration(seconds: 4),
+                            enlargeCenterPage: false,
+                          ),
+                          items: [
+                            _buildBannerItem(AppLocalizations.of(context)!.translate('new_year_campaign'), Icons.campaign, Colors.blueAccent),
+                            _buildBannerItem(AppLocalizations.of(context)!.translate('discover_new_studios'), Icons.explore, Colors.deepPurpleAccent),
+                            _buildBannerItem(AppLocalizations.of(context)!.translate('free_consultation_opportunity'), Icons.event_available, Colors.teal),
+                          ],
+                        ),
+                      ),
+                      
+                      // Liste Elemanları (Senin mevcut fonksiyonun)
+                      _buildArtistList(shrinkWrap: true),
+                    ],
+                  ),
+                ),
+              ),
+
+            // KATMAN 2: HEADER (Aynen Kalıyor)
+            Positioned(
+              top: 0, left: 0, right: 0,
+              child: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.backgroundColor.withOpacity(0.9), 
+                      border: Border(
+                        bottom: BorderSide(color: Colors.white.withOpacity(0.1), width: 0.5),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        top: MediaQuery.of(context).padding.top + 8, 
+                        bottom: 10, left: 12, right: 12
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 1. SATIR: LOGO - HARİTA İKONU
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              SizedBox(
+                                height: 40,
+                                child: CachedNetworkImage(
+                                  imageUrl: AppConstants.logoUrl,
+                                  height: 40,
+                                  fit: BoxFit.contain,
+                                  errorWidget: (context, url, error) => const SizedBox(width: 35, child: Icon(Icons.error)),
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(_showMap ? Icons.list : Icons.map),
+                                color: _showMap ? AppTheme.primaryColor : Colors.grey,
+                                onPressed: () async {
+                                  if (!_showMap) await _requestUserLocation();
+                                  setState(() {
+                                    _showMap = !_showMap;
+                                  });
+                                  if (_showMap && _currentPosition != null && _mapController != null) {
+                                    _mapController!.animateCamera(CameraUpdate.newLatLngZoom(
+                                      LatLng(_currentPosition!.latitude, _currentPosition!.longitude), 13));
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 12),
+
+                          // 2. SATIR: FİLTRELEME VE 3. SATIR (Aynen Kalıyor)
+                          // ... Kodun geri kalanı senin attığınla aynı ...
+                          if (!_showMap)
+                          SizedBox(
+                            width: double.infinity,
+                            height: 36, 
+                            child: OutlinedButton.icon(
+                              onPressed: () => _showFilterBottomSheet(context),
+                              icon: const Icon(Icons.tune, size: 16, color: AppTheme.primaryColor),
+                              label: Text(
+                                isFilterActive
+                                  ? AppLocalizations.of(context)!.translate('filters_active')
+                                  : AppLocalizations.of(context)!.translate('search_and_filter'),
+                                style: const TextStyle(color: AppTheme.primaryColor)
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: AppTheme.backgroundColor.withOpacity(0.0),
+                                side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.8)),
+                                padding: const EdgeInsets.symmetric(horizontal: 4), 
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 8),
+
+                          if (!_showMap)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: 35,
+                                  child: _sortOption == AppConstants.sortPopular
+                                    ? ElevatedButton.icon(
+                                        onPressed: () => setState(() => _sortOption = AppConstants.sortPopular),
+                                        icon: const Icon(Icons.local_fire_department, size: 16),
+                                        label: Text(AppLocalizations.of(context)!.translate('popular'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppTheme.primaryColor.withOpacity(0.8),
+                                          foregroundColor: AppTheme.textColor,
+                                          elevation: 0,
+                                          padding: const EdgeInsets.symmetric(horizontal: 4), 
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                                        ),
+                                      )
+                                    : OutlinedButton.icon(
+                                        onPressed: () => setState(() => _sortOption = AppConstants.sortPopular),
+                                        icon: const Icon(Icons.local_fire_department, size: 16, color: AppTheme.primaryColor),
+                                        label: Text(AppLocalizations.of(context)!.translate('popular'), style: const TextStyle(fontSize: 13, color: AppTheme.primaryColor)),
+                                        style: OutlinedButton.styleFrom(
+                                          backgroundColor: AppTheme.backgroundColor.withOpacity(0.3),
+                                          side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.8)),
+                                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                                        ),
+                                      ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: SizedBox(
+                                  height: 35,
+                                  child: _sortOption == AppConstants.sortDistance
+                                    ? ElevatedButton.icon(
+                                        onPressed: () async {
+                                          if (_sortOption != AppConstants.sortDistance) {
+                                             bool hasLocation = await _requestUserLocation();
+                                             if (hasLocation) {
+                                               setState(() => _sortOption = AppConstants.sortDistance);
+                                             }
+                                          }
+                                        },
+                                        icon: const Icon(Icons.near_me, size: 16),
+                                        label: Text(AppLocalizations.of(context)!.translate('distance'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppTheme.primaryColor.withOpacity(0.8),
+                                          foregroundColor: AppTheme.textColor,
+                                          elevation: 0,
+                                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                                        ),
+                                      )
+                                    : OutlinedButton.icon(
+                                        onPressed: () async {
+                                          if (_sortOption != AppConstants.sortDistance) {
+                                             bool hasLocation = await _requestUserLocation();
+                                             if (hasLocation) {
+                                               setState(() => _sortOption = AppConstants.sortDistance);
+                                             }
+                                          }
+                                        },
+                                        icon: const Icon(Icons.near_me, size: 16, color: AppTheme.primaryColor),
+                                        label: Text(AppLocalizations.of(context)!.translate('distance'), style: const TextStyle(fontSize: 13, color: AppTheme.primaryColor)),
+                                        style: OutlinedButton.styleFrom(
+                                          backgroundColor: AppTheme.backgroundColor.withOpacity(0.3),
+                                          side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.8)),
+                                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                                        ),
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
 
   // --- MODAL AÇMA FONKSİYONU ---
@@ -236,9 +476,9 @@ class _StudiosScreenState extends State<StudiosScreen> {
                                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                   overlayColor: Colors.transparent,
                                 ),
-                                child: const Text(
-                                  'Sıfırla',
-                                  style: TextStyle(
+                                child: Text(
+                                  AppLocalizations.of(context)!.translate('reset'),
+                                  style: const TextStyle(
                                     color: AppTheme.primaryColor,
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold
@@ -284,7 +524,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                                   const SizedBox(height: 24),
 
                                   // 2. UYGULAMA TÜRÜ
-                                  _buildSectionTitle('Uygulama'),
+                                  _buildSectionTitle(AppLocalizations.of(context)!.translate('application_type')),
                                   SizedBox(
                                     width: double.infinity,
                                     child: Wrap(
@@ -294,7 +534,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                                         return Theme(
                                           data: Theme.of(context).copyWith(splashColor: Colors.transparent, highlightColor: Colors.transparent),
                                           child: FilterChip(
-                                            label: Text(app),
+                                            label: Text(AppLocalizations.of(context)!.translate(app)),
                                             selected: isSelected,
                                             showCheckmark: false,
                                             // -- Outlined Tasarım Ayarları --
@@ -326,7 +566,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
 
                                   // 3. STİLLER
                                   if (_selectedApplications.isNotEmpty && relevantStyles.isNotEmpty) ...[
-                                    _buildSectionTitle('Stiller'),
+                                    _buildSectionTitle(AppLocalizations.of(context)!.translate('styles')),
                                     SizedBox(
                                       width: double.infinity,
                                       child: Wrap(
@@ -336,7 +576,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
                                           return Theme(
                                             data: Theme.of(context).copyWith(splashColor: Colors.transparent, highlightColor: Colors.transparent),
                                             child: FilterChip(
-                                              label: Text(style),
+                                              label: Text(AppLocalizations.of(context)!.translate(style)),
                                               selected: isSelected,
                                               showCheckmark: false,
                                               selectedColor: AppTheme.primaryColor.withOpacity(0.3),
@@ -355,8 +595,8 @@ class _StudiosScreenState extends State<StudiosScreen> {
                                     ),
                                     const SizedBox(height: 24),
                                   ] else if (_selectedApplications.isEmpty) ...[
-                                    _buildSectionTitle('Stiller'),
-                                    const Text("Stilleri görmek için uygulama seçiniz.", style: TextStyle(color: Colors.grey, fontSize: 13, fontStyle: FontStyle.italic)),
+                                    _buildSectionTitle(AppLocalizations.of(context)!.translate('styles')),
+                                    Text(AppLocalizations.of(context)!.translate('select_application_for_styles'), style: const TextStyle(color: Colors.grey, fontSize: 13, fontStyle: FontStyle.italic)),
                                     const SizedBox(height: 24),
                                   ],
 
@@ -389,9 +629,9 @@ class _StudiosScreenState extends State<StudiosScreen> {
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             elevation: 0,
                           ),
-                          child: const Text(
-                            'Sonuçları Göster',
-                            style: TextStyle(
+                          child: Text(
+                            AppLocalizations.of(context)!.translate('show_results'),
+                            style: const TextStyle(
                               color: AppTheme.textColor,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -411,231 +651,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
     );
   }
 
-  // --- ANA WIDGET BUILD ---
-  @override
-  Widget build(BuildContext context) {
-    bool isFilterActive = _selectedApplications.isNotEmpty || _selectedStyles.isNotEmpty || _nameSearchQuery.isNotEmpty || _selectedSearchCity != null;
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: AppTheme.atmosphericBackgroundGradient,
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent, 
-        
-        body: Stack(
-          children: [
-            
-                      // DURUM A: HARİTA GÖRÜNÜMÜ (Tam Ekran)
-            if (_showMap)
-              Positioned.fill(
-                child: _buildMapView(), // Haritayı direkt buraya koyduk, boşluksuz.
-              )
-            
-            // DURUM B: LİSTE GÖRÜNÜMÜ (Scroll Edilebilir)
-            else
-              Positioned.fill(
-                child: SingleChildScrollView(
-                  // Liste için üstten header kadar boşluk bırakıyoruz
-                  padding: EdgeInsets.only(top: headerHeight + MediaQuery.of(context).padding.top), 
-                  child: Column(
-                    children: [
-                      // Carousel (Sadece listede görünsün)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12.0, 0, 12.0, 0.0),
-                        child: cs.CarouselSlider(
-                          options: cs.CarouselOptions(
-                            height: 40,
-                            viewportFraction: 1.0,
-                            autoPlay: true,
-                            autoPlayInterval: const Duration(seconds: 4),
-                            enlargeCenterPage: false,
-                          ),
-                          items: [
-                            _buildBannerItem("Yılbaşı Kampanyası! %20 İndirim", Icons.campaign, Colors.blueAccent),
-                            _buildBannerItem("Yeni Stüdyoları Keşfedin 🎨", Icons.explore, Colors.deepPurpleAccent),
-                            _buildBannerItem("Ücretsiz Konsültasyon Fırsatı", Icons.event_available, Colors.teal),
-                          ],
-                        ),
-                      ),
-                      
-                      // Liste Elemanları
-                      _buildArtistList(shrinkWrap: true),
-                    ],
-                  ),
-                ),
-              ),
-
-            // KATMAN 2: HEADER
-            Positioned(
-              top: 0, left: 0, right: 0,
-              child: ClipRect(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppTheme.backgroundColor.withOpacity(0.9), 
-                      border: Border(
-                        bottom: BorderSide(color: Colors.white.withOpacity(0.1), width: 0.5),
-                      ),
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        top: MediaQuery.of(context).padding.top + 8, 
-                        bottom: 10, left: 12, right: 12
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // 1. SATIR: LOGO (SOL) - HARİTA İKONU (SAĞ)
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              SizedBox(
-                                height: 40,
-                                child: CachedNetworkImage(
-                                  imageUrl: AppConstants.logoUrl,
-                                  height: 40,
-                                  fit: BoxFit.contain,
-                                  errorWidget: (context, url, error) => const SizedBox(width: 35, child: Icon(Icons.error)),
-                                ),
-                              ),
-                              // Sadece Harita/Liste değişim ikonu kaldı
-                              IconButton(
-                                icon: Icon(_showMap ? Icons.list : Icons.map),
-                                color: _showMap ? AppTheme.primaryColor : Colors.grey,
-                                onPressed: () async {
-                                  if (!_showMap) await _requestUserLocation();
-                                  setState(() {
-                                    _showMap = !_showMap;
-                                  });
-                                  if (_showMap && _currentPosition != null && _mapController != null) {
-                                    _mapController!.animateCamera(CameraUpdate.newLatLngZoom(
-                                      LatLng(_currentPosition!.latitude, _currentPosition!.longitude), 13));
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                          
-                          const SizedBox(height: 12),
-
-                          // 2. SATIR: FİLTRELE BUTONU
-                          if (!_showMap)
-                          SizedBox(
-                            width: double.infinity,
-                            height: 36, 
-                            child: OutlinedButton.icon(
-                              onPressed: () => _showFilterBottomSheet(context),
-                              icon: const Icon(Icons.tune, size: 16, color: AppTheme.primaryColor),
-                              label: Text(
-                                isFilterActive 
-                                  ? 'Filtreler Aktif' 
-                                  : 'Ara & Filtrele',
-                                style: const TextStyle(color: AppTheme.primaryColor)
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor: AppTheme.backgroundColor.withOpacity(0.0),
-                                side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.8)),
-                                padding: const EdgeInsets.symmetric(horizontal: 4), 
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                            ),
-                          ),
-                          
-                          const SizedBox(height: 8),
-
-                          // 3. SATIR: POPÜLER VE MESAFE
-                          if (!_showMap)
-                          Row(
-                            children: [
-                              Expanded(
-                                child: SizedBox(
-                                  height: 35,
-                                  child: _sortOption == AppConstants.sortPopular
-                                    ? ElevatedButton.icon(
-                                        onPressed: () => setState(() => _sortOption = AppConstants.sortPopular),
-                                        icon: const Icon(Icons.local_fire_department, size: 16),
-                                        label: const Text('Popüler', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppTheme.primaryColor.withOpacity(0.8),
-                                          foregroundColor: AppTheme.textColor,
-                                          elevation: 0,
-                                          padding: const EdgeInsets.symmetric(horizontal: 4), 
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
-                                        ),
-                                      )
-                                    : OutlinedButton.icon(
-                                        onPressed: () => setState(() => _sortOption = AppConstants.sortPopular),
-                                        icon: const Icon(Icons.local_fire_department, size: 16, color: AppTheme.primaryColor),
-                                        label: const Text('Popüler', style: TextStyle(fontSize: 13, color: AppTheme.primaryColor)),
-                                        style: OutlinedButton.styleFrom(
-                                          backgroundColor: AppTheme.backgroundColor.withOpacity(0.3),
-                                          side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.8)),
-                                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
-                                        ),
-                                      ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: SizedBox(
-                                  height: 35,
-                                  child: _sortOption == AppConstants.sortDistance
-                                    ? ElevatedButton.icon(
-                                        onPressed: () async {
-                                          if (_sortOption != AppConstants.sortDistance) {
-                                             bool hasLocation = await _requestUserLocation();
-                                             if (hasLocation) {
-                                               setState(() => _sortOption = AppConstants.sortDistance);
-                                             }
-                                          }
-                                        },
-                                        icon: const Icon(Icons.near_me, size: 16),
-                                        label: const Text('Mesafe', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppTheme.primaryColor.withOpacity(0.8),
-                                          foregroundColor: AppTheme.textColor,
-                                          elevation: 0,
-                                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
-                                        ),
-                                      )
-                                    : OutlinedButton.icon(
-                                        onPressed: () async {
-                                          if (_sortOption != AppConstants.sortDistance) {
-                                             bool hasLocation = await _requestUserLocation();
-                                             if (hasLocation) {
-                                               setState(() => _sortOption = AppConstants.sortDistance);
-                                             }
-                                          }
-                                        },
-                                        icon: const Icon(Icons.near_me, size: 16, color: AppTheme.primaryColor),
-                                        label: const Text('Mesafe', style: TextStyle(fontSize: 13, color: AppTheme.primaryColor)),
-                                        style: OutlinedButton.styleFrom(
-                                          backgroundColor: AppTheme.backgroundColor.withOpacity(0.3),
-                                          side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.8)),
-                                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
-                                        ),
-                                      ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   // --- LİSTE OLUŞTURMA (GÜNCELLENMİŞ VIP VERSİYON) ---
   Widget _buildArtistList({bool shrinkWrap = false}) {
@@ -776,10 +792,10 @@ class _StudiosScreenState extends State<StudiosScreen> {
               // --- 3. NORMAL LİSTE (Index kaydırarak devam eder) ---
               // Eğer normal liste boşsa "Sonuç yok" uyarısı göster
               if (artists.isEmpty) {
-                return const Center(
+                return Center(
                   child: Padding(
-                    padding: EdgeInsets.all(20.0), 
-                    child: Text('Sonuç yok', style: TextStyle(color: Colors.grey))
+                    padding: const EdgeInsets.all(20.0),
+                    child: Text(AppLocalizations.of(context)!.translate('no_results'), style: const TextStyle(color: Colors.grey))
                   )
                 );
               }
@@ -817,139 +833,217 @@ class _StudiosScreenState extends State<StudiosScreen> {
   }
 
   Widget _buildArtistCard(UserModel artist) {
-    String? imageUrl;
-     if (artist.coverImageUrl != null && artist.coverImageUrl!.isNotEmpty) {
-       imageUrl = artist.coverImageUrl;
-     } else if (artist.studioImageUrls.isNotEmpty) {
-       imageUrl = artist.studioImageUrls.first;
-     }
-     String distanceText = "";
-     if (_currentPosition != null) {
-       LatLng? pos = _getArtistLatLng(artist);
-       if (pos != null) {
-         double dist = Geolocator.distanceBetween(_currentPosition!.latitude, _currentPosition!.longitude, pos.latitude, pos.longitude);
-         distanceText = " • ${(dist / 1000).toStringAsFixed(1)} km";
-       }
-     }
+  String? imageUrl;
+  if (artist.coverImageUrl != null && artist.coverImageUrl!.isNotEmpty) {
+    imageUrl = artist.coverImageUrl;
+  } else if (artist.studioImageUrls.isNotEmpty) {
+    imageUrl = artist.studioImageUrls.first;
+  }
+  
+  String distanceText = "";
+  if (_currentPosition != null) {
+    LatLng? pos = _getArtistLatLng(artist);
+    if (pos != null) {
+      double dist = Geolocator.distanceBetween(
+          _currentPosition!.latitude, _currentPosition!.longitude, pos.latitude, pos.longitude);
+      distanceText = " • ${(dist / 1000).toStringAsFixed(1)} km";
+    }
+  }
 
-     return Card(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      color: AppTheme.cardColor,
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        // Tıklayınca yayılan dalganın rengi (Primary rengin şeffaf hali)
-        splashColor: AppTheme.cardLightColor.withOpacity(0.3), 
-        // Basılı tutunca oluşan zemin rengi
-        highlightColor: AppTheme.cardLightColor.withOpacity(0.1),
-        onTap: () {
-          final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-          if (currentUserId == artist.uid) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Bu sizin kendi profiliniz."), backgroundColor: AppTheme.primaryColor));
-          } else {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => ArtistProfileScreen(userId: artist.uid)));
-          }
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                  child: Container(
-                    height: 160,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[800],
-                      image: imageUrl != null // artist.coverImageUrl yerine oluşturduğumuz 'imageUrl'
-                          ? DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover)
-                          : null,
-                    ),
-                    child: imageUrl == null 
-                        ? Center(child: Icon(Icons.image, color: AppTheme.textColor.withOpacity(0.2), size: 50)) 
+  return Card(
+    margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+    color: AppTheme.cardColor,
+    elevation: 4,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      splashColor: AppTheme.cardLightColor.withOpacity(0.3),
+      highlightColor: AppTheme.cardLightColor.withOpacity(0.1),
+      onTap: () {
+        final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+        if (currentUserId == artist.uid) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(AppLocalizations.of(context)!
+                      .translate('this_is_your_own_profile') ??
+                  'Bu senin kendi profilin'),
+              backgroundColor: AppTheme.primaryColor));
+        } else {
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => ArtistProfileScreen(userId: artist.uid)));
+        }
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // --- KAPAK FOTOĞRAFI VE AVATAR ALANI ---
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: Container(
+                  height: 160,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[800],
+                    image: imageUrl != null
+                        ? DecorationImage(
+                            image: NetworkImage(imageUrl), fit: BoxFit.cover)
+                        : null,
+                  ),
+                  child: imageUrl == null
+                      ? Center(
+                          child: Icon(Icons.image,
+                              color: AppTheme.textColor.withOpacity(0.2),
+                              size: 50))
+                      : null,
+                ),
+              ),
+              Positioned(
+                bottom: -30,
+                left: 16,
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: const BoxDecoration(
+                      color: AppTheme.cardColor, shape: BoxShape.circle),
+                  child: CircleAvatar(
+                    radius: 32,
+                    backgroundColor: Colors.grey[700],
+                    backgroundImage: artist.profileImageUrl != null
+                        ? NetworkImage(artist.profileImageUrl!)
+                        : null,
+                    child: artist.profileImageUrl == null
+                        ? const Icon(Icons.person,
+                            size: 35, color: AppTheme.textColor)
                         : null,
                   ),
                 ),
-                Positioned(
-                  bottom: -30,
-                  left: 16,
-                  child: Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: const BoxDecoration(color: AppTheme.cardColor, shape: BoxShape.circle),
-                    child: CircleAvatar(
-                      radius: 32,
-                      backgroundColor: Colors.grey[700],
-                      backgroundImage: artist.profileImageUrl != null ? NetworkImage(artist.profileImageUrl!) : null,
-                      child: artist.profileImageUrl == null ? const Icon(Icons.person, size: 35, color: AppTheme.textColor) : null,
-                    ),
-                  ),   
-                ),
-              ],
-            ),
-            const SizedBox(height: 30), 
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(artist.username ?? artist.fullName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textColor), overflow: TextOverflow.ellipsis),
-                      ),
-                      // --- MAVİ TİK (ONAY ROZETİ) ---
-                      if (artist.isApproved) ...[
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.verified, // Mavi tik ikonu
-                          color: Colors.blue, // Instagram stili mavi renk
-                          size: 18,
-                        ),
-                      ],
-                      Row(
+              ),
+            ],
+          ),
+          const SizedBox(height: 30),
+
+          // --- BİLGİ ALANI ---
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // İSİM + TİK (SOLDA) ---- BEĞENİ/TAKİPÇİ (SAĞDA)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center, // Hizalama ortalı olsun
+                  children: [
+                    // SOL TARAFTAKİ GRUP (İsim + Mavi Tik)
+                    Expanded(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.favorite, color: AppTheme.primaryLightColor, size: 14),
-                          const SizedBox(width: 4),
-                          Text(artist.totalLikes.toString(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
-                          const SizedBox(width: 12),
-                          StreamBuilder<QuerySnapshot>(
-                            stream: FirebaseFirestore.instance.collection(AppConstants.collectionFollows).where('followingId', isEqualTo: artist.uid).snapshots(),
-                            builder: (context, snapshot) {
-                              final followerCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
-                              return Row(children: [const Icon(Icons.people, color: AppTheme.primaryLightColor, size: 14), const SizedBox(width: 4), Text(followerCount.toString(), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textColor))]);
-                            },
+                          Flexible( // Uzun isimlerde taşmayı önler
+                            child: Text(
+                              artist.username ?? artist.fullName,
+                              style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textColor),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
                           ),
+                          // Mavi Tik İkonu (İsmin hemen yanında)
+                          if (artist.isApproved) ...[
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.verified,
+                              color: Colors.blue,
+                              size: 18,
+                            ),
+                          ],
                         ],
                       ),
-                    ],
-                  ),
-                  if (artist.locationString.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Row(children: [const Icon(Icons.location_on, size: 12, color: AppTheme.textGreyColor), const SizedBox(width: 4), Expanded(child: Text("${artist.locationString}$distanceText", style: TextStyle(fontSize: 12, color: AppTheme.textGreyColor), overflow: TextOverflow.ellipsis))]),
-                  ],
-                  if (artist.applications.isNotEmpty || artist.applicationStyles.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
+                    ),
+                    
+                    // SAĞ TARAFTAKİ GRUP (Beğeni ve Takipçi)
+                    const SizedBox(width: 8), // İsim çok uzunsa istatistiklere yapışmasın
+                    Row(
                       children: [
-                        ...artist.applications.take(3).map((app) => _buildTinyTag(app, AppTheme.primaryColor.withOpacity(0.3))),
-                        ...artist.applicationStyles.take(4).map((style) => _buildTinyTag(style, AppTheme.primaryLightColor.withOpacity(0.15))),
+                        Icon(Icons.favorite,
+                            color: AppTheme.primaryLightColor, size: 14),
+                        const SizedBox(width: 4),
+                        Text(artist.totalLikes.toString(),
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textColor)),
+                        const SizedBox(width: 12),
+                        StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection(AppConstants.collectionFollows)
+                              .where('followingId', isEqualTo: artist.uid)
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            final followerCount =
+                                snapshot.hasData ? snapshot.data!.docs.length : 0;
+                            return Row(children: [
+                              const Icon(Icons.people,
+                                  color: AppTheme.primaryLightColor, size: 14),
+                              const SizedBox(width: 4),
+                              Text(followerCount.toString(),
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textColor))
+                            ]);
+                          },
+                        ),
                       ],
                     ),
                   ],
+                ),
+                
+                // --- LOKASYON ---
+                if (artist.locationString.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    const Icon(Icons.location_on,
+                        size: 12, color: AppTheme.textGreyColor),
+                    const SizedBox(width: 4),
+                    Expanded(
+                        child: Text("${artist.locationString}$distanceText",
+                            style: TextStyle(
+                                fontSize: 12, color: AppTheme.textGreyColor),
+                            overflow: TextOverflow.ellipsis))
+                  ]),
                 ],
-              ),
+
+                // --- ETİKETLER ---
+                if (artist.applications.isNotEmpty ||
+                    artist.applicationStyles.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      ...artist.applications.take(3).map((app) => _buildTinyTag(
+                          AppLocalizations.of(context)!.translate(app),
+                          AppTheme.primaryColor.withOpacity(0.3))),
+                      ...artist.applicationStyles.take(4).map((style) =>
+                          _buildTinyTag(
+                              AppLocalizations.of(context)!.translate(style),
+                              AppTheme.primaryLightColor.withOpacity(0.15))),
+                    ],
+                  ),
+                ],
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildTinyTag(String text, Color bgColor) {
     return Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(6), border: Border.all(color: AppTheme.primaryColor.withOpacity(0))), child: Text(text, style: const TextStyle(fontSize: 10, color: AppTheme.textColor, fontWeight: FontWeight.w500)));
@@ -983,23 +1077,61 @@ class _StudiosScreenState extends State<StudiosScreen> {
           .where('isApproved', isEqualTo: true)
           .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
         
+        // Veriyi modele çevir
         var allArtists = snapshot.data!.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
         List<UserModel> filteredArtists = [];
 
-        // --- FİLTRELEME (AYNI KALSIN) ---
-        final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+        // --- FİLTRELEME MANTIĞI ---
         for (var artist in allArtists) {
           bool showArtist = true;
-          // ... (Senin mevcut filtre kodların buraya) ...
           
-          if (_selectedSearchCity != null) {
+          // 1. Koordinat Kontrolü (Harita için zorunlu)
+          if (artist.latitude == null || artist.longitude == null) {
+            showArtist = false;
+          }
+
+          // 2. Şehir Filtresi
+          if (showArtist && _selectedSearchCity != null) {
              bool cityMatch = artist.city != null && artist.city!.toLowerCase() == _selectedSearchCity!.toLowerCase();
              if (!cityMatch) showArtist = false;
           }
-          // ...
+
+          // 3. İlçe Filtresi
+          if (showArtist && _selectedSearchDistrict != null) {
+             bool districtMatch = artist.district != null && artist.district!.toLowerCase() == _selectedSearchDistrict!.toLowerCase();
+             if (!districtMatch) showArtist = false;
+          }
+
+          // 4. İsim Arama (Ad, Kullanıcı Adı veya Stüdyo Adı)
+          if (showArtist && _nameSearchQuery.isNotEmpty) {
+            final query = _nameSearchQuery.toLowerCase();
+            final name = artist.fullName.toLowerCase();
+            final username = artist.username?.toLowerCase() ?? '';
+            final studio = artist.studioName?.toLowerCase() ?? '';
+            
+            if (!name.contains(query) && !username.contains(query) && !studio.contains(query)) {
+              showArtist = false;
+            }
+          }
+
+          // 5. Uygulama (Application) Filtresi
+          if (showArtist && _selectedApplications.isNotEmpty) {
+            final artistApps = artist.applications.map((e) => e.toLowerCase()).toList();
+            bool hasMatch = _selectedApplications.any((selected) => artistApps.contains(selected.toLowerCase()));
+            if (!hasMatch) showArtist = false;
+          }
+
+          // 6. Stil (Style) Filtresi (DÜZELTİLDİ: styles -> applicationStyles)
+          if (showArtist && _selectedStyles.isNotEmpty) {
+             // Kullanıcının belirttiği alan adı düzeltildi
+             final artistStyles = artist.applicationStyles.map((e) => e.toLowerCase()).toList();
+             bool hasMatch = _selectedStyles.any((selected) => artistStyles.contains(selected.toLowerCase()));
+             if (!hasMatch) showArtist = false;
+          }
           
+          // Eğer tüm şartları sağladıysa listeye ekle
           if (showArtist) filteredArtists.add(artist);
         }
         // --------------------------------
@@ -1007,30 +1139,35 @@ class _StudiosScreenState extends State<StudiosScreen> {
         // MARKERLARI OLUŞTUR (LOOP İLE)
         final markers = <Marker>{};
         
-        // for döngüsünü sayaçlı yapıyoruz ki index'e erişelim
         for (int i = 0; i < filteredArtists.length; i++) {
           final artist = filteredArtists[i];
-          LatLng? position = _getArtistLatLng(artist);
+          // Koordinatları al (Jitter ekleyerek üst üste binmeyi engellemek iyi olur)
+          LatLng position = _addJitter(LatLng(artist.latitude!, artist.longitude!));
           
-          if (position != null) {
-            markers.add(Marker(
-              markerId: MarkerId(artist.uid), 
-              position: position,
-              // İsim balonu kapalı olsun dersen burayı silebilirsin
-              infoWindow: InfoWindow(title: artist.studioName ?? artist.fullName), 
-              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+          markers.add(Marker(
+            markerId: MarkerId(artist.uid), 
+            position: position,
+            infoWindow: InfoWindow(
+              title: artist.studioName ?? artist.fullName,
+              snippet: artist.applications.isNotEmpty ? artist.applications.first : null,
+            ), 
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+            
+            // --- PİNE TIKLAYINCA LİSTEYİ KAYDIR ---
+            onTap: () {
+              setState(() {
+                _selectedMapArtist = artist;
+              });
               
-              // --- KRİTİK NOKTA: PİNE TIKLAYINCA LİSTEYİ KAYDIR ---
-              onTap: () {
+              if (_pageController.hasClients) {
                 _pageController.animateToPage(
-                  i, // Tıklanan pinin sırası
+                  i, 
                   duration: const Duration(milliseconds: 300), 
                   curve: Curves.easeInOut
                 );
-              },
-              // ----------------------------------------------------
-            ));
-          }
+              }
+            },
+          ));
         }
 
         return Stack(
@@ -1045,27 +1182,29 @@ class _StudiosScreenState extends State<StudiosScreen> {
               ),
               markers: markers,
               myLocationEnabled: true,
-              myLocationButtonEnabled: false, // Buton kartların altında kalmasın diye kapattık
-              padding: EdgeInsets.only(top: headerHeight, bottom: 160), // Google logosunu yukarı al
+              myLocationButtonEnabled: false, 
+              zoomControlsEnabled: false,
+              padding: EdgeInsets.only(top: headerHeight, bottom: 160),
               
               onMapCreated: (controller) { 
                 _mapController = controller;
-                controller.setMapStyle(_darkMapStyle);
                 
                 // Harita yüklenince herkesi ekrana sığdır
-                Future.delayed(const Duration(milliseconds: 500), () {
-                  _zoomToFitAll(filteredArtists);
-                });
+                if (filteredArtists.isNotEmpty) {
+                  Future.delayed(const Duration(milliseconds: 500), () {
+                    _zoomToFitAll(filteredArtists);
+                  });
+                }
               },
             ),
 
-            // 2. LİSTE (ALTTA)
+            // 2. LİSTE (ALTTA - CAROUSEL)
             if (filteredArtists.isNotEmpty)
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: 20, // Alttan boşluk
-                height: 140, // Kart yüksekliği
+                bottom: 20, 
+                height: 140, 
                 child: PageView.builder(
                   controller: _pageController,
                   itemCount: filteredArtists.length,
@@ -1073,21 +1212,44 @@ class _StudiosScreenState extends State<StudiosScreen> {
                   // --- KART KAYDIRILINCA HARİTAYI ORAYA GÖTÜR ---
                   onPageChanged: (index) {
                     final artist = filteredArtists[index];
-                    LatLng? pos = _getArtistLatLng(artist);
-                    if (pos != null && _mapController != null) {
-                      _mapController!.animateCamera(CameraUpdate.newLatLngZoom(pos, 15));
-                      // İstersen marker'ın ismini de açabilirsin:
+                    
+                    setState(() {
+                      _selectedMapArtist = artist;
+                    });
+
+                    if (_mapController != null && artist.latitude != null && artist.longitude != null) {
+                      _mapController!.animateCamera(
+                        CameraUpdate.newLatLngZoom(LatLng(artist.latitude!, artist.longitude!), 15)
+                      );
                       _mapController!.showMarkerInfoWindow(MarkerId(artist.uid));
                     }
                   },
-                  // ----------------------------------------------
                   
                   itemBuilder: (context, index) {
-                    // Senin oluşturduğun kart tasarımı
                     return _buildMapUserCard(context, filteredArtists[index]);
                   },
                 ),
               ),
+
+             // Eğer filtre sonucu hiç artist yoksa uyarı göster
+             if (filteredArtists.isEmpty)
+               Positioned(
+                 bottom: 100,
+                 left: 20,
+                 right: 20,
+                 child: Container(
+                   padding: const EdgeInsets.all(16),
+                   decoration: BoxDecoration(
+                     color: Colors.black87,
+                     borderRadius: BorderRadius.circular(12)
+                   ),
+                   child: Text(
+                     AppLocalizations.of(context)!.translate('no_studios_found_criteria'),
+                     textAlign: TextAlign.center,
+                     style: const TextStyle(color: Colors.white),
+                   ),
+                 ),
+               )
           ],
         );
       },
@@ -1097,17 +1259,20 @@ class _StudiosScreenState extends State<StudiosScreen> {
 
   // --- HARİTA İÇİN KOMPAKT KART TASARIMI ---
   Widget _buildMapUserCard(BuildContext context, UserModel artist) {
-    // --- RESİM SEÇİM MANTIĞI (Fallback) ---
-    // Önce kapak fotoğrafına bak, yoksa stüdyo fotoğraflarının ilkini al.
+    // --- YENİ RESİM SEÇİM MANTIĞI ---
+    // 1. Öncelik: Profil Fotoğrafı
+    // 2. Öncelik: Kapak Fotoğrafı
+    // 3. Hiçbiri yoksa: null
     String? displayImageUrl;
-    if (artist.coverImageUrl != null && artist.coverImageUrl!.isNotEmpty) {
+    
+    if (artist.profileImageUrl != null && artist.profileImageUrl!.isNotEmpty) {
+      displayImageUrl = artist.profileImageUrl;
+    } else if (artist.coverImageUrl != null && artist.coverImageUrl!.isNotEmpty) {
       displayImageUrl = artist.coverImageUrl;
-    } else if (artist.studioImageUrls.isNotEmpty) {
-      displayImageUrl = artist.studioImageUrls.first;
     }
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8), // Kartlar arası boşluk
+      margin: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: AppTheme.cardColor,
         borderRadius: BorderRadius.circular(16),
@@ -1125,10 +1290,11 @@ class _StudiosScreenState extends State<StudiosScreen> {
           
           if (currentUserId == artist.uid) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Bu sizin kendi profiliniz."),
+              SnackBar(
+                // Burası zaten doğruydu
+                content: Text(AppLocalizations.of(context)!.translate('this_is_your_own_profile')),
                 backgroundColor: AppTheme.primaryColor,
-                duration: Duration(seconds: 2),
+                duration: const Duration(seconds: 2),
               ),
             );
           } else {
@@ -1141,7 +1307,7 @@ class _StudiosScreenState extends State<StudiosScreen> {
         borderRadius: BorderRadius.circular(16),
         child: Row(
           children: [
-            // 1. RESİM (SOL) - Fallback Mantığı Uygulandı
+            // 1. RESİM ALANI (SOL)
             ClipRRect(
               borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
               child: SizedBox(
@@ -1151,12 +1317,15 @@ class _StudiosScreenState extends State<StudiosScreen> {
                     ? CachedNetworkImage(
                         imageUrl: displayImageUrl,
                         fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(color: Colors.grey[800]),
-                        errorWidget: (context, url, error) => const Icon(Icons.error),
+                        placeholder: (context, url) => Container(color: AppTheme.backgroundColor),
+                        errorWidget: (context, url, error) => Container(
+                          color: AppTheme.backgroundColor,
+                          child: const Icon(Icons.person, color: Colors.white24),
+                        ),
                       )
                     : Container(
-                        color: Colors.grey[800],
-                        child: const Icon(Icons.image, color: Colors.white54),
+                        color: AppTheme.backgroundColor,
+                        child: const Icon(Icons.person, color: Colors.white24),
                       ),
               ),
             ),
@@ -1185,14 +1354,9 @@ class _StudiosScreenState extends State<StudiosScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        // --- MAVİ TİK ---
                         if (artist.isApproved) ...[
                           const SizedBox(width: 4),
-                          const Icon(
-                            Icons.verified,
-                            color: Colors.blue,
-                            size: 16,
-                          ),
+                          const Icon(Icons.verified, color: Colors.blue, size: 16),
                         ],
                       ],
                     ),
@@ -1220,14 +1384,15 @@ class _StudiosScreenState extends State<StudiosScreen> {
                     // Beğeni ve Etiketler
                     Row(
                       children: [
-                        const Icon(Icons.favorite, size: 14, color: AppTheme.primaryLightColor),
+                        const Icon(Icons.favorite, size: 14, color: AppTheme.primaryColor),
                         const SizedBox(width: 4),
                         Text(
                           "${artist.totalLikes}",
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textColor),
                         ),
                         const SizedBox(width: 12),
-                        // İlk uygulama etiketini göster (varsa)
+                        
+                        // --- DÜZELTİLEN KISIM BURASI ---
                         if (artist.applications.isNotEmpty)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1237,7 +1402,8 @@ class _StudiosScreenState extends State<StudiosScreen> {
                               border: Border.all(color: AppTheme.primaryColor.withOpacity(0.5), width: 0.5)
                             ),
                             child: Text(
-                              artist.applications.first,
+                              // DİKKAT: Doğrudan yazdırmak yerine translate içine aldık
+                              AppLocalizations.of(context)!.translate(artist.applications.first),
                               style: const TextStyle(fontSize: 10, color: AppTheme.textColor),
                             ),
                           ),
@@ -1246,12 +1412,6 @@ class _StudiosScreenState extends State<StudiosScreen> {
                   ],
                 ),
               ),
-            ),
-            
-            // 3. OK İKONU (EN SAĞ)
-            const Padding(
-              padding: EdgeInsets.only(right: 12.0),
-              child: Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
             ),
           ],
         ),

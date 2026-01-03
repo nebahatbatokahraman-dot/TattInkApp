@@ -9,24 +9,24 @@ class AppConstants {
   static const String roleAdmin = 'admin';
   
   // --- MASTER DATA: HİZMET VE STİL EŞLEŞTİRMESİ ---
-  // Burası uygulamanın beynidir. 
+  // Burası uygulamanın beynidir.
   static const Map<String, List<String>> applicationStylesMap = {
-    'Dövme': [
-      'KAMPANYA','Realistik', 'Minimal', 'Old School', 'Tribal', 'Watercolor', 
-      'Blackwork', 'Dotwork', 'Japanese', 'Neo Traditional', 'Portrait', 
-      'Geometrik', 'Yazı', 'Fine Line', 'Cover Up', 'Abstract', 'Celtic',
-      'Biyomekanik', 'Sketch'
+    'app_tattoo': [
+      'style_campaign','style_realistic', 'style_minimal', 'style_old_school', 'style_tribal', 'style_watercolor',
+      'style_blackwork', 'style_dotwork', 'style_japanese', 'style_neo_traditional', 'style_portrait',
+      'style_geometric', 'style_script', 'style_fine_line', 'style_cover_up', 'style_abstract', 'style_celtic',
+      'style_biomechanical', 'style_sketch'
     ],
-    'Piercing': [
-      'KAMPANYA', 'Kulak', 'Burun', 'Göbek', 'Dudak', 'Kaş', 'Dil', 
-      'Endüstriyel', 'Hızma', 'Septum', 'Tragus', 'Helix', 'Implant'
+    'app_piercing': [
+      'style_campaign', 'style_ear', 'style_nose', 'style_navel', 'style_lip', 'style_eyebrow', 'style_tongue',
+      'style_industrial', 'style_nipple', 'style_septum', 'style_tragus', 'style_helix', 'style_implant'
     ],
-    'Makyaj': [
-      'KAMPANYA', 'Microblading', 'Dudak Renklendirme', 'Eyeliner', 
-      'Dipliner', 'Kaş Pudralama'
+    'app_makeup': [
+      'style_campaign', 'style_microblading', 'style_lip_tinting', 'style_eyeliner',
+      'style_dipliner', 'style_eyebrow_powdering'
     ],
-    'Geçici Dövme': [
-      'Hint Kınası', 'Airbrush', 'Spray', 'Sticker'
+    'app_henna': [
+      'style_henna', 'style_airbrush', 'style_spray', 'style_sticker'
     ],
   };
 
@@ -78,11 +78,11 @@ class AppConstants {
   
   // Rejection Reasons
   static const List<String> rejectionReasons = [
-    'Belgeler eksik veya geçersiz',
-    'Portfolyo yetersiz',
-    'Bilgiler eksik veya hatalı',
-    'Uygunsuz içerik',
-    'Diğer',
+    'reason_documents_missing',
+    'reason_insufficient_portfolio',
+    'reason_missing_info',
+    'reason_inappropriate_content',
+    'reason_other',
   ];
 
   static const String geminiModelName = 'gemini-pro';

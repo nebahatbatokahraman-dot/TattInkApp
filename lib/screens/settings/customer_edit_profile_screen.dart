@@ -10,6 +10,7 @@ import '../../utils/constants.dart';
 import '../../utils/validators.dart';
 import '../../utils/turkey_locations.dart';
 import '../../theme/app_theme.dart';
+import '../../app_localizations.dart'; // Çeviri sınıfı eklendi
 
 class CustomerEditProfileScreen extends StatefulWidget {
   const CustomerEditProfileScreen({super.key});
@@ -101,7 +102,7 @@ class _CustomerEditProfileScreenState extends State<CustomerEditProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fotoğraf seçilirken hata: $e')),
+          SnackBar(content: Text('${AppLocalizations.of(context)!.translate('error_picking_image')}: $e')),
         );
       }
     }
@@ -146,14 +147,20 @@ class _CustomerEditProfileScreenState extends State<CustomerEditProfileScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profil bilgileri güncellendi'), backgroundColor: Colors.green),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.translate('profile_updated_success')), 
+            backgroundColor: Colors.green
+          ),
         );
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Güncelleme sırasında hata: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('${AppLocalizations.of(context)!.translate('update_error')}: $e'), 
+            backgroundColor: Colors.red
+          ),
         );
       }
     } finally {
@@ -168,8 +175,9 @@ class _CustomerEditProfileScreenState extends State<CustomerEditProfileScreen> {
     }
 
     return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Profil Bilgileri'),
+        title: Text(AppLocalizations.of(context)!.translate('profile_info_title')),
       ),
       body: Form(
         key: _formKey,
@@ -178,7 +186,6 @@ class _CustomerEditProfileScreenState extends State<CustomerEditProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Profil Fotoğrafı Düzenleme
               Center(
                 child: Stack(
                   children: [
@@ -214,19 +221,26 @@ class _CustomerEditProfileScreenState extends State<CustomerEditProfileScreen> {
               
               TextFormField(
                 controller: _firstNameController,
-                decoration: const InputDecoration(labelText: 'Ad', prefixIcon: Icon(Icons.person_outline)),
-                validator: (value) => Validators.validateRequired(value, 'Ad'),
+                style: const TextStyle(color: AppTheme.textColor),
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)!.translate('first_name'), 
+                  prefixIcon: const Icon(Icons.person_outline)
+                ),
+                validator: (value) => Validators.validateRequired(value, AppLocalizations.of(context)!.translate('first_name')),
               ),
               const SizedBox(height: 16),
               
               TextFormField(
                 controller: _lastNameController,
-                decoration: const InputDecoration(labelText: 'Soyad', prefixIcon: Icon(Icons.person_outline)),
-                validator: (value) => Validators.validateRequired(value, 'Soyad'),
+                style: const TextStyle(color: AppTheme.textColor),
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.of(context)!.translate('last_name'), 
+                  prefixIcon: const Icon(Icons.person_outline)
+                ),
+                validator: (value) => Validators.validateRequired(value, AppLocalizations.of(context)!.translate('last_name')),
               ),
               const SizedBox(height: 16),
 
-              // Şehir Autocomplete
               Autocomplete<String>(
                 optionsBuilder: _getCityOptions,
                 onSelected: (selection) => setState(() {
@@ -240,14 +254,17 @@ class _CustomerEditProfileScreenState extends State<CustomerEditProfileScreen> {
                   return TextFormField(
                     controller: controller,
                     focusNode: focusNode,
-                    decoration: const InputDecoration(labelText: 'Şehir', prefixIcon: Icon(Icons.location_city)),
-                    validator: (value) => Validators.validateRequired(value, 'Şehir'),
+                    style: const TextStyle(color: AppTheme.textColor),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(context)!.translate('city'), 
+                      prefixIcon: const Icon(Icons.location_city)
+                    ),
+                    validator: (value) => Validators.validateRequired(value, AppLocalizations.of(context)!.translate('city')),
                   );
                 },
               ),
               const SizedBox(height: 16),
 
-              // Semt Autocomplete
               Autocomplete<String>(
                 optionsBuilder: _getDistrictOptions,
                 onSelected: (selection) => setState(() => _districtController.text = selection),
@@ -258,9 +275,13 @@ class _CustomerEditProfileScreenState extends State<CustomerEditProfileScreen> {
                   return TextFormField(
                     controller: controller,
                     focusNode: focusNode,
+                    style: const TextStyle(color: AppTheme.textColor),
                     enabled: _cityController.text.isNotEmpty,
-                    decoration: const InputDecoration(labelText: 'Semt', prefixIcon: Icon(Icons.location_on)),
-                    validator: (value) => Validators.validateRequired(value, 'Semt'),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(context)!.translate('district'), 
+                      prefixIcon: const Icon(Icons.location_on)
+                    ),
+                    validator: (value) => Validators.validateRequired(value, AppLocalizations.of(context)!.translate('district')),
                   );
                 },
               ),
@@ -278,7 +299,10 @@ class _CustomerEditProfileScreenState extends State<CustomerEditProfileScreen> {
                   ),
                   child: _isLoading
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(AppTheme.textColor)))
-                      : const Text('Kaydet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
+                      : Text(
+                          AppLocalizations.of(context)!.translate('save'), 
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.backgroundColor)
+                        ),
                 ),
               ),
               const SizedBox(height: 16),

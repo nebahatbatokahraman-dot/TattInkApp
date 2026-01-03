@@ -5,8 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // FirebaseAuth hatasını çözer
-import '../../services/report_service.dart'; // ReportService hatasını çözer (yoksa ekle)
+import 'package:firebase_auth/firebase_auth.dart'; 
+import '../../services/report_service.dart'; 
 import '../../services/auth_service.dart';
 import '../../services/image_service.dart';
 import '../../models/user_model.dart';
@@ -15,6 +15,7 @@ import '../../models/message_model.dart';
 import '../../utils/constants.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/slide_route.dart';
+import '../../app_localizations.dart';
 import '../appointments_screen.dart';
 import '../chat_screen.dart'; 
 import '../messages_screen.dart'; 
@@ -69,13 +70,13 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Kapak fotoğrafı güncellendi'), backgroundColor: Colors.green),
+          SnackBar(content: Text(AppLocalizations.of(context)!.translate('cover_photo_updated')), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('${AppLocalizations.of(context)!.translate('error_generic')}: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -171,7 +172,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(post.artistUsername ?? 'Sanatçı', 
+                            Text(post.artistUsername ?? 'Artist', 
                               style: const TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold)),
                             Text(post.locationString, 
                               style: const TextStyle(color: Colors.grey, fontSize: 12)),
@@ -201,7 +202,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
                           Navigator.push(context, SlideRoute(page: ArtistProfileScreen(userId: post.artistId)));
                         },
                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-                        child: const Text('Profili Gör', style: TextStyle(color: AppTheme.textColor, fontSize: 12)),
+                        child: Text(AppLocalizations.of(context)!.translate('view_profile'), style: TextStyle(color: AppTheme.textColor, fontSize: 12)),
                       ),
                     ],
                   ),
@@ -238,25 +239,70 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
     final bool isMe = currentUserId == widget.userId;
 
     return Scaffold(
-      body: StreamBuilder<UserModel?>(
-        stream: Provider.of<AuthService>(context).getUserModelStream(widget.userId),
+      // StreamBuilder'ı DocumentSnapshot dinleyecek şekilde güncelledik
+      // Çünkü exists kontrolü yapmak için DocumentSnapshot'a ihtiyacımız var.
+      // (AuthService'deki getUserModelStream muhtemelen UserModel dönüyor, bu yüzden direkt Firestore çağırıyoruz)
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
+          .collection(AppConstants.collectionUsers)
+          .doc(widget.userId)
+          .snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final userModel = snapshot.data!;
+          
+          // 1. YÜKLENİYORSA
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          // 2. KULLANICI BULUNAMADIYSA (SİLİNMİŞSE) - İŞTE GÜNCELLEME BURASI
+          if (!snapshot.data!.exists) {
+            return Scaffold(
+              backgroundColor: AppTheme.backgroundColor,
+              appBar: AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.person_off_outlined, size: 80, color: Colors.white.withOpacity(0.5)),
+                    const SizedBox(height: 16),
+                    Text(
+                      AppLocalizations.of(context)!.translate('user_not_found'),
+                      style: TextStyle(color: AppTheme.textColor, fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      AppLocalizations.of(context)!.translate('user_not_found_msg'),
+                      style: TextStyle(color: AppTheme.textColor.withOpacity(0.6), fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          // 3. KULLANICI VARSA (NORMAL AKIŞ)
+          final userModel = UserModel.fromFirestore(snapshot.data!);
 
           return NestedScrollView(
-            physics: const NeverScrollableScrollPhysics(), // 3- Sayfa yukarı kaymaz, sabit kalır
+            physics: const NeverScrollableScrollPhysics(), 
             headerSliverBuilder: (context, innerBoxIsScrolled) {
               return [
                 SliverToBoxAdapter(
                   child: Stack(
-                    clipBehavior: Clip.none, // Dışarı taşan dokunuşları yakalamak için
+                    clipBehavior: Clip.none, 
                     alignment: Alignment.topCenter,
                     children: [
-                      // --- ALT KATMAN: KAPAK VE DİĞER İÇERİKLER ---
+                      // --- ALT KATMAN ---
                       Column(
                         children: [
-                          // 1. Kapak Alanı
+                          // Kapak Alanı
                           Container(
                             height: 160,
                             width: double.infinity,
@@ -285,7 +331,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
                                   ),
                                 ),
                                 
-                                // Kapak Fotoğrafı Yükleme (Kendi Sınırları İçinde Kaldığı İçin Tıklanır)
                                 if (isMe)
                                   Positioned(
                                     bottom: 10,
@@ -301,7 +346,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
                                       ),
                                     ),
                                   ),
-                                // AppBar Butonları
                                 Positioned(
                                   top: MediaQuery.of(context).padding.top,
                                   left: 0, right: 0,
@@ -317,7 +361,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
                             ),
                           ),
                           
-                          // 2. Profil Fotosu ve İsimden Sonra Gelenler İçin Boşluk
                           const SizedBox(height: 70), 
                           
                           if (isMe && userModel.role == 'admin') _buildAdminButton(),
@@ -327,10 +370,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
                       ),
 
                       // --- ÜST KATMAN: PROFİL FOTOSU VE BİLGİLERİ ---
-                      // Bu widget artık Column'un değil, SliverToBoxAdapter'ın ana Stack'inin elemanı.
-                      // Dolayısıyla dokunma alanı (Hit Test) kısıtlanmaz.
                       Positioned(
-                        top: 125, // (Kapak yüksekliği 160) - (İstenen sarkma payı 55) = 105
+                        top: 125, 
                         left: 16,
                         child: _buildProfileInfo(userModel, isMe),
                       ),
@@ -339,7 +380,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
                 ),
               ];
             },
-            // 4- TAB İÇERİKLERİ YUKARI KAYAR (Body içinde scrollable alan)
             body: TabBarView(
               controller: _tabController,
               children: [
@@ -362,7 +402,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(color: Colors.redAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.redAccent.withOpacity(0.3))),
-          child: const Row(children: [Icon(Icons.admin_panel_settings, color: Colors.redAccent), SizedBox(width: 12), Text("Yönetim Paneli", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)), Spacer(), Icon(Icons.arrow_forward_ios, size: 14, color: Colors.redAccent)]),
+          child: Row(children: [const Icon(Icons.admin_panel_settings, color: Colors.redAccent), const SizedBox(width: 12), Text(AppLocalizations.of(context)!.translate('admin_panel'), style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)), const Spacer(), const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.redAccent)]),
         ),
       ),
     );
@@ -373,7 +413,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
     crossAxisAlignment: CrossAxisAlignment.end,
     children: [
       Stack(
-        clipBehavior: Clip.none, // Butonun dışarı taşmasına izin verir
+        clipBehavior: Clip.none, 
         children: [
           Container(
             decoration: BoxDecoration(
@@ -387,16 +427,14 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
               child: user.profileImageUrl == null ? const Icon(Icons.person, size: 40) : null,
             ),
           ),
-          // DÜZENLEME BUTONU
           if (isMe)
             Positioned(
               bottom: 0, 
               right: 0, 
-              child: Material( // Efekt ve tıklama alanı için Material ekledik
+              child: Material(
                 color: Colors.transparent,
-                child: InkWell( // GestureDetector yerine InkWell daha sağlıklı tepki verir
+                child: InkWell( 
                   onTap: () {
-                    print("Düzenle butonuna basıldı!"); // Debug için konsola yazar
                     Navigator.push(
                       context, 
                       SlideRoute(page: const CustomerEditProfileScreen())
@@ -404,7 +442,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
                   },
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
-                    padding: const EdgeInsets.all(6), // Tıklama alanını biraz büyüttük
+                    padding: const EdgeInsets.all(6),
                     decoration: const BoxDecoration(
                       color: AppTheme.primaryColor, 
                       shape: BoxShape.circle
@@ -428,80 +466,70 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
           ],
         ),
       ),
-        // --- MÜŞTERİ PROFİLİNE EKLE (DÜZELTİLMİŞ HALİ) ---
-          // Eğer giriş yapan kullanıcı ile bu profilin sahibi FARKLIYSA butonu göster
-          if (FirebaseAuth.instance.currentUser?.uid != widget.userId)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 10,
-              right: 16,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.4),
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.more_vert, color: Colors.white),
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context, // Ana context (Profil Sayfası)
-                      backgroundColor: AppTheme.cardColor,
-                      builder: (sheetContext) => SafeArea(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 4,
-                              margin: const EdgeInsets.symmetric(vertical: 10),
-                              decoration: BoxDecoration(color: Colors.grey[700], borderRadius: BorderRadius.circular(2)),
-                            ),
-
-                            // ŞİKAYET ET
-                            ListTile(
-                              leading: const Icon(Icons.flag, color: Colors.redAccent),
-                              title: const Text("Kullanıcıyı Şikayet Et", style: TextStyle(color: Colors.white)),
-                              onTap: () {
-                                Navigator.pop(sheetContext); // Menüyü kapat
-                                
-                                // Servisi çağır (Ana context ile)
-                                ReportService.showReportDialog(
-                                  context: context,
-                                  contentId: widget.userId,
-                                  contentType: 'user',
-                                  reportedUserId: widget.userId,
-                                );
-                              },
-                            ),
-
-                            // ENGELLE
-                            ListTile(
-                              leading: const Icon(Icons.block, color: Colors.white70),
-                              title: const Text("Engelle", style: TextStyle(color: Colors.white70)),
-                              onTap: () {
-                                Navigator.pop(sheetContext); // Menüyü kapat
-                                
-                                final user = FirebaseAuth.instance.currentUser;
-                                if (user != null) {
-                                  // Servisi çağır (Ana context ile)
-                                  ReportService.blockUser(
-                                    context: context,
-                                    currentUserId: user.uid,
-                                    blockedUserId: widget.userId,
-                                  );
-                                }
-                              },
-                            ),
-                            const SizedBox(height: 10),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
+      
+      // ŞİKAYET ET / ENGELLE BUTONU (BAŞKA PROFİLSE GÖZÜKÜR)
+      if (FirebaseAuth.instance.currentUser?.uid != widget.userId)
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 10,
+          right: 16,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.4),
+              shape: BoxShape.circle,
             ),
-    
-    
+            child: IconButton(
+              icon: const Icon(Icons.more_vert, color: Colors.white),
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context, 
+                  backgroundColor: AppTheme.cardColor,
+                  builder: (sheetContext) => SafeArea(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(color: Colors.grey[700], borderRadius: BorderRadius.circular(2)),
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.flag, color: Colors.redAccent),
+                          title: Text(AppLocalizations.of(context)!.translate('report_user'), style: TextStyle(color: Colors.white)),
+                          onTap: () {
+                            Navigator.pop(sheetContext); 
+                            ReportService.showReportDialog(
+                              context: context,
+                              contentId: widget.userId,
+                              contentType: 'user',
+                              reportedUserId: widget.userId,
+                            );
+                          },
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.block, color: Colors.white70),
+                          title: Text(AppLocalizations.of(context)!.translate('block_user'), style: TextStyle(color: Colors.white70)),
+                          onTap: () {
+                            Navigator.pop(sheetContext); 
+                            final user = FirebaseAuth.instance.currentUser;
+                            if (user != null) {
+                              ReportService.blockUser(
+                                context: context,
+                                currentUserId: user.uid,
+                                blockedUserId: widget.userId,
+                              );
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
     ],
   );
 }
@@ -514,7 +542,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
           onPressed: () => showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, elevation: 0, barrierColor: Colors.black.withOpacity(0.5), builder: (context) => SizedBox(height: MediaQuery.of(context).size.height * 0.65, child: const AppointmentsScreen())),
-          child: const Text('RANDEVULARIM', style: TextStyle(color: AppTheme.textDarkColor, fontWeight: FontWeight.bold)),
+          child: Text(AppLocalizations.of(context)!.translate('my_appointments'), style: TextStyle(color: AppTheme.textDarkColor, fontWeight: FontWeight.bold)),
         ),
       ),
     );
@@ -523,7 +551,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
   Widget _buildTabs() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [_tabItem(Icons.favorite, 'Favoriler', 0), _tabItem(Icons.person, 'Takip', 1), _tabItem(Icons.message, 'Mesajlar', 2)],
+      children: [
+        _tabItem(Icons.favorite, AppLocalizations.of(context)!.translate('favorites_tab'), 0),
+        _tabItem(Icons.person, AppLocalizations.of(context)!.translate('following_tab'), 1),
+        _tabItem(Icons.message, AppLocalizations.of(context)!.translate('messages_tab'), 2)
+      ],
     );
   }
 
@@ -540,7 +572,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection(collection).where('userId', isEqualTo: widget.userId).snapshots(),
       builder: (context, snap) {
-        if (!snap.hasData || snap.data!.docs.isEmpty) return _empty(Icons.favorite_border, 'Boş');
+        if (!snap.hasData || snap.data!.docs.isEmpty) return _empty(Icons.favorite_border, 'Empty');
         final ids = snap.data!.docs.map((d) => d['postId'] as String).toList();
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance.collection(AppConstants.collectionPosts).where(FieldPath.documentId, whereIn: ids).snapshots(),
@@ -558,7 +590,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection(AppConstants.collectionFollows).where('followerId', isEqualTo: widget.userId).snapshots(),
       builder: (context, snap) {
-        if (!snap.hasData || snap.data!.docs.isEmpty) return _empty(Icons.person_add, 'Takip yok');
+        if (!snap.hasData || snap.data!.docs.isEmpty) return _empty(Icons.person_add, 'No following');
         final ids = snap.data!.docs.map((d) => d['followingId'] as String).toList();
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance.collection(AppConstants.collectionUsers).where(FieldPath.documentId, whereIn: ids).snapshots(),
@@ -570,9 +602,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
               itemCount: users.length, 
               itemBuilder: (c, i) => Theme(
                 data: Theme.of(context).copyWith(
-                  // --- SPLASH EFEKTİ AYARLARI ---
-                  // Tıklandığında hiçbir parlama olmasın istiyorsan her ikisini de Colors.transparent yap.
-                  // Eğer çok hafif bir renk istersen AppTheme.primaryColor.withOpacity(0.1) kullanabilirsin.
                   splashColor: AppTheme.cardColor, 
                   highlightColor: Colors.transparent,
                 ),
@@ -599,18 +628,15 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> with Sing
     );
   }
 
-  // --- YENİ: SOHBETİ VERİTABANINDAN (KİŞİYE ÖZEL) SİLME FONKSİYONU ---
+  // --- SOHBETİ VERİTABANINDAN (KİŞİYE ÖZEL) SİLME ---
 Future<void> _deleteChatFromProfile(String chatId, String currentUserId) async {
   try {
     final batch = FirebaseFirestore.instance.batch();
-
-    // 1. Sohbet özetinden kullanıcıyı çıkar
     final chatRef = FirebaseFirestore.instance.collection(AppConstants.collectionChats).doc(chatId);
     batch.update(chatRef, {
       'users': FieldValue.arrayRemove([currentUserId])
     });
 
-    // 2. Bu sohbetteki mesajları kullanıcı için "silindi" işaretle
     final messagesSnapshot = await FirebaseFirestore.instance
         .collection(AppConstants.collectionMessages)
         .where('chatId', isEqualTo: chatId)
@@ -628,12 +654,12 @@ Future<void> _deleteChatFromProfile(String chatId, String currentUserId) async {
   }
 }
 
-// --- GÜNCELLENMİŞ MESAJ LİSTESİ ---
+// --- MESAJ LİSTESİ ---
 Widget _buildMessagesList(String uid) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection(AppConstants.collectionMessages).orderBy('createdAt', descending: true).snapshots(),
       builder: (context, snap) {
-        if (!snap.hasData || snap.data!.docs.isEmpty) return _empty(Icons.mail_outline, 'Mesaj yok');
+        if (!snap.hasData || snap.data!.docs.isEmpty) return _empty(Icons.mail_outline, 'No messages');
         
         final chats = <String, MessageModel>{};
         for (var d in snap.data!.docs) {
@@ -660,15 +686,14 @@ Widget _buildMessagesList(String uid) {
             return StreamBuilder<DocumentSnapshot>(
               stream: FirebaseFirestore.instance.collection(AppConstants.collectionUsers).doc(otherId).snapshots(),
               builder: (context, userSnap) {
-                String displayName = "Yükleniyor...";
+                String displayName = "Loading...";
                 String? displayImage;
                 if (userSnap.hasData && userSnap.data!.exists) {
                   final userData = userSnap.data!.data() as Map<String, dynamic>;
-                  displayName = userData['fullName'] ?? userData['username'] ?? "Kullanıcı";
+                  displayName = userData['fullName'] ?? userData['username'] ?? "User";
                   displayImage = userData['profileImageUrl'];
                 }
 
-                // --- GÜNCELLEME: DISMISSIBLE KALDIRILDI, THEME KORUNDU ---
                 return Theme(
                   data: Theme.of(context).copyWith(
                     splashColor: AppTheme.cardColor, 
@@ -684,7 +709,6 @@ Widget _buildMessagesList(String uid) {
                     trailing: Text(DateFormat('HH:mm').format(m.createdAt), style: const TextStyle(color: Colors.grey, fontSize: 10)),
                     onTap: () => Navigator.push(context, SlideRoute(page: ChatScreen(receiverId: otherId, receiverName: displayName))),
                     
-                    // --- UZUN BASINCA SİLME MENÜSÜ BURADA ---
                     onLongPress: () {
                       showModalBottomSheet(
                         context: context,
@@ -699,11 +723,11 @@ Widget _buildMessagesList(String uid) {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 20), decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))),
-                              Text("$displayName ile sohbeti sil?", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                              Text("${AppLocalizations.of(context)!.translate('delete_chat_title')} $displayName?", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 20),
                               ListTile(
                                 leading: const Icon(Icons.delete_forever, color: Colors.redAccent),
-                                title: const Text("Sohbeti Benden Sil", style: TextStyle(color: Colors.redAccent)),
+                                title: Text(AppLocalizations.of(context)!.translate('delete_chat_for_me'), style: TextStyle(color: Colors.redAccent)),
                                 onTap: () {
                                   Navigator.pop(context);
                                   _deleteChatFromProfile(m.chatId, uid);
@@ -711,7 +735,7 @@ Widget _buildMessagesList(String uid) {
                               ),
                               ListTile(
                                 leading: const Icon(Icons.close, color: Colors.grey),
-                                title: const Text("İptal", style: TextStyle(color: Colors.white70)),
+                                title: Text(AppLocalizations.of(context)!.translate('cancel'), style: TextStyle(color: Colors.white70)),
                                 onTap: () => Navigator.pop(context),
                               ),
                             ],
@@ -728,8 +752,6 @@ Widget _buildMessagesList(String uid) {
       },
     );
   }
-
-  
 
   Widget _empty(IconData icon, String txt) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, size: 40, color: Colors.grey), Text(txt, style: const TextStyle(color: Colors.grey))]));
 }

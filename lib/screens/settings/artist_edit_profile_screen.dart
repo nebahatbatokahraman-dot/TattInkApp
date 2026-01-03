@@ -11,6 +11,7 @@ import '../../utils/constants.dart';
 import '../../utils/validators.dart';
 import '../../utils/turkey_locations.dart';
 import '../../theme/app_theme.dart';
+import '../../app_localizations.dart'; // Çeviri sınıfı
 
 class ArtistEditProfileScreen extends StatefulWidget {
   const ArtistEditProfileScreen({super.key});
@@ -22,7 +23,6 @@ class ArtistEditProfileScreen extends StatefulWidget {
 class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   
-  // Controllerlar
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _studioNameController = TextEditingController();
@@ -35,17 +35,17 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
   File? _selectedImage;
   UserModel? _currentUser;
   
-  
   bool _isLoading = false;
   bool _isUploading = false;
   bool _isScrolled = false; 
 
-  // Seçilen etiketler
   List<String> _selectedApplications = [];
   List<String> _selectedStyles = [];
 
-  // NOT: Manuel Map değişkenini kaldırdık. 
-  // Artık AppConstants.applicationStylesMap kullanıyoruz.
+  // --- ÇEVİRİ YARDIMCISI (Kodu temiz tutmak için) ---
+  String tr(String key) {
+    return AppLocalizations.of(context)?.translate(key) ?? key;
+  }
 
   @override
   void initState() {
@@ -124,7 +124,7 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
         setState(() => _selectedImage = File(image.path));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${tr('error')}: $e')));
     }
   }
 
@@ -201,12 +201,12 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profil güncellendi!'), backgroundColor: Colors.green),
+          SnackBar(content: Text(tr('profile_updated')), backgroundColor: Colors.green),
         );
         Navigator.pop(context);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${tr('error')}: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -220,7 +220,7 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
       backgroundColor: AppTheme.backgroundColor, 
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Profili Düzenle', style: TextStyle(color: AppTheme.textColor)),
+        title: Text(tr('edit_profile'), style: const TextStyle(color: AppTheme.textColor)),
         backgroundColor: _isScrolled ? AppTheme.cardColor : Colors.transparent,
         scrolledUnderElevation: 0,
         elevation: 0,
@@ -253,7 +253,6 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // --- PROFİL FOTOĞRAFI ---
                 Center(
                   child: GestureDetector( 
                     onTap: _pickImage, 
@@ -300,23 +299,21 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
                   ),
                 const SizedBox(height: 24),
                 
-                // --- FORM ALANLARI ---
                 Row(
                   children: [
-                    Expanded(child: _buildTextField(controller: _firstNameController, label: 'Ad', icon: Icons.person)),
+                    Expanded(child: _buildTextField(controller: _firstNameController, label: tr('first_name'), icon: Icons.person)),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildTextField(controller: _lastNameController, label: 'Soyad', icon: Icons.person_outline)),
+                    Expanded(child: _buildTextField(controller: _lastNameController, label: tr('last_name'), icon: Icons.person_outline)),
                   ],
                 ),
                 const SizedBox(height: 16),
-                _buildTextField(controller: _studioNameController, label: 'Stüdyo Adı', icon: Icons.store),
+                _buildTextField(controller: _studioNameController, label: tr('studio_name'), icon: Icons.store),
                 const SizedBox(height: 16),
-                _buildTextField(controller: _biographyController, label: 'Biyografi', icon: Icons.edit_note, maxLines: 3),
+                _buildTextField(controller: _biographyController, label: tr('biography'), icon: Icons.edit_note, maxLines: 3),
                 const SizedBox(height: 16),
-                _buildTextField(controller: _addressController, label: 'Açık Adres', icon: Icons.map, maxLines: 2),
+                _buildTextField(controller: _addressController, label: tr('address_detail'), icon: Icons.map, maxLines: 2),
                 const SizedBox(height: 16),
                 
-                // --- ŞEHİR / SEMT ---
                 Row(
                   children: [
                     Expanded(
@@ -328,7 +325,7 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
                         }),
                         fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
                           if (controller.text.isEmpty && _cityController.text.isNotEmpty) controller.text = _cityController.text;
-                          return _buildTextField(controller: controller, label: 'Şehir', icon: Icons.location_city, focusNode: focusNode);
+                          return _buildTextField(controller: controller, label: tr('city'), icon: Icons.location_city, focusNode: focusNode);
                         },
                       ),
                     ),
@@ -339,7 +336,7 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
                         onSelected: (selection) => setState(() => _districtController.text = selection),
                         fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
                           if (controller.text.isEmpty && _districtController.text.isNotEmpty) controller.text = _districtController.text;
-                          return _buildTextField(controller: controller, label: 'Semt', icon: Icons.location_on, focusNode: focusNode);
+                          return _buildTextField(controller: controller, label: tr('district'), icon: Icons.location_on, focusNode: focusNode);
                         },
                       ),
                     ),
@@ -348,23 +345,21 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
                 
                 const SizedBox(height: 32),
         
-                // --- HİZMETLER (Applications) ---
-                const Text('Hizmetler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
+                Text(tr('services'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
                 const SizedBox(height: 12),
                 _buildApplicationSelector(),
         
                 const SizedBox(height: 24),
         
-                // --- DİNAMİK STİL SEÇİMİ (APPCONSTANTS'TAN ÇEKİLİYOR) ---
                 if (_selectedApplications.isEmpty)
                    Container(
                      padding: const EdgeInsets.all(12),
                      decoration: BoxDecoration(color: AppTheme.cardColor, borderRadius: BorderRadius.circular(8)),
-                     child: const Row(
+                     child: Row(
                        children: [
-                         Icon(Icons.info_outline, color: Colors.grey, size: 20),
-                         SizedBox(width: 8),
-                         Text("Stilleri görmek için yukarıdan hizmet seçiniz.", style: TextStyle(color: Colors.grey)),
+                         const Icon(Icons.info_outline, color: Colors.grey, size: 20),
+                         const SizedBox(width: 8),
+                         Text(tr('select_service_to_see_styles'), style: const TextStyle(color: Colors.grey)),
                        ],
                      ),
                    )
@@ -373,7 +368,6 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: _selectedApplications.map((app) {
                       
-                      // DEĞİŞİKLİK BURADA: Constants dosyasından çekiyoruz
                       final stylesForApp = AppConstants.applicationStylesMap[app];
                       
                       if (stylesForApp == null || stylesForApp.isEmpty) return const SizedBox.shrink();
@@ -383,8 +377,9 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // DÜZELTME: Başlık (app) çevriliyor
                             Text(
-                              '$app Stilleri', 
+                              '${tr(app)} ${tr('styles_title')}', 
                               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
                             ),
                             const SizedBox(height: 8),
@@ -397,7 +392,6 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
         
                 const SizedBox(height: 48),
                 
-                // --- KAYDET BUTONU ---
                 SizedBox(
                   width: double.infinity,
                   height: 50,
@@ -409,7 +403,7 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
                     ),
                     child: _isLoading 
                       ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: AppTheme.textColor, strokeWidth: 2)) 
-                      : const Text('DEĞİŞİKLİKLERİ KAYDET', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.backgroundColor)),
+                      : Text(tr('save_changes').toUpperCase(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.backgroundColor)),
                   ),
                 ),
                 const SizedBox(height: 30),
@@ -446,21 +440,20 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
           borderSide: const BorderSide(color: AppTheme.primaryColor),
         ),
       ),
-      validator: (value) => Validators.validateRequired(value, label),
+      validator: (value) => Validators.validateRequired(value, label, context),
     );
   }
 
-  // --- HİZMET SEÇİMİ ---
   Widget _buildApplicationSelector() {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      // Burayı da constants'tan çekiyoruz (veya applicationStylesMap.keys)
       children: AppConstants.applications.map((option) {
         final isSelected = _selectedApplications.contains(option);
         
         return FilterChip(
-          label: Text(option),
+          // DÜZELTME: Text(option) -> Text(tr(option))
+          label: Text(tr(option)),
           selected: isSelected,
           showCheckmark: false,
           selectedColor: AppTheme.primaryColor,
@@ -480,7 +473,6 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
                 _selectedApplications.add(option);
               } else {
                 _selectedApplications.remove(option);
-                // DEĞİŞİKLİK BURADA: Constants dosyasından temizlenecek stilleri çekiyoruz
                 final stylesToRemove = AppConstants.applicationStylesMap[option];
                 if (stylesToRemove != null) {
                   _selectedStyles.removeWhere((style) => stylesToRemove.contains(style));
@@ -493,7 +485,6 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
     );
   }
 
-  // --- STİL SEÇİMİ ---
   Widget _buildMultiSelectChips(List<String> options, List<String> selectedList) {
     return Wrap(
       spacing: 8,
@@ -502,7 +493,8 @@ class _ArtistEditProfileScreenState extends State<ArtistEditProfileScreen> {
         final isSelected = selectedList.contains(option);
         
         return FilterChip(
-          label: Text(option),
+          // DÜZELTME: Text(option) -> Text(tr(option))
+          label: Text(tr(option)),
           selected: isSelected,
           showCheckmark: false, 
           onSelected: (selected) {

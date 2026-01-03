@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../theme/app_theme.dart';
 import '../../services/report_service.dart';
+import '../../app_localizations.dart'; // Çeviri sınıfını ekledik
 
 class BlockedUsersScreen extends StatelessWidget {
   const BlockedUsersScreen({super.key});
@@ -15,14 +16,16 @@ class BlockedUsersScreen extends StatelessWidget {
     if (currentUser == null) return const SizedBox();
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor, // Veya AppTheme.backgroundColor
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         backgroundColor: AppTheme.cardColor,
-        title: const Text("Engellenen Kullanıcılar", style: TextStyle(color: AppTheme.textColor)),
+        title: Text(
+          AppLocalizations.of(context)!.translate('blocked_users_title'), 
+          style: const TextStyle(color: AppTheme.textColor)
+        ),
         leading: const BackButton(color: Colors.white),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // 1. Sadece engelli listesini (ID'leri) dinliyoruz
         stream: FirebaseFirestore.instance
             .collection('users')
             .doc(currentUser.uid)
@@ -34,8 +37,11 @@ class BlockedUsersScreen extends StatelessWidget {
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
-              child: Text("Engellenen kullanıcı yok.", style: TextStyle(color: Colors.white54)),
+            return Center(
+              child: Text(
+                AppLocalizations.of(context)!.translate('no_blocked_users'), 
+                style: const TextStyle(color: Colors.white54)
+              ),
             );
           }
 
@@ -46,16 +52,15 @@ class BlockedUsersScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final blockedUserId = blockedDocs[index].id;
 
-              // 2. Her ID için kullanıcının gerçek bilgilerini çekiyoruz
               return FutureBuilder<DocumentSnapshot>(
                 future: FirebaseFirestore.instance.collection('users').doc(blockedUserId).get(),
                 builder: (context, userSnapshot) {
                   if (!userSnapshot.hasData) return const SizedBox();
 
                   final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
-                  if (userData == null) return const SizedBox(); // Kullanıcı hesabı silinmiş olabilir
+                  if (userData == null) return const SizedBox(); 
 
-                  final username = userData['username'] ?? 'Kullanıcı';
+                  final username = userData['username'] ?? AppLocalizations.of(context)!.translate('user_default');
                   final photoUrl = userData['profileImageUrl'] ?? '';
 
                   return ListTile(
@@ -67,14 +72,16 @@ class BlockedUsersScreen extends StatelessWidget {
                     title: Text(username, style: const TextStyle(color: Colors.white)),
                     trailing: TextButton(
                       onPressed: () {
-                        // ENGELİ KALDIR
                         ReportService.unblockUser(
                           context: context, 
                           currentUserId: currentUser.uid, 
                           blockedUserId: blockedUserId
                         );
                       },
-                      child: const Text("Kaldır", style: TextStyle(color: Colors.redAccent)),
+                      child: Text(
+                        AppLocalizations.of(context)!.translate('unblock'), 
+                        style: const TextStyle(color: Colors.redAccent)
+                      ),
                     ),
                   );
                 },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../theme/app_theme.dart';
+import '../app_localizations.dart';
 
 class LoginRequiredDialog extends StatelessWidget {
   const LoginRequiredDialog({super.key});
@@ -16,9 +17,9 @@ class LoginRequiredDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Giriş Yap / Üye Ol'),
-      content: const Text(
-        'Bu işlemi yapmak için giriş yapmanız veya üye olmanız gerekiyor.',
+      title: Text(AppLocalizations.of(context)!.translate('login_register_title')),
+      content: Text(
+        AppLocalizations.of(context)!.translate('login_required_message'),
       ),
       actions: [
         TextButton(
@@ -31,7 +32,7 @@ class LoginRequiredDialog extends StatelessWidget {
               ),
             );
           },
-          child: const Text('Üye Ol'),
+          child: Text(AppLocalizations.of(context)!.translate('register_button')),
         ),
         ElevatedButton(
           onPressed: () {
@@ -43,7 +44,7 @@ class LoginRequiredDialog extends StatelessWidget {
               ),
             );
           },
-          child: const Text('Giriş Yap'),
+          child: Text(AppLocalizations.of(context)!.translate('login_button')),
         ),
       ],
     );

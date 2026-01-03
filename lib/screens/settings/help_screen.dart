@@ -1,6 +1,7 @@
 import '../../theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../app_localizations.dart'; // Çeviri sınıfını ekledik
 
 class HelpScreen extends StatefulWidget {
   const HelpScreen({super.key});
@@ -10,32 +11,25 @@ class HelpScreen extends StatefulWidget {
 }
 
 class _HelpScreenState extends State<HelpScreen> {
-  // Kaydırma durumunu takip etmek için
   bool _isScrolled = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // AppBar'ın arkasının görünmesi için body'i yukarı taşıyoruz
+      backgroundColor: AppTheme.backgroundColor,
       extendBodyBehindAppBar: true,
       
       appBar: AppBar(
-        title: const Text('Yardım'),
-        
-        // 1. DÜZELTME: Kaydırılınca CardColor, tepedeyken Şeffaf
+        title: Text(AppLocalizations.of(context)!.translate('help')),
         backgroundColor: _isScrolled ? AppTheme.cardColor : Colors.transparent,
-        
-        // Varsayılan kırmızılaşmayı kapatıyoruz
         scrolledUnderElevation: 0,
         elevation: 0,
-        
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       
-      // Kaydırma hareketini dinliyoruz
       body: NotificationListener<ScrollNotification>(
         onNotification: (scrollNotification) {
           if (scrollNotification is ScrollUpdateNotification) {
@@ -47,7 +41,6 @@ class _HelpScreenState extends State<HelpScreen> {
           return false;
         },
         child: ListView(
-          // AppBar şeffaf olduğu için içeriğin üstte kalmaması adına padding veriyoruz
           padding: EdgeInsets.only(
             top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
             left: 16,
@@ -55,32 +48,32 @@ class _HelpScreenState extends State<HelpScreen> {
             bottom: 16
           ),
           children: [
-            _buildSectionHeader('Sık Sorulan Sorular'),
+            _buildSectionHeader(AppLocalizations.of(context)!.translate('faq_title')),
             
             _buildFAQItem(
-              'Nasıl artist takip edebilirim?',
-              'Artist profil sayfasına gidip "Takip Et" butonuna tıklayabilirsiniz.',
+              AppLocalizations.of(context)!.translate('faq_follow_q'),
+              AppLocalizations.of(context)!.translate('faq_follow_a'),
             ),
             _buildFAQItem(
-              'Randevu nasıl oluşturulur?',
-              'Artist profil sayfasında "Randevu" butonuna tıklayıp tarih ve saat seçerek randevu oluşturabilirsiniz.',
+              AppLocalizations.of(context)!.translate('faq_appointment_q'),
+              AppLocalizations.of(context)!.translate('faq_appointment_a'),
             ),
             _buildFAQItem(
-              'Mesaj nasıl gönderilir?',
-              'Anasayfadaki bir paylaşıma tıklayıp "Mesaj At" butonuna basabilir veya artist profil sayfasından mesaj gönderebilirsiniz.',
+              AppLocalizations.of(context)!.translate('faq_message_q'),
+              AppLocalizations.of(context)!.translate('faq_message_a'),
             ),
             _buildFAQItem(
-              'Favorilerim nerede?',
-              'Profil sayfanızdaki "Favoriler" sekmesinde beğendiğiniz paylaşımları görebilirsiniz.',
+              AppLocalizations.of(context)!.translate('faq_favorites_q'),
+              AppLocalizations.of(context)!.translate('faq_favorites_a'),
             ),
             
             const SizedBox(height: 24),
-            _buildSectionHeader('İletişim'),
+            _buildSectionHeader(AppLocalizations.of(context)!.translate('contact')),
             
             _buildContactItem(
               context,
               icon: Icons.email,
-              title: 'Email',
+              title: AppLocalizations.of(context)!.translate('email'),
               subtitle: 'destek@tattink.com',
               onTap: () async {
                 final uri = Uri(
@@ -95,7 +88,7 @@ class _HelpScreenState extends State<HelpScreen> {
             _buildContactItem(
               context,
               icon: Icons.phone,
-              title: 'Telefon',
+              title: AppLocalizations.of(context)!.translate('phone'),
               subtitle: '+90 (555) 123 45 67',
               onTap: () async {
                 final uri = Uri(
@@ -129,25 +122,24 @@ class _HelpScreenState extends State<HelpScreen> {
 
   Widget _buildFAQItem(String question, String answer) {
     return Card(
+      color: AppTheme.cardColor,
       margin: const EdgeInsets.only(bottom: 8),
-      // 2. DÜZELTME: Splash efektini kaldırmak için Theme
       child: Theme(
         data: Theme.of(context).copyWith(
           splashColor: Colors.transparent,
           highlightColor: Colors.transparent,
-          dividerColor: Colors.transparent, // Eski versiyonlarda ayırıcı rengi
+          dividerColor: Colors.transparent,
         ),
         child: ExpansionTile(
-          title: Text(question),
-          
-          // 3. DÜZELTME: Alt ve Üstteki Çizgileri Kaldırma
-          shape: const Border(), // Açıldığındaki çerçeve yok
-          collapsedShape: const Border(), // Kapalıykenki çerçeve yok
-          
+          title: Text(question, style: const TextStyle(color: AppTheme.textColor)),
+          iconColor: AppTheme.primaryColor,
+          collapsedIconColor: Colors.grey,
+          shape: const Border(),
+          collapsedShape: const Border(),
           children: [
             Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Text(answer),
+              child: Text(answer, style: const TextStyle(color: Colors.white70)),
             ),
           ],
         ),
@@ -163,18 +155,18 @@ class _HelpScreenState extends State<HelpScreen> {
     required VoidCallback onTap,
   }) {
     return Card(
+      color: AppTheme.cardColor,
       margin: const EdgeInsets.only(bottom: 8),
-      // Splash efektini kaldırmak için Theme
       child: Theme(
         data: Theme.of(context).copyWith(
           splashColor: Colors.transparent,
           highlightColor: Colors.transparent,
         ),
         child: ListTile(
-          leading: Icon(icon),
-          title: Text(title),
-          subtitle: Text(subtitle),
-          trailing: const Icon(Icons.chevron_right),
+          leading: Icon(icon, color: AppTheme.primaryColor),
+          title: Text(title, style: const TextStyle(color: AppTheme.textColor)),
+          subtitle: Text(subtitle, style: const TextStyle(color: Colors.grey)),
+          trailing: const Icon(Icons.chevron_right, color: Colors.grey),
           onTap: onTap,
         ),
       ),

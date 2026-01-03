@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -26,7 +27,6 @@ class PostDetailScreen extends StatefulWidget {
 class _PostDetailScreenState extends State<PostDetailScreen> {
   late PageController _verticalPageController;
   late int _currentPostIndex;
-  final Map<String, String> _localCaptions = {}; // Düzenleme sonrası anlık güncelleme için
 
   @override
   void initState() {
@@ -46,306 +46,171 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   // --- SİLME İŞLEMİ ---
   Future<void> _deletePost() async { 
     final post = currentPost;
-
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.cardColor,
         title: const Text("Gönderiyi Sil", style: TextStyle(color: AppTheme.textColor)),
-        content: const Text("Bu gönderiyi silmek istediğine emin misin? Bu işlem geri alınamaz.", style: TextStyle(color: Colors.white70)),
+        content: const Text("Bu gönderiyi silmek istediğine emin misin?", style: TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("İptal", style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Sil", style: TextStyle(color: Colors.redAccent)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("İptal", style: TextStyle(color: Colors.grey))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Sil", style: TextStyle(color: Colors.redAccent))),
         ],
       ),
     );
-
+    
     if (confirm != true) return;
-
+    
     try {
       WriteBatch batch = FirebaseFirestore.instance.batch();
-      DocumentReference postRef = FirebaseFirestore.instance.collection('posts').doc(post.id);
-      batch.delete(postRef);
-
-      DocumentReference userRef = FirebaseFirestore.instance.collection('users').doc(post.artistId);
-      batch.update(userRef, {
+      // Postu sil
+      batch.delete(FirebaseFirestore.instance.collection('posts').doc(post.id));
+      // Artist istatistiklerini güncelle
+      batch.update(FirebaseFirestore.instance.collection('users').doc(post.artistId), {
         'totalPosts': FieldValue.increment(-1), 
-        'totalLikes': FieldValue.increment(-post.likeCount), 
+        'totalLikes': FieldValue.increment(-post.likeCount)
       });
-
+      
       await batch.commit();
-
+      
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Gönderi silindi.")));
-        Navigator.pop(context, true);
+        Navigator.pop(context, true); // Ekranı kapat ve yenilemesi için true döndür
       }
-
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Hata oluştu: $e")));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Hata: $e")));
     }
   }
 
   // --- DÜZENLEME İŞLEMİ ---
   Future<void> _editPost() async { 
-    final updatedPost = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CreatePostScreen(
-          post: currentPost, 
-          isEditing: true
-        ),
-      ),
-    );
-
+    final updatedPost = await Navigator.push(context, MaterialPageRoute(builder: (context) => CreatePostScreen(post: currentPost, isEditing: true)));
     if (updatedPost != null && updatedPost is PostModel) {
       setState(() {
-        _localCaptions[updatedPost.id] = updatedPost.caption ?? "";
         widget.posts[_currentPostIndex] = updatedPost;
       });
-      
-      if(mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Gönderi güncellendi"), backgroundColor: Colors.green),
-        );
-      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: AppTheme.atmosphericBackgroundGradient,
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent, 
-        extendBodyBehindAppBar: true,
-        
-        appBar: AppBar(
-          backgroundColor: AppTheme.cardColor.withOpacity(0.8),
-          scrolledUnderElevation: 0,
-          elevation: 0,
-          leading: const BackButton(color: Colors.white), 
-          centerTitle: true,
-          actions: [
-            Theme(
-              data: Theme.of(context).copyWith(
-                cardColor: AppTheme.cardColor,
-                iconTheme: const IconThemeData(color: Colors.white),
-              ),
+    return Scaffold(
+      backgroundColor: Colors.black, // Görsele tam odak
+      extendBodyBehindAppBar: true,
+      
+      // Üst Bar (Geri ve Seçenekler)
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: Container(
+          margin: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: Colors.black.withOpacity(0.3), shape: BoxShape.circle),
+          child: const BackButton(color: Colors.white),
+        ),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(color: Colors.black.withOpacity(0.3), shape: BoxShape.circle),
+            child: Theme(
+              data: Theme.of(context).copyWith(cardColor: AppTheme.cardColor, iconTheme: const IconThemeData(color: Colors.white)),
               child: PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, color: Colors.white),
                 onSelected: (value) {
-                  // SAHİBİ İŞLEMLERİ
                   if (value == 'edit') _editPost();
                   if (value == 'delete') _deletePost();
-                  
-                  // ZİYARETÇİ İŞLEMİ
                   if (value == 'report') {
-                    // Servisi çağır (Import etmeyi unutma!)
-                    ReportService.showReportDialog(
-                      context: context, 
-                      contentId: currentPost.id, 
-                      contentType: 'post',
-                      reportedUserId: currentPost.artistId,
-                    );
+                    ReportService.showReportDialog(context: context, contentId: currentPost.id, contentType: 'post', reportedUserId: currentPost.artistId);
                   }
                 },
-                itemBuilder: (BuildContext context) {
-                  // EĞER POST SAHİBİ BAKIYORSA:
-                  if (widget.isOwner) {
-                    return [
-                      const PopupMenuItem(
-                        value: 'edit', 
-                        child: Row(children: [Icon(Icons.edit, color: AppTheme.textColor, size: 20), SizedBox(width: 8), Text('Düzenle', style: TextStyle(color: AppTheme.textColor))])
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete', 
-                        child: Row(children: [Icon(Icons.delete, color: Colors.redAccent, size: 20), SizedBox(width: 8), Text('Sil', style: TextStyle(color: Colors.redAccent))])
-                      ),
-                    ];
-                  } 
-                  
-                  // EĞER BAŞKASI BAKIYORSA (ŞİKAYET ET):
-                  else {
-                    return [
-                      const PopupMenuItem(
-                        value: 'report', 
-                        child: Row(children: [Icon(Icons.flag, color: Colors.redAccent, size: 20), SizedBox(width: 8), Text('Şikayet Et', style: TextStyle(color: Colors.redAccent))])
-                      ),
-                    ];
-                  }
-                },
-              ),
-            ),
-          ],
-        ),
-        
-        // 3. ÖZELLİK: Vertical Scroll (Aşağı/Yukarı kaydırarak post değiştirme)
-        body: ScrollConfiguration(
-          behavior: const ScrollBehavior().copyWith(overscroll: false),
-          child: PageView.builder(
-            controller: _verticalPageController,
-            itemCount: widget.posts.length,
-            scrollDirection: Axis.vertical, // Dikey kaydırma
-            physics: const ClampingScrollPhysics(), 
-            onPageChanged: (index) {
-              setState(() {
-                _currentPostIndex = index;
-              });
-            },
-            itemBuilder: (context, index) {
-              return _buildSinglePostView(widget.posts[index]);
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSinglePostView(PostModel post) {
-    String displayCaption = _localCaptions[post.id] ?? post.caption ?? "";
-    // 1. Ekran Yüksekliğini Al
-    final double screenHeight = MediaQuery.of(context).size.height;
-    
-    // 2. Çentik/Dynamic Island Yüksekliği
-    final double statusBarHeight = MediaQuery.of(context).padding.top;
-    
-    // 3. AppBar Standart Yüksekliği (Flutter'da genelde 56.0'dır)
-    const double appBarHeight = kToolbarHeight; 
-
-    // 4. HESAPLAMA: 
-    // Status Bar + AppBar + Ekranın %2'si kadar nefes payı
-    // (0.02 yerine daha çok boşluk istersen 0.05 yapabilirsin)
-    final double topPadding = statusBarHeight + appBarHeight + (screenHeight * 0.02);
-
-    return Padding(
-      // Buraya hesapladığımız değeri veriyoruz
-      padding: EdgeInsets.only(top: topPadding),
-    
-      child: Column(
-        children: [
-          // GÖRSEL/MEDYA ALANI
-          // 1. ve 2. ÖZELLİK: Çoklu medya ve Video/Foto karışık
-          SizedBox(
-            height: MediaQuery.of(context).size.width, // Kare veya 4:5 oran
-            child: _buildMixedMediaCarousel(post),
-          ),
-
-          // Alt kısım (Açıklama ve Beğeni)
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  if (displayCaption.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
-                      child: Text(
-                        displayCaption, 
-                        textAlign: TextAlign.center, 
-                        style: const TextStyle(color: Colors.white70, fontSize: 16) 
-                      ),
-                    ),
-
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 40.0),
-                    child: Text(
-                      "${post.likeCount} Beğeni", 
-                      style: const TextStyle(color: Colors.white54, fontSize: 14)
-                    ),
-                  ),
-                ],
+                itemBuilder: (context) => widget.isOwner 
+                  ? [
+                      const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, color: AppTheme.textColor, size: 20), SizedBox(width: 8), Text('Düzenle', style: TextStyle(color: AppTheme.textColor))])),
+                      const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, color: Colors.redAccent, size: 20), SizedBox(width: 8), Text('Sil', style: TextStyle(color: Colors.redAccent))])),
+                    ]
+                  : [
+                      const PopupMenuItem(value: 'report', child: Row(children: [Icon(Icons.flag, color: Colors.redAccent, size: 20), SizedBox(width: 8), Text('Şikayet Et', style: TextStyle(color: Colors.redAccent))])),
+                    ],
               ),
             ),
           ),
         ],
       ),
+      
+      // Ana İçerik (Dikey Kaydırma)
+      body: PageView.builder(
+        controller: _verticalPageController,
+        itemCount: widget.posts.length,
+        scrollDirection: Axis.vertical,
+        physics: const ClampingScrollPhysics(),
+        onPageChanged: (index) {
+          setState(() {
+            _currentPostIndex = index;
+          });
+        },
+        itemBuilder: (context, index) {
+          // Stack kullanmaya gerek kalmadı, direkt ortalayıp gösteriyoruz
+          return Center(
+            child: _buildMixedMediaCarousel(widget.posts[index]),
+          );
+        },
+      ),
     );
   }
 
-  // Medya Listesini Hazırlayan Fonksiyon
+  // Medya Gösterici (Carousel)
   Widget _buildMixedMediaCarousel(PostModel post) {
-    // Tüm medyaları tek bir listede topluyoruz
     List<Map<String, String>> mediaItems = [];
-
-    // 1. Varsa videoyu ekle
+    
+    // Video var mı?
     if (post.videoUrl != null && post.videoUrl!.isNotEmpty) {
-      mediaItems.add({
-        'type': 'video',
-        'url': post.videoUrl!,
-      });
+      mediaItems.add({'type': 'video', 'url': post.videoUrl!});
     }
-
-    // 2. Resimleri ekle
+    // Resimler var mı?
     for (var imgUrl in post.imageUrls) {
-      mediaItems.add({
-        'type': 'image',
-        'url': imgUrl,
-      });
+      mediaItems.add({'type': 'image', 'url': imgUrl});
     }
 
-    // Eğer liste boşsa (hata durumu)
     if (mediaItems.isEmpty) return const SizedBox();
-
-    // Medya Slider Widget'ını Çağır
+    
     return _HorizontalMediaSlider(mediaItems: mediaItems);
   }
 }
 
-// --- YENİ SLIDER WIDGET'I (VİDEO VE FOTO DESTEKLİ) ---
+// Yatay Medya Kaydırıcı (Zoom Destekli)
 class _HorizontalMediaSlider extends StatefulWidget {
   final List<Map<String, String>> mediaItems;
-  
   const _HorizontalMediaSlider({required this.mediaItems});
-
+  
   @override
   State<_HorizontalMediaSlider> createState() => _HorizontalMediaSliderState();
 }
 
 class _HorizontalMediaSliderState extends State<_HorizontalMediaSlider> {
   int _currentIndex = 0;
-
+  
   @override
   Widget build(BuildContext context) {
     return Stack(
-      alignment: Alignment.bottomCenter,
+      alignment: Alignment.center,
       children: [
         PageView.builder(
           scrollDirection: Axis.horizontal, 
           itemCount: widget.mediaItems.length,
-          onPageChanged: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
+          onPageChanged: (index) => setState(() => _currentIndex = index),
           itemBuilder: (context, index) {
             final item = widget.mediaItems[index];
-            final type = item['type'];
-            final url = item['url']!;
-
-            // TÜR KONTROLÜ
-            if (type == 'video') {
-              // Video ise Player'ı döndür (Zoom özelliği yok)
-              return Container(
-                color: Colors.black,
-                child: Center(
-                  child: VideoPostPlayer(videoUrl: url),
-                ),
-              );
+            
+            if (item['type'] == 'video') {
+              // Videoda zoom yok, direkt player
+              return Center(child: VideoPostPlayer(videoUrl: item['url']!));
             } else {
-              // Resim ise Zoom özellikli Image döndür
+              // Resimde Sınırsız Zoom ve Gezinme (InteractiveViewer)
               return InteractiveViewer(
+                minScale: 1.0, 
+                maxScale: 4.0, 
+                clipBehavior: Clip.none, // Resim çerçeveden taşabilir
                 child: CachedNetworkImage(
-                  imageUrl: url,
-                  fit: BoxFit.contain,
+                  imageUrl: item['url']!,
+                  fit: BoxFit.contain, // Orijinal oranı koru, ekrana sığdır
                   placeholder: (c, u) => const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
                   errorWidget: (c, u, e) => const Icon(Icons.error, color: Colors.white),
                 ),
@@ -354,26 +219,24 @@ class _HorizontalMediaSliderState extends State<_HorizontalMediaSlider> {
           },
         ),
         
-        // NOKTA GÖSTERGESİ (Sadece 1'den fazla medya varsa)
+        // Medya Sayısı Göstergesi (Noktalar) - Sadece birden fazla medya varsa görünür
         if (widget.mediaItems.length > 1) 
           Positioned(
-            bottom: 10,
+            bottom: 40, 
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center, 
               children: widget.mediaItems.asMap().entries.map((entry) {
                 return Container(
-                  width: 8.0,
-                  height: 8.0,
-                  margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                  width: 6.0, 
+                  height: 6.0, 
+                  margin: const EdgeInsets.symmetric(horizontal: 3.0),
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _currentIndex == entry.key
-                        ? Colors.white
-                        : Colors.white.withOpacity(0.3),
-                  ),
+                    shape: BoxShape.circle, 
+                    color: _currentIndex == entry.key ? Colors.white : Colors.white.withOpacity(0.3)
+                  )
                 );
-              }).toList(),
-            ),
+              }).toList()
+            )
           ),
       ],
     );

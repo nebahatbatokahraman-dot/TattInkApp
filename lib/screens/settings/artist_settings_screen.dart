@@ -12,10 +12,18 @@ import 'language_screen.dart';
 import 'help_screen.dart';
 import 'legal_documents_screen.dart';
 import 'notification_settings_screen.dart'; 
-import 'blocked_users_screen.dart'; // Import ettiğinden emin ol
+import 'blocked_users_screen.dart'; 
+
+// --- LOCALIZATION IMPORT ---
+import '../../app_localizations.dart'; 
 
 class ArtistSettingsScreen extends StatelessWidget {
   const ArtistSettingsScreen({super.key});
+
+  // Helper method for translation shortcut
+  String tr(BuildContext context, String key) {
+    return AppLocalizations.of(context)?.translate(key) ?? key;
+  }
 
   Future<void> _handleDeleteAccount(BuildContext context) async {
     final authService = Provider.of<AuthService>(context, listen: false);
@@ -27,19 +35,19 @@ class ArtistSettingsScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.cardColor,
-        title: const Text('Hesabı Sil', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-        content: const Text(
-            'Hesabınızı silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve tüm randevularınız, mesajlarınız ve profil verileriniz kalıcı olarak silinecektir.',
-            style: TextStyle(color: Colors.white70)),
+        title: Text(tr(context, 'delete_account_title'), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+        content: Text(
+            tr(context, 'delete_account_warning'),
+            style: const TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Vazgeç', style: TextStyle(color: Colors.grey)),
+            child: Text(tr(context, 'cancel'), style: const TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Evet, Kalıcı Olarak Sil', style: TextStyle(color: Colors.white)),
+            child: Text(tr(context, 'delete_permanently'), style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -63,8 +71,8 @@ class ArtistSettingsScreen extends StatelessWidget {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Güvenlik nedeniyle, bu işlemden önce tekrar giriş yapmalısınız.'),
+             SnackBar(
+              content: Text(tr(context, 'relogin_required')),
               backgroundColor: Colors.red,
             ),
           );
@@ -76,9 +84,9 @@ class ArtistSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor, // Arka plan rengini garantiye alalım
+      backgroundColor: AppTheme.backgroundColor, 
       appBar: AppBar(
-        title: const Text('Ayarlar', style: TextStyle(color: AppTheme.textColor)),
+        title: Text(tr(context, 'settings'), style: const TextStyle(color: AppTheme.textColor)),
         backgroundColor: AppTheme.cardColor,
         centerTitle: true,
         leading: IconButton(
@@ -91,12 +99,12 @@ class ArtistSettingsScreen extends StatelessWidget {
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
-            _buildSectionHeader('Hesap'),
+            _buildSectionHeader(context, 'account'), // Key gönderiyoruz
             _buildSettingsTile(
               context,
               icon: Icons.person,
-              title: 'Profil Bilgileri',
-              subtitle: 'Stüdyo, stil ve uzmanlık etiketlerinizi düzenleyin',
+              title: tr(context, 'profile_info'),
+              subtitle: tr(context, 'profile_info_sub_artist'),
               onTap: () {
                 Navigator.push(context, SlideRoute(page: const ArtistEditProfileScreen()));
               },
@@ -104,19 +112,19 @@ class ArtistSettingsScreen extends StatelessWidget {
             _buildSettingsTile(
               context,
               icon: Icons.security,
-              title: 'Email ve Şifre',
-              subtitle: 'Giriş bilgilerinizi güncelleyin',
+              title: tr(context, 'email_password'),
+              subtitle: tr(context, 'email_password_sub'),
               onTap: () {
                 Navigator.push(context, SlideRoute(page: const EmailPasswordScreen()));
               },
             ),
             
-            _buildSectionHeader('Tercihler'),
+            _buildSectionHeader(context, 'preferences'), // Key
             _buildSettingsTile(
               context,
               icon: Icons.notifications,
-              title: 'Bildirimler',
-              subtitle: 'Bildirim ayarlarınızı yönetin',
+              title: tr(context, 'notifications'),
+              subtitle: tr(context, 'notifications_sub'),
               onTap: () {
                 Navigator.push(context, SlideRoute(page: const NotificationSettingsScreen()));
               },
@@ -124,32 +132,32 @@ class ArtistSettingsScreen extends StatelessWidget {
             _buildSettingsTile(
               context,
               icon: Icons.language,
-              title: 'Dil',
-              subtitle: 'Uygulama dilini seçin',
+              title: tr(context, 'language'),
+              subtitle: tr(context, 'language_sub'),
               onTap: () {
                 Navigator.push(context, SlideRoute(page: const LanguageScreen()));
               },
             ),
 
-            // --- YENİ EKLENEN KISIM: GİZLİLİK BÖLÜMÜ ---
-            _buildSectionHeader('Gizlilik'),
+            // --- GİZLİLİK BÖLÜMÜ ---
+            _buildSectionHeader(context, 'privacy'), // Key
             _buildSettingsTile(
               context,
-              icon: Icons.block, // Engelleme ikonu
-              title: 'Engellenen Kullanıcılar',
-              subtitle: 'Engellediğiniz kişileri yönetin',
+              icon: Icons.block, 
+              title: tr(context, 'blocked_users'),
+              subtitle: tr(context, 'blocked_users_sub'),
               onTap: () {
                 Navigator.push(context, SlideRoute(page: const BlockedUsersScreen()));
               },
             ),
-            // -------------------------------------------
+            // -----------------------
             
-            _buildSectionHeader('Destek'),
+            _buildSectionHeader(context, 'support'), // Key
             _buildSettingsTile(
               context,
               icon: Icons.help_outline,
-              title: 'Yardım',
-              subtitle: 'Sık sorulan sorular ve yardım',
+              title: tr(context, 'help'),
+              subtitle: tr(context, 'help_sub'),
               onTap: () {
                 Navigator.push(context, SlideRoute(page: const HelpScreen()));
               },
@@ -157,8 +165,8 @@ class ArtistSettingsScreen extends StatelessWidget {
             _buildSettingsTile(
               context,
               icon: Icons.gavel_rounded,
-              title: 'Hukuki Metinler',
-              subtitle: 'Kullanım şartları ve gizlilik politikası',
+              title: tr(context, 'legal'),
+              subtitle: tr(context, 'legal_sub'),
               onTap: () {
                 Navigator.push(context, SlideRoute(page: const LegalDocumentsScreen()));
               },
@@ -179,11 +187,11 @@ class ArtistSettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(BuildContext context, String titleKey) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0, top: 16.0),
       child: Text(
-        title.toUpperCase(),
+        tr(context, titleKey).toUpperCase(),
         style: TextStyle(
           fontSize: 12,
           letterSpacing: 1.2,
@@ -199,7 +207,7 @@ class ArtistSettingsScreen extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: AppTheme.cardColor, // Şeffaflığı kaldırdım daha net dursun diye
+      color: AppTheme.cardColor, 
       child: Theme(
         data: Theme.of(context).copyWith(
           splashColor: AppTheme.cardLightColor.withOpacity(0.3),
@@ -232,20 +240,20 @@ class ArtistSettingsScreen extends StatelessWidget {
       color: AppTheme.cardColor,
       child: ListTile(
         leading: const Icon(Icons.logout, color: AppTheme.primaryColor),
-        title: const Text('Çıkış Yap', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+        title: Text(tr(context, 'logout'), style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
         onTap: () async {
           final shouldLogout = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
               backgroundColor: AppTheme.cardColor,
-              title: const Text('Çıkış Yap', style: TextStyle(color: AppTheme.textColor)),
-              content: const Text('Çıkış yapmak istediğinize emin misiniz?', style: TextStyle(color: Colors.white70)),
+              title: Text(tr(context, 'logout'), style: const TextStyle(color: AppTheme.textColor)),
+              content: Text(tr(context, 'logout_confirm'), style: const TextStyle(color: Colors.white70)),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('İptal', style: TextStyle(color: Colors.grey))),
+                TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr(context, 'cancel'), style: const TextStyle(color: Colors.grey))),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-                  child: const Text('Çıkış Yap', style: TextStyle(color: AppTheme.backgroundColor)),
+                  child: Text(tr(context, 'logout'), style: const TextStyle(color: AppTheme.backgroundColor)),
                 ),
               ],
             ),
@@ -272,8 +280,8 @@ class ArtistSettingsScreen extends StatelessWidget {
       color: Colors.redAccent.withOpacity(0.1),
       child: ListTile(
         leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
-        title: const Text('Hesabımı Sil', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-        subtitle: const Text('Tüm verileriniz kalıcı olarak kaldırılır', style: TextStyle(color: Colors.grey, fontSize: 11)),
+        title: Text(tr(context, 'delete_account'), style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+        subtitle: Text(tr(context, 'delete_account_sub'), style: const TextStyle(color: Colors.grey, fontSize: 11)),
         onTap: () => _handleDeleteAccount(context),
       ),
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import '../../app_localizations.dart';
 import '../appointments_screen.dart';
 
 // --- SERVICE & MODELS ---
@@ -60,7 +61,7 @@ class NotificationsSettingsScreen extends StatelessWidget {
       } else {
         if(context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Bu gönderi artık mevcut değil."))
+            SnackBar(content: Text(AppLocalizations.of(context)!.translate('post_not_available')))
           );
         }
       }
@@ -74,16 +75,16 @@ class NotificationsSettingsScreen extends StatelessWidget {
     final currentUser = Provider.of<AuthService>(context).currentUser;
 
     if (currentUser == null) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppTheme.backgroundColor,
-        body: Center(child: Text("Giriş yapmalısınız", style: TextStyle(color: AppTheme.textColor))),
+        body: Center(child: Text(AppLocalizations.of(context)!.translate('login_required'), style: TextStyle(color: AppTheme.textColor))),
       );
     }
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Bildirimler', style: TextStyle(color: AppTheme.textColor)),
+        title: Text(AppLocalizations.of(context)!.translate('notifications'), style: TextStyle(color: AppTheme.textColor)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -94,8 +95,8 @@ class NotificationsSettingsScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => _markAllAsRead(currentUser.uid),
-            child: const Text(
-              "Okundu",
+            child: Text(
+              AppLocalizations.of(context)!.translate('mark_as_read'),
               style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
             ),
           ),
@@ -120,7 +121,7 @@ class NotificationsSettingsScreen extends StatelessWidget {
                 children: [
                   Icon(Icons.notifications_off_outlined, size: 80, color: Colors.grey[800]),
                   const SizedBox(height: 16),
-                  const Text("Henüz bildirim yok", style: TextStyle(color: Colors.grey)),
+                  Text(AppLocalizations.of(context)!.translate('no_notifications_yet'), style: TextStyle(color: Colors.grey)),
                 ],
               ),
             );
@@ -148,35 +149,35 @@ class NotificationsSettingsScreen extends StatelessWidget {
 
     // Dinamik Metin Ayarları
     switch (notification.type) {
-      case 'like': 
-        icon = Icons.favorite; 
-        iconColor = Colors.redAccent; 
-        descriptionText = "gönderini beğendi.";
+      case 'like':
+        icon = Icons.favorite;
+        iconColor = Colors.redAccent;
+        descriptionText = AppLocalizations.of(context)!.translate('liked_your_post');
         break;
-      case 'follow': 
-        icon = Icons.person_add; 
-        iconColor = Colors.blueAccent; 
-        descriptionText = "seni takip etmeye başladı.";
+      case 'follow':
+        icon = Icons.person_add;
+        iconColor = Colors.blueAccent;
+        descriptionText = AppLocalizations.of(context)!.translate('started_following_you');
         break;
-      case 'message': 
-        icon = Icons.message; 
-        iconColor = Colors.greenAccent; 
-        descriptionText = "sana mesaj gönderdi.";
+      case 'message':
+        icon = Icons.message;
+        iconColor = Colors.greenAccent;
+        descriptionText = AppLocalizations.of(context)!.translate('sent_you_message');
         break;
-      case 'appointment_request': 
-        icon = Icons.calendar_today; 
-        iconColor = Colors.orangeAccent; 
-        descriptionText = "randevu talebi oluşturdu."; 
+      case 'appointment_request':
+        icon = Icons.calendar_today;
+        iconColor = Colors.orangeAccent;
+        descriptionText = AppLocalizations.of(context)!.translate('created_appointment_request');
         break;
       case 'appointment_update':
         icon = Icons.notifications_active;
         iconColor = AppTheme.primaryColor;
-        descriptionText = notification.body ?? "randevu talebinizi güncelledi.";
+        descriptionText = notification.body ?? AppLocalizations.of(context)!.translate('updated_appointment_request');
         break;
-      default: 
-        icon = Icons.notifications; 
+      default:
+        icon = Icons.notifications;
         iconColor = AppTheme.primaryColor;
-        descriptionText = "yeni bir bildirim gönderdi.";
+        descriptionText = AppLocalizations.of(context)!.translate('sent_new_notification');
     }
 
     return Container(
@@ -212,7 +213,7 @@ class NotificationsSettingsScreen extends StatelessWidget {
               ],
             ),
           ),
-          subtitle: Text(_formatDate(notification.createdAt), style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+          subtitle: Text(_formatDate(context, notification.createdAt), style: TextStyle(color: Colors.grey[600], fontSize: 12)),
           
           onTap: () async {
             // 1. Okundu olarak işaretle
@@ -254,10 +255,10 @@ class NotificationsSettingsScreen extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(BuildContext context, DateTime date) {
     final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 60) return "${diff.inMinutes}dk önce";
-    if (diff.inHours < 24) return "${diff.inHours}sa önce";
-    return "${diff.inDays}g önce";
+    if (diff.inMinutes < 60) return "${diff.inMinutes} ${AppLocalizations.of(context)!.translate('minutes_ago')}";
+    if (diff.inHours < 24) return "${diff.inHours} ${AppLocalizations.of(context)!.translate('hours_ago')}";
+    return "${diff.inDays} ${AppLocalizations.of(context)!.translate('days_ago')}";
   }
 }

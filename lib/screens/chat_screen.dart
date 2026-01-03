@@ -389,46 +389,51 @@ class _ChatScreenState extends State<ChatScreen> {
             const SizedBox(width: 8),
           ],
         ),
-        body: Column(
-          children: [
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection(AppConstants.collectionMessages)
-                    .where('chatId', isEqualTo: _chatId)
-                    .orderBy('createdAt', descending: true)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasData) _markMessagesAsRead();
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
-                  }
-                  
-                  // --- MESAJLARI FİLTRELEME (deletedBy kontrolü) ---
-                  final allDocs = snapshot.data?.docs ?? [];
-                  final visibleDocs = allDocs.where((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    final List deletedBy = data['deletedBy'] ?? [];
-                    return !deletedBy.contains(currentUserId);
-                  }).toList();
+        // GestureDetector: Boşluğa tıklayınca klavyeyi kapatır
+        body: GestureDetector(
+          onTap: () {
+            FocusScope.of(context).unfocus();
+          },
+          child: Column(
+            children: [
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection(AppConstants.collectionMessages)
+                      .where('chatId', isEqualTo: _chatId)
+                      .orderBy('createdAt', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData) _markMessagesAsRead();
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+                    }
+                    
+                    final allDocs = snapshot.data?.docs ?? [];
+                    final visibleDocs = allDocs.where((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final List deletedBy = data['deletedBy'] ?? [];
+                      return !deletedBy.contains(currentUserId);
+                    }).toList();
 
-                  return ListView.builder(
-                    controller: _scrollController,
-                    reverse: true,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-                    itemCount: visibleDocs.length,
-                    itemBuilder: (context, index) {
-                      final data = visibleDocs[index].data() as Map<String, dynamic>;
-                      final String messageId = visibleDocs[index].id;
-                      final bool isMe = data['senderId'] == currentUserId;
-                      return _buildBubble(data, isMe, messageId);
-                    },
-                  );
-                },
+                    return ListView.builder(
+                      controller: _scrollController,
+                      reverse: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                      itemCount: visibleDocs.length,
+                      itemBuilder: (context, index) {
+                        final data = visibleDocs[index].data() as Map<String, dynamic>;
+                        final String messageId = visibleDocs[index].id;
+                        final bool isMe = data['senderId'] == currentUserId;
+                        return _buildBubble(data, isMe, messageId);
+                      },
+                    );
+                  },
+                ),
               ),
-            ),
-            _buildInputArea(),
-          ],
+              _buildInputArea(),
+            ],
+          ),
         ),
       ),
     );
@@ -438,7 +443,6 @@ class _ChatScreenState extends State<ChatScreen> {
     const Color customMeColor = AppTheme.backgroundSecondaryColor;
 
     return GestureDetector(
-      // --- MESAJIN ÜSTÜNE UZUN BASINCA SİLME MENÜSÜ ---
       onLongPress: () {
         showModalBottomSheet(
           context: context,
@@ -530,7 +534,12 @@ class _ChatScreenState extends State<ChatScreen> {
             Expanded(
               child: TextField(
                 controller: _messageController,
-                onSubmitted: (_) => _sendMessage(),
+                // --- DEĞİŞİKLİKLER ---
+                keyboardType: TextInputType.multiline, // Çoklu satır aktif
+                maxLines: null, // Sınırsız satır genişlemesi
+                textInputAction: TextInputAction.newline, // Enter tuşu = Alt satır
+                textCapitalization: TextCapitalization.sentences, // Cümle başı büyük harf
+                // onSubmitted KULLANMIYORUZ, çünkü göndermeyi buton yapıyor.
                 style: const TextStyle(color: AppTheme.textColor),
                 decoration: InputDecoration(
                   hintText: 'Mesaj yazın...',

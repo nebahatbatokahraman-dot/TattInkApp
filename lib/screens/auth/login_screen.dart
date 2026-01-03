@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart'; // Logo için gerekli
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../services/auth_service.dart';
 import '../../utils/validators.dart';
 import '../../theme/app_theme.dart';
 import '../main_screen.dart';
 import 'register_screen.dart';
+import '../../app_localizations.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -49,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text('${AppLocalizations.of(context)!.translate('login_error')}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -59,28 +60,54 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // --- GOOGLE İLE GİRİŞ FONKSİYONU ---
+  // --- GOOGLE İLE GİRİŞ FONKSİYONU (GÜNCELLENDİ) ---
   Future<void> _loginWithGoogle() async {
+    // 1. Durumu güncelle
     setState(() => _isLoading = true);
+    debugPrint("🔵 [DEBUG] Google Login Butonuna Basıldı...");
+
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      final user = await authService.signInWithGoogle();
       
+      debugPrint("🟡 [DEBUG] AuthService.signInWithGoogle() çağrılıyor...");
+      
+      // 2. AuthService üzerinden girişi başlat
+      final user = await authService.signInWithGoogle().timeout(
+        const Duration(seconds: 45), // 45 saniye sonra otomatik hata fırlat (donmayı engellemek için)
+        onTimeout: () {
+          debugPrint("🔴 [DEBUG] Google Login Zaman Aşımına Uğradı!");
+          throw "Bağlantı zaman aşımına uğradı. Lütfen internetinizi veya yapılandırmanızı kontrol edin.";
+        },
+      );
+      
+      debugPrint("🟢 [DEBUG] İşlem Tamamlandı. Gelen Kullanıcı: ${user?.uid}");
+
       if (user != null && mounted) {
-         // Başarılı giriş
+         debugPrint("🚀 [DEBUG] Giriş Başarılı, MainScreen'e yönlendiriliyor...");
+         if (!mounted) return;
          Navigator.of(context).pushAndRemoveUntil(
            MaterialPageRoute(builder: (context) => const MainScreen()),
            (route) => false,
          );
+      } else {
+        debugPrint("⚠️ [DEBUG] Kullanıcı null döndü (Giriş iptal edilmiş olabilir).");
       }
     } catch (e) {
+      debugPrint("❌ [DEBUG] Google Giriş Hatası Yakalandı: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Google giriş hatası: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('${AppLocalizations.of(context)!.translate('google_login_error')}: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+        debugPrint("🏁 [DEBUG] Loading Durumu: false");
+      }
     }
   }
 
@@ -114,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     keyboardType: TextInputType.emailAddress,
                     style: const TextStyle(color: AppTheme.textColor),
                     decoration: InputDecoration(
-                      labelText: 'E-posta',
+                      labelText: AppLocalizations.of(context)!.translate('email'),
                       prefixIcon: const Icon(Icons.email_outlined, color: Colors.grey),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       enabledBorder: OutlineInputBorder(
@@ -132,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     obscureText: _obscurePassword,
                     style: const TextStyle(color: AppTheme.textColor),
                     decoration: InputDecoration(
-                      labelText: 'Şifre',
+                      labelText: AppLocalizations.of(context)!.translate('password'),
                       prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -150,14 +177,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     validator: Validators.validatePassword,
                   ),
                   
-                  // Şifremi Unuttum (Opsiyonel)
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () {
-                        // Şifre sıfırlama ekranına git
-                      },
-                      child: const Text('Şifremi Unuttum?', style: TextStyle(color: Colors.grey)),
+                      onPressed: () {},
+                      child: Text(AppLocalizations.of(context)!.translate('forgot_password'), style: const TextStyle(color: Colors.grey)),
                     ),
                   ),
                   
@@ -178,21 +202,20 @@ class _LoginScreenState extends State<LoginScreen> {
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.textColor),
                           )
-                        : const Text(
-                            'Giriş Yap',
+                        : Text(
+                            AppLocalizations.of(context)!.translate('login'),
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor),
                           ),
                   ),
 
                   const SizedBox(height: 24),
 
-                  // --- GOOGLE GİRİŞ BÖLÜMÜ ---
                   Row(
                     children: [
                       Expanded(child: Divider(color: Colors.grey[800])),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Text("veya", style: TextStyle(color: Colors.grey)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(AppLocalizations.of(context)!.translate('or'), style: const TextStyle(color: Colors.grey)),
                       ),
                       Expanded(child: Divider(color: Colors.grey[800])),
                     ],
@@ -200,14 +223,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 24),
 
+                  // --- GOOGLE BUTONU ---
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: OutlinedButton.icon(
                       onPressed: _isLoading ? null : _loginWithGoogle,
                       icon: const Icon(Icons.g_mobiledata, color: AppTheme.textColor, size: 24),
-                      label: const Text(
-                        'Google ile Devam Et',
+                      label: Text(
+                        AppLocalizations.of(context)!.translate('continue_with_google'),
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor),
                       ),
                       style: OutlinedButton.styleFrom(
@@ -217,7 +241,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  // ---------------------------
 
                   const SizedBox(height: 24),
 
@@ -225,8 +248,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
-                        'Hesabın yok mu?',
+                      Text(
+                        AppLocalizations.of(context)!.translate('dont_have_account'),
                         style: TextStyle(color: Colors.grey),
                       ),
                       TextButton(
@@ -236,8 +259,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             MaterialPageRoute(builder: (context) => const RegisterScreen()),
                           );
                         },
-                        child: const Text(
-                          'Kayıt Ol',
+                        child: Text(
+                          AppLocalizations.of(context)!.translate('register_link'),
                           style: TextStyle(
                             color: AppTheme.primaryColor,
                             fontWeight: FontWeight.bold,
@@ -246,8 +269,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
-                  const Text(
-                    'Sanatçı profili için lütfen e-posta ile kayıt olun',
+                  Text(
+                    AppLocalizations.of(context)!.translate('artist_profile_instruction'),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.grey,

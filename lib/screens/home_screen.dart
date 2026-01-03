@@ -1,4 +1,5 @@
 import '../widgets/video_post_player.dart';
+import '../app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
@@ -8,14 +9,15 @@ import 'dart:math' as math;
 import 'dart:ui'; // Glass effect ve ImageFilter için gerekli
 import 'dart:async';
 import '../services/report_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // --- IMPORTS ---
 import '../models/post_model.dart';
 import '../models/user_model.dart'; // UserModel için
 import '../services/auth_service.dart';
-import '../services/notification_service.dart'; 
+import '../services/notification_service.dart';
 import '../utils/constants.dart';
-import '../utils/turkey_locations.dart'; 
+import '../utils/turkey_locations.dart';
 import '../utils/slide_route.dart';
 import '../theme/app_theme.dart';
 import '../widgets/login_required_dialog.dart';
@@ -25,24 +27,21 @@ import 'create_post_screen.dart';
 import 'chat_screen.dart';
 import 'post_detail_screen.dart'; // PostDetailScreen importu
 import 'settings/notifications_screen.dart';
-import 'profile/artist_profile_screen.dart'; 
-
-// home_screen.dart dosyasının başı sadece böyle olmalı:
+import 'profile/artist_profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => HomeScreenState(); 
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
 class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
-  // ... geri kalan tüm kodların (build metodu, _buildDynamicAds vs.) burada devam eder ...
-  // --- 1. BÖLÜM: DEĞİŞKENLER (Sınıfın En Başında) ---
+  // --- 1. BÖLÜM: DEĞİŞKENLER ---
   final ScrollController _scrollController = ScrollController();
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
   
-  // 1. YASAKLI LİSTESİ İÇİN DEĞİŞKEN
+  // Yasaklı Listesi
   List<String> _blockedUserIds = [];
   StreamSubscription? _blockSubscription;
 
@@ -53,7 +52,10 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   String _nameSearchQuery = "";
   String? _selectedCity;
   double _minScore = 0.0;
-  String? _sortOption = AppConstants.sortNewest; 
+  String? _sortOption = AppConstants.sortNewest;
+
+  // Çeviri Kısayolu
+  String tr(String key) => AppLocalizations.of(context)?.translate(key) ?? key;
 
   @override
     void initState() {
@@ -65,10 +67,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   @override
   bool get wantKeepAlive => true;
 
-  //Sikayet Butonu//
+  //Sikayet Butonu
   void _showPostOptions(BuildContext context, PostModel post) {
-  // 1. Önce gerekli araçları (messenger ve navigator) ana context'ten çekip hazırlıyoruz
-  final scaffoldMessenger = ScaffoldMessenger.of(context);
   final currentUser = FirebaseAuth.instance.currentUser;
 
   showModalBottomSheet(
@@ -85,7 +85,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           // ŞİKAYET ET BUTONU
           ListTile(
             leading: const Icon(Icons.flag, color: Colors.redAccent),
-            title: const Text("Şikayet Et", style: TextStyle(color: Colors.white)),
+            title: Text(AppLocalizations.of(context)!.translate('report_post'), style: const TextStyle(color: Colors.white)),
             onTap: () {
               Navigator.pop(sheetContext); // Menüyü kapat
               ReportService.showReportDialog(
@@ -99,14 +99,11 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           // ENGELLE BUTONU
           ListTile(
             leading: const Icon(Icons.block, color: Colors.white70),
-            title: const Text("Sanatçıyı Engelle", style: TextStyle(color: Colors.white70)),
+            title: Text(AppLocalizations.of(context)!.translate('block_artist'), style: const TextStyle(color: Colors.white70)),
             onTap: () async {
-              // DİKKAT: Önce menüyü kapatıyoruz
               Navigator.pop(sheetContext);
               
               if (currentUser != null) {
-                // Çökmeyi engellemek için blockUser çağrısından önce 
-                // context'in hala canlı olup olmadığını kontrol eden bir yapı kurduk
                 try {
                   await ReportService.blockUser(
                     context: context, // Ana context'i gönderiyoruz
@@ -126,10 +123,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   );
 }
 
-// --- GÜNCELLENMİŞ AKILLI SCROLL FONKSİYONU ---
+// --- AKILLI SCROLL FONKSİYONU ---
   void scrollToTop() {
     if (_scrollController.hasClients) {
-      // Sayfa aşağıdaysa yukarı kaydır
       if (_scrollController.offset > 0) {
         _scrollController.animateTo(
           0,
@@ -137,8 +133,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           curve: Curves.easeOutQuart,
         );
       } else {
-        // Zaten tepedeysek YENİLEME SİMGESİNİ ÇIKAR
-        // Bu komut hem yuvarlak şeyi döndürür hem de _handleRefresh'i çalıştırır.
         _refreshIndicatorKey.currentState?.show();
       }
     }
@@ -151,27 +145,23 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     if (mounted) setState(() { });
   }
 
-  // 3. ENGELLENENLERİ SÜREKLİ DİNLEYEN FONKSİYON (GÜNCEL)
+  // ENGELLENENLERİ SÜREKLİ DİNLEYEN FONKSİYON
   void _fetchBlockedUsers() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // Önce eski bir dinleme varsa iptal et (çakışmasın)
     _blockSubscription?.cancel();
 
-    // Şimdi kulağımızı veritabanına dayıyoruz (.snapshots ile)
     _blockSubscription = FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
         .collection('blocked_users')
-        .snapshots() // <--- ARTIK CANLI YAYIN
+        .snapshots() 
         .listen((snapshot) {
           if (mounted) {
             setState(() {
-              // Liste her değiştiğinde burası çalışır ve ekranı yeniler
               _blockedUserIds = snapshot.docs.map((doc) => doc.id).toList();
             });
-            print("Engellenenler listesi güncellendi: ${_blockedUserIds.length} kişi");
           }
         });
   }
@@ -195,15 +185,15 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.backgroundColor,
-        title: const Text('E-posta Onayı Gerekli', style: TextStyle(color: AppTheme.textColor)),
-        content: const Text(
-          'Beğeni yapabilmek ve mesaj atabilmek için e-posta onayı gereklidir.',
-          style: TextStyle(color: AppTheme.textColor),
+        title: Text(tr('email_verify_title'), style: const TextStyle(color: AppTheme.textColor)),
+        content: Text(
+          tr('email_verify_msg'),
+          style: const TextStyle(color: AppTheme.textColor),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Tamam', style: TextStyle(color: AppTheme.primaryColor)),
+            child: Text(tr('ok'), style: const TextStyle(color: AppTheme.primaryColor)),
           ),
         ],
       ),
@@ -294,7 +284,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                     child: OutlinedButton.icon(
                                       onPressed: () => _showFilterBottomSheet(context),
                                       icon: const Icon(Icons.tune, size: 18, color: AppTheme.primaryColor),
-                                      label: const Text('Filtrele', style: TextStyle(color: AppTheme.primaryColor)),
+                                      label: Text(tr('filter'), style: const TextStyle(color: AppTheme.primaryColor)),
                                       style: OutlinedButton.styleFrom(
                                         backgroundColor: AppTheme.backgroundColor.withOpacity(0.3),
                                         side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.8)),
@@ -381,24 +371,23 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       stream: query.snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text('Henüz paylaşım yok'));
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return Center(child: Text(tr('no_posts')));
 
         final filteredPosts = snapshot.data!.docs
             .map((doc) => PostModel.fromFirestore(doc))
             .where((post) {
           
-          // --- 1. YENİ EKLENEN: ENGEL KONTROLÜ (EN BAŞTA OLMALI) ---
-          // Eğer postun sahibi engellenenler listesinde varsa, direkt ele (false döndür).
+          // ENGEL KONTROLÜ
           if (_blockedUserIds.contains(post.artistId)) {
             return false;
           }
-          // ---------------------------------------------------------
 
-          // Client-side Filtreleme (Mevcut Kodların)
+          // Client-side Filtreleme
           if (_selectedDistrict != null) {
             if (!post.locationString.toLowerCase().contains(_selectedDistrict!.toLowerCase())) return false;
           }
           if (_selectedApplications.isNotEmpty) {
+            // Anahtar eşleşmesi kontrol ediliyor (Postta anahtar var, seçilende de anahtar var)
             bool match = _selectedApplications.any((app) => (post.application == app || (post.caption?.toLowerCase().contains(app.toLowerCase()) ?? false)));
             if (!match) return false;
           }
@@ -409,9 +398,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
           return true;
         }).toList();
 
-        // Eğer filtreleme (veya engelleme) sonucu liste boşaldıysa:
         if (filteredPosts.isEmpty) {
-           return const Center(child: Text('Gösterilecek gönderi bulunamadı.'));
+           return Center(child: Text(tr('no_posts_found')));
         }
 
         return RefreshIndicator(
@@ -424,16 +412,13 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
             key: const PageStorageKey('home_post_list'),
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(), 
-            padding: const EdgeInsets.only(top: 170, bottom: 100),
-            // Reklam mantığı olduğu için itemCount hesaplaması
+            padding: const EdgeInsets.only(top: 140, bottom: 100),
             itemCount: filteredPosts.length + (filteredPosts.length ~/ 3),
             itemBuilder: (context, index) {
-              // Reklam alanı
               if (index % 4 == 3) {
                 return _buildDynamicAds();
               }
 
-              // Post indexini reklamlara göre ayarla
               final postIndex = index - (index ~/ 4);
               if (postIndex >= filteredPosts.length) return const SizedBox.shrink();
 
@@ -446,9 +431,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     );
   }
 
-
-
-  //REKLAM KARTLARI//
+  //REKLAM KARTLARI
   Widget _buildStandardAdCard({
     required String title,
     required String subtitle,
@@ -456,6 +439,17 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     String? imageUrl,
     required VoidCallback onTap,
   }) {
+    // --- GÜVENLİK KONTROLÜ ---
+    // 1. Null olmamalı
+    // 2. Boş olmamalı
+    // 3. 'http' ile başlamalı (Gerçek bir link olmalı)
+    // 4. O meşhur hatalı yazıyı içermemeli
+    bool isValidImage = imageUrl != null &&
+                        imageUrl.isNotEmpty &&
+                        imageUrl.startsWith('http') &&
+                        !imageUrl.contains('Bir resim linki') &&
+                        !imageUrl.contains('Bir%20resim');
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -465,51 +459,114 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       ),
       child: Column(
         children: [
-          if (imageUrl != null)
+          // Sadece geçerliyse resmi göster
+          if (isValidImage)
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: CachedNetworkImage(imageUrl: imageUrl, height: 200, width: double.infinity, fit: BoxFit.cover),
+              child: CachedNetworkImage(
+                imageUrl: imageUrl!,
+                height: 200,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                // Resim yüklenirken veya hata verirse çökmesin, boş geçsin:
+                placeholder: (context, url) => Container(
+                  height: 200, 
+                  color: AppTheme.cardColor,
+                  child: const Center(child: CircularProgressIndicator())
+                ),
+                errorWidget: (context, url, error) => const SizedBox.shrink(),
+              ),
             ),
           ListTile(
             leading: const Icon(Icons.campaign, color: AppTheme.primaryColor),
             title: Text(title, style: const TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold)),
             subtitle: Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-            trailing: OutlinedButton(onPressed: onTap, child: const Text("Bilgi Al")),
+            trailing: OutlinedButton(onPressed: onTap, child: Text(tr('get_info'))),
           ),
         ],
       ),
     );
   }
 
-  //BUILD DYNAMIC ADS//
+  //BUILD DYNAMIC ADS
   Widget _buildDynamicAds() {
-  return Column(
-    children: [
-      // --- SADECE DIŞ REKLAMLAR (Sponsorlu İçerik) ---
-      StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('ads')
-            .where('isActive', isEqualTo: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const SizedBox.shrink();
-          }
-          
-          final adData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
-          return _buildStandardAdCard(
-            title: adData['title'] ?? "TattInk",
-            subtitle: "Sponsorlu",
-            content: adData['content'] ?? "",
-            imageUrl: adData['imageUrl'],
-            onTap: () { /* Reklam linkine git */ },
-          );
-        },
-      ),
-    ],
-  );
-}
+    return Column(
+      children: [
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('ads')
+              .where('isActive', isEqualTo: true)
+              // .orderBy('createdAt', descending: true) 
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const SizedBox.shrink();
+            
+            final doc = snapshot.data!.docs.first;
+            final adData = doc.data() as Map<String, dynamic>;
+            
+            // --- Linki Çekiyoruz ---
+            String targetLink = adData['link'] ?? ""; 
 
+            // Güvenlik kontrolleri (Resim vs... önceki kodun aynısı)
+            String? rawImage = adData['imageUrl'];
+            String? safeImageUrl;
+            if (rawImage != null && rawImage.startsWith('http') && !rawImage.contains('Bir resim linki')) {
+               safeImageUrl = rawImage;
+            }
+
+            return _buildStandardAdCard(
+              title: adData['title'] ?? "Fırsat",
+              subtitle: "Sponsorlu",
+              content: adData['content'] ?? "",
+              imageUrl: safeImageUrl,
+              
+              // --- İŞTE SİHİR BURADA: TIKLAMA OLAYI ---
+              // --- GÜNCELLENMİŞ VE GÜVENLİ ONTAP ---
+              onTap: () async {
+                if (targetLink.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Link bulunamadı.")));
+                  return;
+                }
+
+                // Boşlukları temizle
+                final String cleanLink = targetLink.trim();
+
+                try {
+                  // 1. Eğer Link bir WEB SİTESİ ise (http ile başlıyorsa)
+                  if (cleanLink.startsWith('http')) {
+                    final Uri url = Uri.parse(cleanLink);
+                    
+                    // launchUrl fonksiyonunu try-catch içine alıyoruz
+                    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                      throw 'Link açılamadı';
+                    }
+                  } 
+                  // 2. Eğer Link bir PROFİL ID'si ise
+                  else {
+                     Navigator.push(
+                       context, 
+                       MaterialPageRoute(
+                         builder: (context) => ArtistProfileScreen(
+                           userId: cleanLink,
+                           isOwnProfile: false
+                         )
+                       )
+                     );
+                  }
+                } catch (e) {
+                  // Hata olursa uygulama çökmez, sadece mesaj verir
+                  debugPrint("Link açma hatası: $e");
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Bağlantı açılamadı, link hatalı olabilir.")));
+                  }
+                }
+              },
+            );
+          },
+        ),
+      ],
+    );
+  }
 
   // --- POST DETAYLARI ---
   void _openFullScreenPost(PostModel post) {
@@ -520,8 +577,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       context,
       MaterialPageRoute(
         builder: (context) => PostDetailScreen(
-          posts: [post],     
-          initialIndex: 0,   
+          posts: [post],      
+          initialIndex: 0,    
           isOwner: isOwner 
         ),
       ),
@@ -536,9 +593,18 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance.collection('users').doc(post.artistId).get(),
       builder: (context, artistSnapshot) {
-        final bool isPremium = artistSnapshot.hasData && 
-                              (artistSnapshot.data?.data() as Map<String, dynamic>?)?['isFeatured'] == true;
+        
+        // SİLİNMİŞ KULLANICI KONTROLÜ
+        if (artistSnapshot.connectionState == ConnectionState.done) {
+          if (!artistSnapshot.hasData || !artistSnapshot.data!.exists) {
+            return const SizedBox.shrink();
+          }
+        }
 
+        final bool isPremium = artistSnapshot.hasData && 
+                              artistSnapshot.data!.exists &&
+                              (artistSnapshot.data!.data() as Map<String, dynamic>?)?['isFeatured'] == true;
+        
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
@@ -568,38 +634,32 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                     ),
                     if (isPremium)
                       Positioned(
-                        top: 12,
-                        left: 12,
+                        top: 12, left: 12,
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: AppTheme.primaryColor.withOpacity(0.8),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.stars, color: AppTheme.textColor, size: 14),
-                              SizedBox(width: 4),
-                              Text("ÖNE ÇIKAN", style: TextStyle(color: AppTheme.textColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                              const Icon(Icons.stars, color: AppTheme.textColor, size: 14),
+                              const SizedBox(width: 4),
+                              Text(tr('featured_badge'), style: const TextStyle(color: AppTheme.textColor, fontSize: 10, fontWeight: FontWeight.bold)),
                             ],
                           ),
                         ),
                       ),
                     
-                    // --- YENİ: SAĞ ÜST ÜÇ NOKTA BUTONU ---
-                    if (!isOwnPost) // Kendi postunda şikayet butonu çıkmasın
+                    if (!isOwnPost) 
                       Positioned(
-                        top: 8,
-                        right: 8,
+                        top: 8, right: 8,
                         child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.4),
-                            shape: BoxShape.circle,
-                          ),
+                          decoration: BoxDecoration(color: Colors.black.withOpacity(0.4), shape: BoxShape.circle),
                           child: IconButton(
                             icon: const Icon(Icons.more_vert, color: Colors.white, size: 20),
-                            onPressed: () => _showPostOptions(context, post), // Menüyü açar
+                            onPressed: () => _showPostOptions(context, post), 
                           ),
                         ),
                       ),
@@ -618,49 +678,36 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                             Expanded(
                               child: InkWell(
                                 onTap: isOwnPost ? null : () {
-                                  Navigator.push(
-                                    context, 
-                                    MaterialPageRoute(
-                                      builder: (context) => ArtistProfileScreen(
-                                        userId: post.artistId,
-                                        isOwnProfile: false,
-                                      )
-                                    )
-                                  );
+                                  Navigator.push(context, MaterialPageRoute(builder: (context) => ArtistProfileScreen(userId: post.artistId, isOwnProfile: false)));
                                 },
                                 child: Row(
                                   children: [
-                                    CircleAvatar(
-                                      radius: 18,
-                                      backgroundColor: Colors.grey[800],
-                                      backgroundImage: (post.artistProfileImageUrl != null && 
-                                                        post.artistProfileImageUrl!.isNotEmpty && 
-                                                        post.artistProfileImageUrl!.startsWith('http'))
-                                          ? CachedNetworkImageProvider(post.artistProfileImageUrl!) 
-                                          : null,
-                                      child: (post.artistProfileImageUrl == null || 
-                                              post.artistProfileImageUrl!.isEmpty || 
-                                              !post.artistProfileImageUrl!.startsWith('http'))
-                                          ? const Icon(Icons.person, size: 20, color: AppTheme.textColor) 
-                                          : null,
-                                    ),
+                                      CircleAvatar(
+                                        radius: 18,
+                                        backgroundColor: Colors.grey[800],
+                                        // GÜVENLİ RESİM KONTROLÜ (Hatalı linkleri engeller)
+                                        backgroundImage: (post.artistProfileImageUrl != null && 
+                                                          post.artistProfileImageUrl!.isNotEmpty && 
+                                                          post.artistProfileImageUrl!.startsWith('http') &&
+                                                          !post.artistProfileImageUrl!.contains('Bir resim linki')) 
+                                                ? CachedNetworkImageProvider(post.artistProfileImageUrl!) 
+                                                : null,
+                                        child: (post.artistProfileImageUrl == null || 
+                                                  post.artistProfileImageUrl!.isEmpty || 
+                                                  !post.artistProfileImageUrl!.startsWith('http') ||
+                                                  post.artistProfileImageUrl!.contains('Bir resim linki')) 
+                                                ? const Icon(Icons.person, size: 20, color: AppTheme.textColor) 
+                                                : null,
+                                      ),
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           if (post.artistUsername != null)
-                                            Text(
-                                              post.artistUsername!, 
-                                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textColor, fontSize: 14), 
-                                              overflow: TextOverflow.ellipsis
-                                            ),
+                                            Text(post.artistUsername!, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textColor, fontSize: 14), overflow: TextOverflow.ellipsis),
                                           if (post.locationString.isNotEmpty)
-                                            Text(
-                                              post.locationString, 
-                                              style: TextStyle(fontSize: 11, color: Colors.grey[400]), 
-                                              overflow: TextOverflow.ellipsis
-                                            ),
+                                            Text(post.locationString, style: TextStyle(fontSize: 11, color: Colors.grey[400]), overflow: TextOverflow.ellipsis),
                                         ],
                                       ),
                                     ),
@@ -686,8 +733,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                     _buildLikeButton(post),
                                     if (post.likeCount > 0)
                                       Positioned(
-                                        right: 9,
-                                        top: 25,
+                                        right: 9, top: 25,
                                         child: Text("${post.likeCount}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
                                       ),
                                   ],
@@ -697,12 +743,18 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                           ],
                         ),
                       ),
+                      
+                      // --- CAPTION (AÇIKLAMA) KISMI ---
                       if (post.caption != null && post.caption!.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(12.0, 0, 12.0, 12.0),
                           child: ValueListenableBuilder<bool>(
                             valueListenable: isExpandedNotifier,
                             builder: (context, isExpanded, child) {
+                              
+                              // DÜZELTME BURADA: Metni alıp etiketleri çeviriyoruz
+                              String localizedCaption = _translateCaptionTags(context, post.caption!);
+
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -713,7 +765,8 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                       overflow: isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
                                       text: TextSpan(
                                         style: const TextStyle(fontSize: 13, color: AppTheme.textColor),
-                                        children: [TextSpan(text: post.caption!)],
+                                        // Çevrilmiş metni kullanıyoruz
+                                        children: [TextSpan(text: localizedCaption)], 
                                       ),
                                     ),
                                   ),
@@ -741,23 +794,56 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
     );
   }
 
+  // --- YENİ YARDIMCI FONKSİYON (HomeScreen sınıfının içine ekle) ---
+  // Bu fonksiyon metindeki #app_... ve #style_... etiketlerini bulup Türkçeye çevirir.
+  String _translateCaptionTags(BuildContext context, String caption) {
+    // Regex: # ile başlayan, ardından app_ veya style_ gelen ve harf/rakam/altçizgi ile devam edenler
+    final regex = RegExp(r'#(app_|style_)\w+');
+
+    // Metindeki tüm eşleşmeleri bul ve değiştir
+    return caption.replaceAllMapped(regex, (match) {
+      String fullTag = match.group(0)!; // Örn: #app_tattoo
+      String key = fullTag.substring(1); // Örn: app_tattoo (başındaki # kalktı)
+
+      // Anahtarı AppLocalizations ile çevir
+      String? translated = AppLocalizations.of(context)!.translate(key);
+
+      // Eğer çeviri varsa ve anahtardan farklıysa (yani çeviri başarılıysa)
+      if (translated != null && translated != key) {
+        return "#$translated"; // Örn: #Dövme
+      }
+      
+      // Çeviri yoksa veya hata varsa orijinalini döndür
+      return fullTag;
+    });
+  }
+
   Widget _buildPostMedia(PostModel post) {
-    // --- 1. ÖNCE VİDEO KONTROLÜ (EN ÜSTTE OLACAK) ---
-    // Eğer videourl doluysa direkt video oynatıcıyı döndür
+    // 1. Video varsa öncelik videonun
     if (post.videoUrl != null && post.videoUrl!.isNotEmpty) {
       return VideoPostPlayer(videoUrl: post.videoUrl!);
     }
 
-    // --- 2. VİDEO YOKSA RESİMLERE BAK ---
+    // 2. Resim listesi boşsa hiçbir şey gösterme
     if (post.imageUrls.isEmpty) return const SizedBox.shrink();
 
-    // Tek Resim Varsa
-    if (post.imageUrls.length == 1) {
-      // GÜVENLİK KİLİDİ: Link 'http' ile başlamıyorsa (hatalıysa) gösterme
-      if (!post.imageUrls[0].startsWith('http')) return const SizedBox.shrink();
+    // --- DÜZELTME BAŞLANGICI ---
+    // İlk resim linkini alıp kontrol ediyoruz.
+    String firstImage = post.imageUrls[0];
 
+    // Eğer link 'http' ile başlamıyorsa VEYA içinde o hatalı placeholder yazı varsa
+    // (Hem normal halini hem de URL encoded halini kontrol ediyoruz garanti olsun diye)
+    if (!firstImage.startsWith('http') || 
+        firstImage.contains('Bir resim linki') || 
+        firstImage.contains('Bir%20resim')) {
+       return const SizedBox.shrink();
+    }
+    // --- DÜZELTME BİTİŞİ ---
+
+    // 3. Tek resim varsa
+    if (post.imageUrls.length == 1) {
       return CachedNetworkImage(
-        imageUrl: post.imageUrls[0],
+        imageUrl: firstImage, // Kontrol edilmiş değişkeni kullanıyoruz
         width: double.infinity,
         fit: BoxFit.cover,
         placeholder: (context, url) => Container(
@@ -773,7 +859,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       );
     }
 
-    // Çoklu Resim Varsa (Slider)
+    // 4. Çoklu resim varsa (Slider)
     return HomePostSlider(
       imageUrls: post.imageUrls,
       onTap: () => _openFullScreenPost(post),
@@ -832,14 +918,14 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   }
 
   String _getSortButtonLabel() {
-    if (_sortOption == null) return 'Sırala';
+    if (_sortOption == null) return tr('sort');
     switch (_sortOption) {
-      case AppConstants.sortNewest: return 'En Yeniler';
-      case AppConstants.sortPopular: return 'Popüler';
-      case AppConstants.sortArtistScore: return 'Artist Puanı';
-      case AppConstants.sortDistance: return 'Mesafe';
-      case AppConstants.sortCampaigns: return 'Kampanya';
-      default: return 'Sırala';
+      case AppConstants.sortNewest: return tr('newest');
+      case AppConstants.sortPopular: return tr('popular');
+      case AppConstants.sortArtistScore: return tr('artist_score');
+      case AppConstants.sortDistance: return tr('distance');
+      case AppConstants.sortCampaigns: return tr('campaigns');
+      default: return tr('sort');
     }
   }
 
@@ -853,7 +939,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            // Akıllı stil hesaplama (return'den önce)
             Set<String> dynamicStylesSet = {};
             if (_selectedApplications.isNotEmpty) {
               for (var app in _selectedApplications) {
@@ -876,7 +961,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                       top: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
                       left: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
                       right: BorderSide(color: Colors.white.withOpacity(0.1), width: 1),
-                      bottom: BorderSide.none, // Alt kenarı tamamen devre dışı bıraktık
+                      bottom: BorderSide.none,
                     ),
                   ),
                   child: Column(
@@ -901,8 +986,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   // 1. Uygulama
-                                  // 1. BÖLÜM: UYGULAMA TÜRÜ
-                                  _buildSectionTitle('Uygulama'),
+                                  _buildSectionTitle(tr('application_type')),
                                   SizedBox(
                                     width: double.infinity,
                                     child: Wrap(
@@ -917,40 +1001,28 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                             highlightColor: Colors.transparent,
                                           ),
                                           child: FilterChip(
-                                            label: Text(app),
+                                            label: Text(tr(app)), // DİNAMİK ÇEVİRİ
                                             selected: isSelected,
-                                            showCheckmark: false, // Tik işareti kapalı
-                                            
-                                            // --- RENK AYARLARI ---
-                                            // Seçili olduğunda içi dolu (Primary Renk)
+                                            showCheckmark: false, 
                                             selectedColor: AppTheme.primaryColor.withOpacity(0.5),
-                                            // Seçili DEĞİLKEN içi şeffaf (Outlined görünümü sağlayan kısım)
                                             backgroundColor: Colors.transparent, 
-                                            
-                                            // Yazı Rengi
                                             labelStyle: TextStyle(
-                                              // Seçiliyse Beyaz, Değilse Gri
                                               color: isSelected ? AppTheme.textColor : Colors.grey[400], 
                                               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                             ),
-                                            
-                                            // --- KENARLIK (BORDER) AYARLARI ---
                                             shape: RoundedRectangleBorder(
                                               borderRadius: BorderRadius.circular(8),
                                               side: BorderSide(
-                                                // Seçiliyse Primary Rengi, Değilse Gri Çizgi (Outlined Effect)
                                                 color: isSelected ? AppTheme.primaryColor : Colors.grey[700]!, 
                                                 width: 1,
                                               ),
                                             ),
-                                            
                                             onSelected: (selected) {
                                               setModalState(() {
                                                 if (selected) {
                                                   _selectedApplications.add(app);
                                                 } else {
                                                   _selectedApplications.remove(app);
-                                                  // İstersen: _selectedStyles.clear();
                                                 }
                                               });
                                             },
@@ -963,7 +1035,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
                                   // 2. Stiller
                                   if (_selectedApplications.isNotEmpty && relevantStyles.isNotEmpty) ...[
-                                    _buildSectionTitle('Stiller'),
+                                    _buildSectionTitle(tr('styles')),
                                     SizedBox(
                                       width: double.infinity,
                                       child: Wrap(
@@ -973,7 +1045,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                           return Theme(
                                             data: Theme.of(context).copyWith(splashColor: Colors.transparent, highlightColor: Colors.transparent),
                                             child: FilterChip(
-                                              label: Text(style),
+                                              label: Text(tr(style)), // DİNAMİK ÇEVİRİ
                                               selected: isSelected,
                                               showCheckmark: false,
                                               selectedColor: AppTheme.primaryColor.withOpacity(0.3),
@@ -992,39 +1064,36 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                     ),
                                     const SizedBox(height: 24),
                                   ] else if (_selectedApplications.isEmpty) ...[
-                                    _buildSectionTitle('Stiller'),
-                                    const Text("Stilleri görmek için uygulama seçiniz.", style: TextStyle(color: Colors.grey, fontSize: 13, fontStyle: FontStyle.italic)),
+                                    _buildSectionTitle(tr('styles')),
+                                    Text(tr('select_application_for_styles'), style: const TextStyle(color: Colors.grey, fontSize: 13, fontStyle: FontStyle.italic)),
                                     const SizedBox(height: 24),
                                   ],
                                   
 
-                                  // 3. Bölge ve Akıllı Arama (Eski DistrictSearchWidget yerine bunu kullanın)
+                                  // 3. Bölge ve Akıllı Arama 
                                   _HomeMultiSearchWidget(
                                     initialValue: _nameSearchQuery.isNotEmpty 
                                         ? _nameSearchQuery 
                                         : (_selectedDistrict != null ? "${_selectedDistrict}, ${_selectedCity}" : ""),
                                     
-                                    // A) KONUM SEÇİLİRSE
                                     onLocationSelected: (district, city) {
                                       setModalState(() {
                                         _selectedDistrict = district;
                                         _selectedCity = city;
-                                        _nameSearchQuery = ""; // Metin aramasını temizle
+                                        _nameSearchQuery = ""; 
                                       });
                                     },
                                     
-                                    // B) UYGULAMA SEÇİLİRSE (Örn: Dövme)
                                     onApplicationSelected: (app) {
                                       setModalState(() {
                                         if (!_selectedApplications.contains(app)) {
                                           _selectedApplications.add(app);
                                         }
                                         _nameSearchQuery = "";
-                                        _selectedDistrict = null; // Tercihe bağlı: Konumu sıfırlayabilirsin
+                                        _selectedDistrict = null; 
                                       });
                                     },
                                     
-                                    // C) STİL SEÇİLİRSE (Örn: Realistik)
                                     onStyleSelected: (style) {
                                       setModalState(() {
                                         if (!_selectedStyles.contains(style)) {
@@ -1034,12 +1103,9 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                       });
                                     },
                                     
-                                    // D) DÜZ METİN / ARTİST ADI ARANIRSA
                                     onTextSearch: (text) {
                                       setModalState(() {
                                         _nameSearchQuery = text;
-                                        // Diğer filtreleri sıfırlamak istersen buraya ekle
-                                        // _selectedDistrict = null;
                                       });
                                     },
                                   ),
@@ -1063,7 +1129,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                                   });
                                 },
                                 style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap, overlayColor: Colors.transparent),
-                                child: const Text('Sıfırla', style: TextStyle(color: AppTheme.primaryColor, fontSize: 14, fontWeight: FontWeight.bold)),
+                                child: Text(tr('reset'), style: const TextStyle(color: AppTheme.primaryColor, fontSize: 14, fontWeight: FontWeight.bold)),
                               ),
                             ),
                           ],
@@ -1073,8 +1139,7 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                       // Uygula Butonu
                       Container(
                         padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
-                        decoration: BoxDecoration(
-                          
+                        decoration: const BoxDecoration(
                           color: Colors.transparent,
                         ),
                         child: ElevatedButton(
@@ -1084,21 +1149,19 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primaryColor,
-                            // BURASI KRİTİK: Genişliği sonsuz, yüksekliği 50 yapıyoruz
                             minimumSize: const Size(double.infinity, 50), 
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             elevation: 0,
                           ),
-                          child: const Text(
-                            'Sonuçları Göster',
-                            style: TextStyle(
+                          child: Text(
+                            tr('show_results'),
+                            style: const TextStyle(
                               color: AppTheme.textColor,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
-                      
                       ),
                     ],
                   ),
@@ -1113,11 +1176,11 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
 
   void _showSortBottomSheet(BuildContext context) {
     final Map<String, String> sortOptions = {
-      AppConstants.sortNewest: 'En Yeniler',
-      AppConstants.sortPopular: 'Popüler',
-      AppConstants.sortArtistScore: 'Artist Puanı',
-      AppConstants.sortDistance: 'Mesafe',
-      AppConstants.sortCampaigns: 'Kampanyalar',
+      AppConstants.sortNewest: tr('newest'),
+      AppConstants.sortPopular: tr('popular'),
+      AppConstants.sortArtistScore: tr('artist_score'),
+      AppConstants.sortDistance: tr('distance'),
+      AppConstants.sortCampaigns: tr('campaigns'),
     };
 
     showModalBottomSheet(
@@ -1142,7 +1205,6 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
                     width: 40, height: 4,
                     decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2)),
                   ),
-                  
                   
                   ...sortOptions.entries.map((entry) {
                     final isSelected = _sortOption == entry.key;
@@ -1227,74 +1289,227 @@ class HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMix
   }
 }
 
-// --- YARDIMCI WIDGETLAR ---
+// --- DÜZELTİLEN YER: ARAMA WIDGET'I ---
 
-class _DistrictSearchWidget extends StatefulWidget {
-  final String? selectedDistrict;
-  final String? selectedCity;
-  final Function(String?, String?) onDistrictSelected;
-  const _DistrictSearchWidget({required this.selectedDistrict, required this.selectedCity, required this.onDistrictSelected});
-  @override State<_DistrictSearchWidget> createState() => _DistrictSearchWidgetState();
-}
+class _HomeMultiSearchWidget extends StatefulWidget {
+  final String? initialValue; 
+  
+  final Function(String?, String?) onLocationSelected; 
+  final Function(String) onApplicationSelected;        
+  final Function(String) onStyleSelected;              
+  final Function(String) onTextSearch;                 
 
-class _DistrictSearchWidgetState extends State<_DistrictSearchWidget> {
-  late TextEditingController _searchController;
-  List<Map<String, String>> _filteredDistricts = [];
-  @override void initState() { super.initState(); _searchController = TextEditingController(text: widget.selectedDistrict != null && widget.selectedCity != null ? '${widget.selectedDistrict}, ${widget.selectedCity}' : ''); }
-  @override void dispose() { _searchController.dispose(); super.dispose(); }
-  void _updateFilteredDistricts(String query) {
-    setState(() {
-      if (query.isEmpty) { _filteredDistricts = []; widget.onDistrictSelected(null, null); }
-      else { _filteredDistricts = []; for (var city in TurkeyLocations.citiesWithDistricts.keys) { for (var district in TurkeyLocations.citiesWithDistricts[city]!) { if (district.toLowerCase().contains(query.toLowerCase()) || city.toLowerCase().contains(query.toLowerCase())) { _filteredDistricts.add({'district': district, 'city': city}); } } } }
-    });
-  }
+  const _HomeMultiSearchWidget({
+    this.initialValue,
+    required this.onLocationSelected,
+    required this.onApplicationSelected,
+    required this.onStyleSelected,
+    required this.onTextSearch,
+  });
+
   @override
-Widget build(BuildContext context) {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      // Başlık ve boşluk silindi
-      TextField(
-        controller: _searchController,
-        style: const TextStyle(color: AppTheme.textColor),
-        decoration: InputDecoration(
-          hintText: 'Semt ara',
-          hintStyle: const TextStyle(color: AppTheme.textColor),
-          prefixIcon: const Icon(Icons.search, color: AppTheme.textColor),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        onChanged: _updateFilteredDistricts,
-      ),
-      if (_filteredDistricts.isNotEmpty)
-        Container(
-          margin: const EdgeInsets.only(top: 8),
-          constraints: const BoxConstraints(maxHeight: 150),
-          decoration: BoxDecoration(
-            color: AppTheme.cardColor,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: _filteredDistricts.length,
-            itemBuilder: (context, index) {
-              final item = _filteredDistricts[index];
-              return ListTile(
-                title: Text('${item['district']}, ${item['city']}',
-                    style: const TextStyle(color: AppTheme.textColor)),
-                onTap: () {
-                  _searchController.text = '${item['district']}, ${item['city']}';
-                  widget.onDistrictSelected(item['district'], item['city']);
-                  setState(() {
-                    _filteredDistricts = [];
-                  });
-                },
-              );
-            },
-          ),
-        ),
-    ],
-  );
+  State<_HomeMultiSearchWidget> createState() => _HomeMultiSearchWidgetState();
 }
+
+class _HomeMultiSearchWidgetState extends State<_HomeMultiSearchWidget> {
+  late TextEditingController _controller;
+  List<Map<String, String>> _suggestions = [];
+
+  // Helper
+  String tr(String key) => AppLocalizations.of(context)?.translate(key) ?? key;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _updateSuggestions(String query) {
+    if (query.length < 2) {
+      setState(() => _suggestions = []);
+      return;
+    }
+
+    List<Map<String, String>> matches = [];
+    String lower = query.toLowerCase();
+
+    // 1. UYGULAMA ARAMA (DÜZELTİLDİ: Çevrilmiş metinlerde arama yapıyoruz)
+    for (var appKey in AppConstants.applications) {
+      String translatedApp = tr(appKey); // Anahtarı (app_tattoo) al, çevir (Dövme)
+      
+      if (translatedApp.toLowerCase().contains(lower)) {
+        matches.add({
+          'type': 'app',
+          'title': translatedApp, // Ekranda çevrilmiş hali görünsün
+          'key': appKey,          // Ama arkada orijinal anahtarı tutalım
+          'subtitle': tr('application_type')
+        });
+      }
+    }
+
+    // 2. STİL ARAMA (DÜZELTİLDİ)
+    for (var styleKey in AppConstants.styles) {
+      String translatedStyle = tr(styleKey); // Anahtarı al, çevir
+      
+      if (translatedStyle.toLowerCase().contains(lower)) {
+        matches.add({
+          'type': 'style',
+          'title': translatedStyle, // Ekranda çevrilmiş hali
+          'key': styleKey,          // Arkada orijinal anahtar
+          'subtitle': tr('styles')
+        });
+      }
+    }
+
+    // 3. KONUM ARAMA (Değişmedi, zaten metin tabanlı)
+    TurkeyLocations.citiesWithDistricts.forEach((city, districts) {
+      if (city.toLowerCase().contains(lower)) {
+        matches.add({
+          'type': 'location',
+          'title': city,
+          'city': city,
+          'district': '',
+          'subtitle': tr('city')
+        });
+      }
+      for (var district in districts) {
+        if (district.toLowerCase().contains(lower)) {
+          matches.add({
+            'type': 'location',
+            'title': '$district, $city',
+            'city': city,
+            'district': district,
+            'subtitle': tr('district')
+          });
+        }
+      }
+    });
+
+    // 4. GENEL METİN (Her zaman en sonda)
+    matches.add({
+      'type': 'text',
+      'title': '"$query" ${tr('search_suffix')}', // "ara" suffix'i
+      'query': query,
+      'subtitle': tr('search_hint_subtitle') // Artist, Açıklama vb.
+    });
+
+    setState(() => _suggestions = matches.take(10).toList());
+  }
+
+  IconData _getIconForType(String type) {
+    switch (type) {
+      case 'location': return Icons.location_on_outlined;
+      case 'app': return Icons.category_outlined;
+      case 'style': return Icons.brush_outlined;
+      case 'text': return Icons.search;
+      default: return Icons.search;
+    }
+  }
+
+  Color _getColorForType(String type) {
+    switch (type) {
+      case 'location': return Colors.redAccent;
+      case 'app': return Colors.blueAccent;
+      case 'style': return Colors.purpleAccent;
+      case 'text': return AppTheme.primaryColor;
+      default: return Colors.grey;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _controller,
+          style: const TextStyle(color: AppTheme.textColor),
+          decoration: InputDecoration(
+            hintText: tr('search_hint'), // "Semt, artist..."
+            hintStyle: const TextStyle(color: Colors.grey),
+            prefixIcon: const Icon(Icons.search, color: AppTheme.textColor),
+            filled: true,
+            fillColor: AppTheme.cardColor,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+            suffixIcon: _controller.text.isNotEmpty 
+              ? IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey, size: 20),
+                  onPressed: () {
+                    _controller.clear();
+                    setState(() => _suggestions = []);
+                  },
+                ) 
+              : null,
+          ),
+          onChanged: _updateSuggestions,
+        ),
+        
+        if (_suggestions.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            constraints: const BoxConstraints(maxHeight: 200),
+            decoration: BoxDecoration(
+              color: AppTheme.cardColor,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[800]!),
+            ),
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              itemCount: _suggestions.length,
+              itemBuilder: (context, index) {
+                final item = _suggestions[index];
+                
+                return ListTile(
+                  dense: true,
+                  leading: Icon(
+                    _getIconForType(item['type']!), 
+                    size: 20, 
+                    color: _getColorForType(item['type']!)
+                  ),
+                  title: Text(
+                    item['title']!, 
+                    style: const TextStyle(color: AppTheme.textColor, fontSize: 14)
+                  ),
+                  subtitle: Text(
+                    item['subtitle']!, 
+                    style: TextStyle(color: Colors.grey[500], fontSize: 10)
+                  ),
+                  onTap: () {
+                    _controller.text = item['title']!;
+                    setState(() => _suggestions = []);
+                    
+                    switch (item['type']) {
+                      case 'location':
+                        widget.onLocationSelected(item['district'], item['city']);
+                        break;
+                      case 'app':
+                        // ÖNEMLİ: Ekranda "Dövme" yazsa da arkaya "app_tattoo" (key) gönderiyoruz
+                        widget.onApplicationSelected(item['key']!);
+                        break;
+                      case 'style':
+                        // ÖNEMLİ: Arkaya style key gönderiyoruz
+                        widget.onStyleSelected(item['key']!);
+                        break;
+                      case 'text':
+                        widget.onTextSearch(item['query']!);
+                        break;
+                    }
+                  },
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 class HomePostSlider extends StatefulWidget {
@@ -1358,228 +1573,6 @@ class _HomePostSliderState extends State<HomePostSlider> {
             ),
         ],
       ),
-    );
-  }
-}
-
-// --- ÇOK FONKSİYONLU AKILLI ARAMA WIDGET'I ---
-
-class _HomeMultiSearchWidget extends StatefulWidget {
-  // Seçili değerleri başlangıçta göstermek için
-  final String? initialValue; 
-  
-  // Seçim yapıldığında ana ekrana ne seçildiğini bildiren fonksiyonlar
-  final Function(String?, String?) onLocationSelected; // İl/İlçe seçilirse
-  final Function(String) onApplicationSelected;        // Uygulama seçilirse (Dövme vb.)
-  final Function(String) onStyleSelected;              // Stil seçilirse (Realistik vb.)
-  final Function(String) onTextSearch;                 // Artist adı veya düz metin aranırsa
-
-  const _HomeMultiSearchWidget({
-    this.initialValue,
-    required this.onLocationSelected,
-    required this.onApplicationSelected,
-    required this.onStyleSelected,
-    required this.onTextSearch,
-  });
-
-  @override
-  State<_HomeMultiSearchWidget> createState() => _HomeMultiSearchWidgetState();
-}
-
-class _HomeMultiSearchWidgetState extends State<_HomeMultiSearchWidget> {
-  late TextEditingController _controller;
-  
-  // Önerileri tutacak liste. 
-  // type: 'location', 'app', 'style', 'text'
-  List<Map<String, String>> _suggestions = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialValue);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _updateSuggestions(String query) {
-    if (query.length < 2) {
-      setState(() => _suggestions = []);
-      return;
-    }
-
-    List<Map<String, String>> matches = [];
-    String lower = query.toLowerCase();
-
-    // 1. UYGULAMA ARAMA (Örn: Dövme, Piercing)
-    for (var app in AppConstants.applications) {
-      if (app.toLowerCase().contains(lower)) {
-        matches.add({
-          'type': 'app',
-          'title': app,
-          'subtitle': 'Uygulama Türü'
-        });
-      }
-    }
-
-    // 2. STİL ARAMA (Örn: Realistik, Minimal)
-    for (var style in AppConstants.styles) {
-      if (style.toLowerCase().contains(lower)) {
-        matches.add({
-          'type': 'style',
-          'title': style,
-          'subtitle': 'Stil'
-        });
-      }
-    }
-
-    // 3. KONUM ARAMA (Örn: Kadıköy, İstanbul)
-    TurkeyLocations.citiesWithDistricts.forEach((city, districts) {
-      if (city.toLowerCase().contains(lower)) {
-        matches.add({
-          'type': 'location',
-          'title': city,
-          'city': city,
-          'district': '',
-          'subtitle': 'Şehir'
-        });
-      }
-      for (var district in districts) {
-        if (district.toLowerCase().contains(lower)) {
-          matches.add({
-            'type': 'location',
-            'title': '$district, $city',
-            'city': city,
-            'district': district,
-            'subtitle': 'Bölge'
-          });
-        }
-      }
-    });
-
-    // 4. GENEL METİN / ARTİST ARAMA (Her zaman en sonda göster)
-    matches.add({
-      'type': 'text',
-      'title': '"$query" ara',
-      'query': query,
-      'subtitle': 'Artist, Açıklama veya Etiket'
-    });
-
-    // Sonuçları sınırla (Performans için)
-    setState(() => _suggestions = matches.take(10).toList());
-  }
-
-  // Tipine göre ikon belirle
-  IconData _getIconForType(String type) {
-    switch (type) {
-      case 'location': return Icons.location_on_outlined;
-      case 'app': return Icons.category_outlined;
-      case 'style': return Icons.brush_outlined;
-      case 'text': return Icons.search;
-      default: return Icons.search;
-    }
-  }
-
-  // Tipine göre renk belirle
-  Color _getColorForType(String type) {
-    switch (type) {
-      case 'location': return Colors.redAccent;
-      case 'app': return Colors.blueAccent;
-      case 'style': return Colors.purpleAccent;
-      case 'text': return AppTheme.primaryColor;
-      default: return Colors.grey;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: _controller,
-          style: const TextStyle(color: AppTheme.textColor),
-          decoration: InputDecoration(
-            hintText: 'Semt, artist, stil veya uygulama...',
-            hintStyle: const TextStyle(color: Colors.grey),
-            prefixIcon: const Icon(Icons.search, color: AppTheme.textColor),
-            filled: true,
-            fillColor: AppTheme.cardColor,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-            contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
-            suffixIcon: _controller.text.isNotEmpty 
-              ? IconButton(
-                  icon: const Icon(Icons.close, color: Colors.grey, size: 20),
-                  onPressed: () {
-                    _controller.clear();
-                    setState(() => _suggestions = []);
-                    // Sıfırlama isteği gönderilebilir
-                  },
-                ) 
-              : null,
-          ),
-          onChanged: _updateSuggestions,
-        ),
-        
-        if (_suggestions.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.only(top: 8),
-            constraints: const BoxConstraints(maxHeight: 200), // Listeyi biraz uzattık
-            decoration: BoxDecoration(
-              color: AppTheme.cardColor,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[800]!),
-            ),
-            child: ListView.builder(
-              shrinkWrap: true,
-              padding: EdgeInsets.zero,
-              itemCount: _suggestions.length,
-              itemBuilder: (context, index) {
-                final item = _suggestions[index];
-                
-                return ListTile(
-                  dense: true,
-                  leading: Icon(
-                    _getIconForType(item['type']!), 
-                    size: 20, 
-                    color: _getColorForType(item['type']!)
-                  ),
-                  title: Text(
-                    item['title']!, 
-                    style: const TextStyle(color: AppTheme.textColor, fontSize: 14)
-                  ),
-                  subtitle: Text(
-                    item['subtitle']!, 
-                    style: TextStyle(color: Colors.grey[500], fontSize: 10)
-                  ),
-                  onTap: () {
-                    _controller.text = item['title']!;
-                    setState(() => _suggestions = []);
-                    
-                    // Seçilen tipe göre ilgili fonksiyonu çalıştır
-                    switch (item['type']) {
-                      case 'location':
-                        widget.onLocationSelected(item['district'], item['city']);
-                        break;
-                      case 'app':
-                        widget.onApplicationSelected(item['title']!);
-                        break;
-                      case 'style':
-                        widget.onStyleSelected(item['title']!);
-                        break;
-                      case 'text':
-                        widget.onTextSearch(item['query']!);
-                        break;
-                    }
-                  },
-                );
-              },
-            ),
-          ),
-      ],
     );
   }
 }

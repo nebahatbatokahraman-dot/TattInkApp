@@ -5,7 +5,8 @@ import '../../services/auth_service.dart';
 import '../../utils/validators.dart';
 import '../main_screen.dart';
 // ÖNEMLİ: LegalDocumentsScreen importunu buraya eklemelisin
-import '../settings/legal_documents_screen.dart'; 
+import '../settings/legal_documents_screen.dart';
+import '../../app_localizations.dart'; 
 
 class CustomerRegisterScreen extends StatefulWidget {
   const CustomerRegisterScreen({super.key});
@@ -39,7 +40,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
     // Kutucuk işaretli değilse işlem yapma (Güvenlik önlemi)
     if (!_isTermsAccepted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Devam etmek için kullanım şartlarını kabul etmelisiniz.')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.translate('accept_terms_to_continue'))),
       );
       return;
     }
@@ -50,8 +51,8 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
 
     if (_passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Şifreler eşleşmiyor'),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.translate('passwords_not_match')),
           backgroundColor: Colors.red,
         ),
       );
@@ -71,8 +72,8 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Kayıt başarılı!'),
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.translate('registration_successful')),
             backgroundColor: Colors.green,
           ),
         );
@@ -103,7 +104,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Müşteri Kaydı'),
+        title: Text(AppLocalizations.of(context)!.translate('customer_registration')),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -114,8 +115,8 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 40), 
-                const Text(
-                  'Kayıt işlemini tamamlayarak uygulamayı keşfetmeye başlayabilirsin; ancak tüm özellikleri kullanabilmek için e-posta adresini doğrulaman gerekiyor.',
+                Text(
+                  AppLocalizations.of(context)!.translate('registration_instruction'),
                   style: TextStyle(fontSize: 11, color: Colors.grey),
                   textAlign: TextAlign.center,
                 ),
@@ -125,9 +126,9 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'E-posta',
-                    hintText: 'ornek@eposta.com',
+                  decoration: InputDecoration(
+                    labelText: AppLocalizations.of(context)!.translate('email'),
+                    hintText: AppLocalizations.of(context)!.translate('email_hint'),
                     prefixIcon: Icon(Icons.email),
                   ),
                   validator: Validators.validateEmail,
@@ -139,7 +140,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
-                    labelText: 'Şifre',
+                    labelText: AppLocalizations.of(context)!.translate('password'),
                     prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -157,7 +158,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                   controller: _confirmPasswordController,
                   obscureText: _obscureConfirmPassword,
                   decoration: InputDecoration(
-                    labelText: 'Şifre Tekrar',
+                    labelText: AppLocalizations.of(context)!.translate('confirm_password'),
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -167,8 +168,8 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                     ),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) return 'Şifre tekrar gereklidir';
-                    if (value != _passwordController.text) return 'Şifreler eşleşmiyor';
+                    if (value == null || value.isEmpty) return AppLocalizations.of(context)!.translate('confirm_password_required');
+                    if (value != _passwordController.text) return AppLocalizations.of(context)!.translate('passwords_not_match');
                     return null;
                   },
                 ),
@@ -195,15 +196,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                           text: TextSpan(
                             style: const TextStyle(color: Colors.grey, fontSize: 12),
                             children: [
-                              const TextSpan(text: "Kullanım Şartları ve Sağlık Sorumluluk Reddini "),
-                              TextSpan(
-                                text: "okudum, kabul ediyorum.",
-                                style: TextStyle(
-                                  color: AppTheme.primaryColor,
-                                  fontWeight: FontWeight.bold,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
+                              TextSpan(text: AppLocalizations.of(context)!.translate('terms_and_disclaimer')),
                             ],
                           ),
                         ),
@@ -228,7 +221,7 @@ class _CustomerRegisterScreenState extends State<CustomerRegisterScreen> {
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('Üye Ol', style: TextStyle(fontWeight: FontWeight.bold)),
+                      : Text(AppLocalizations.of(context)!.translate('register'), style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ],
             ),

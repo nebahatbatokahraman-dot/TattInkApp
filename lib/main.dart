@@ -3,52 +3,59 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:firebase_messaging/firebase_messaging.dart'; // <--- EKLENDİ
-import '../screens/splash_screen.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
+// --- EKLENEN EKSİK IMPORTLAR ---
+import 'package:firebase_auth/firebase_auth.dart'; // User tipi için gerekli
+import 'package:cloud_firestore/cloud_firestore.dart'; // Firestore ve DocumentSnapshot için gerekli
+// -------------------------------
+
+// Servis ve Provider Importları
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
-import 'screens/main_screen.dart';
-import 'screens/auth/login_screen.dart';
+import 'screens/main_screen.dart'; 
+import 'screens/auth/login_screen.dart'; 
+import 'screens/splash_screen.dart';
 import 'services/auth_service.dart';
 import 'services/gemini_service.dart';
 import 'config/gemini_config.dart';
-import 'utils/constants.dart'; // <--- Rolleri kontrol etmek için eklendi
+import 'utils/constants.dart';
+import 'language_provider.dart'; 
+import 'app_localizations.dart'; 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
-  // BURAYA EKLEDİK:
-    String? token = await FirebaseMessaging.instance.getToken();
-    print("---------- FCM TOKEN ----------");
-    print(token);
-    print("-------------------------------");
-
-
-  // Bildirim izinlerini iste (Uygulama ilk açıldığında sorar)
-  FirebaseMessaging messaging = FirebaseMessaging.instance;
-  NotificationSettings settings = await messaging.requestPermission(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    
+    FirebaseMessaging messaging = FirebaseMessaging.instance;
+    await messaging.requestPermission(alert: true, badge: true, sound: true);
+    String? token = await messaging.getToken();
+    debugPrint("FCM Token: $token");
+    
+  } catch (e) {
+    debugPrint("Firebase Başlatma Hatası: $e");
+  }
   
   await initializeDateFormatting('tr_TR', null);
   
-  // Gemini AI servisini initialize et
   final geminiApiKey = GeminiConfig.getApiKey();
   if (geminiApiKey != null && GeminiConfig.isValidApiKey(geminiApiKey)) {
     GeminiService.setApiKey(geminiApiKey);
-    print('Gemini AI servisi başlatıldı');
-  } else {
-    print('UYARI: Gemini API anahtarı bulunamadı veya geçersiz. AI filtreleme çalışmayacak.');
   }
   
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthService()),
+        ChangeNotifierProvider(create: (_) => LanguageProvider()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -56,34 +63,49 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider<AuthService>(
-          create: (_) => AuthService(),
-        ),
+    final langProvider = Provider.of<LanguageProvider>(context);
+
+    return MaterialApp(
+      title: 'TattInk',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.darkTheme,
+
+      // Dil Ayarları
+      locale: langProvider.appLocale,
+
+      supportedLocales: const [
+        Locale('en', 'US'),
+        Locale('tr', 'TR'),
       ],
-      child: MaterialApp(
-        title: 'TattInk',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.darkTheme,
-        supportedLocales: const [
-          Locale('tr', 'TR'),
-          Locale('en', 'US'),
-        ],
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        locale: const Locale('tr', 'TR'),
-        // AuthWrapper yerine SplashScreen'i başlangıç ekranı yaptık.
-        home: const SplashScreen(), 
-      ),
+
+      localizationsDelegates: const [
+        localizationsDelegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+
+      localeResolutionCallback: (deviceLocale, supportedLocales) {
+        if (langProvider.appLocale != null) {
+          return langProvider.appLocale;
+        }
+
+        if (deviceLocale != null) {
+          for (var supportedLocale in supportedLocales) {
+            if (supportedLocale.languageCode == deviceLocale.languageCode) {
+              return supportedLocale; 
+            }
+          }
+        }
+        return supportedLocales.first;
+      },
+
+      home: const SplashScreen(),
     );
   }
 }
 
-class AuthWrapper extends StatefulWidget { // StatelessWidget'tan StatefulWidget'a çevirdik
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
   @override
@@ -91,11 +113,9 @@ class AuthWrapper extends StatefulWidget { // StatelessWidget'tan StatefulWidget
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
-  
   @override
   void initState() {
     super.initState();
-    // Uygulama açılır açılmaz bildirim aboneliklerini ayarla
     _setupNotifications();
   }
 
@@ -104,30 +124,73 @@ class _AuthWrapperState extends State<AuthWrapper> {
     final user = authService.currentUser;
 
     if (user != null) {
-      // Kullanıcı modelini çekip rolüne bakalım
-      final userModel = await authService.getUserModel(user.uid);
-      if (userModel != null) {
+      try {
+        // Burada veritabanı kontrolü yapmıyoruz, sadece null değilse token alıyoruz
+        // Veritabanı kontrolünü aşağıda build içinde yapacağız.
         final fcm = FirebaseMessaging.instance;
-        
-        // 1. Herkes 'all' grubuna üye olur
         await fcm.subscribeToTopic('all');
-
-        // 2. Rolüne göre özel gruba dahil et
-        if (userModel.role == AppConstants.roleAdmin) {
-          await fcm.subscribeToTopic('admins');
-        } else if (userModel.role == AppConstants.roleArtistApproved || userModel.role == 'artist') {
-          await fcm.subscribeToTopic('artists');
-        } else {
-          await fcm.subscribeToTopic('customers');
-        }
-        print("Bildirim aboneliği tamamlandı: ${userModel.role}");
+        // Rol bazlı abonelikler kullanıcı modeli çekilince yapılabilir, 
+        // şimdilik basit tutuyoruz çökmemesi için.
+      } catch (e) {
+        debugPrint("Bildirim hatası: $e");
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Mevcut mantığın: Uygulama direkt MainScreen'e gidiyor
-    return const MainScreen();
+    final authService = Provider.of<AuthService>(context);
+    
+    return StreamBuilder(
+      stream: authService.authStateChanges,
+      builder: (context, snapshot) {
+        // 1. Bağlantı bekleniyorsa
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+
+        // 2. Kullanıcı Giriş Yapmış Görünüyor mu?
+        if (snapshot.hasData && snapshot.data != null) {
+          // Firebase Auth kullanıcısı (User tipini kullanabilmek için import ekledik)
+          final User firebaseUser = snapshot.data!;
+
+          // GHOST USER KONTROLÜ: Veritabanında hala var mı?
+          return FutureBuilder<DocumentSnapshot>(
+            future: FirebaseFirestore.instance.collection(AppConstants.collectionUsers).doc(firebaseUser.uid).get(),
+            builder: (context, userSnapshot) {
+              
+              // Veritabanı sorgusu sürerken loading
+              if (userSnapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(body: Center(child: CircularProgressIndicator()));
+              }
+
+              // Veri geldi ama doküman YOKSA (Silinmiş Hesap)
+              if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
+                
+                // HESABI ZORLA ÇIKIŞ YAPTIR (Frame bittikten sonra)
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  authService.signOut(); 
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Hesap bulunamadı veya silinmiş. Çıkış yapıldı.'), 
+                      backgroundColor: Colors.red
+                    ),
+                  );
+                });
+                
+                // O anlık yine de anasayfayı göster (zaten çıkış yapacak birazdan)
+                return const MainScreen(); 
+              }
+
+              // Kullanıcı var ve geçerli, Anasayfaya devam et
+              return const MainScreen();
+            },
+          );
+        }
+        
+        // 3. Kullanıcı giriş yapmamış (Misafir Modu)
+        return const MainScreen(); 
+      },
+    );
   }
 }

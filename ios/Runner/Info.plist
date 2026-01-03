@@ -45,18 +45,21 @@
     <true/>
     <key>UIApplicationSupportsIndirectInputEvents</key>
     <true/>
+
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Konum bilgisi, size en yakın artistleri bulmak ya da stüdyonuzu listelemek için gereklidir.</string>
     <key>NSLocationAlwaysUsageDescription</key>
     <string>Konum bilgisi, size en yakın artistleri bulmak ya da stüdyonuzu listelemek için gereklidir.</string>
+
     <key>NSCameraUsageDescription</key>
-    <string>Fotoğraf ve video paylaşmak için kamera erişimi gereklidir.</string>
+    <string>Uygulama, fotoğraf ve video çekip paylaşabilmeniz için kameraya erişim izni ister.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Fotoğraf ve video seçmek için galeri erişimi gereklidir.</string>
+    <string>Uygulama, fotoğraf ve video seçip paylaşabilmeniz için galeriye erişim izni ister.</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
     <string>Fotoğraf kaydetmek için galeri erişimi gereklidir.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Video kaydı için mikrofon erişimi gereklidir.</string>
+    <string>Uygulama, sesli video kaydı için mikrofona erişim izni ister.</string>
+
     <key>CFBundleURLTypes</key>
     <array>
         <dict>
@@ -68,27 +71,26 @@
             </array>
         </dict>
     </array>
-    <key>GOOGLE_APP_ID</key>
-    <string>1:9143554156:ios:b7600322fd925fef1e0849</string>
+    
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSAllowsArbitraryLoads</key>
         <true/>
+        <key>NSAllowsArbitraryLoadsInWebContent</key>
+        <true/>
     </dict>
 
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>Uygulama, gönderi paylaşabilmeniz için galeriye erişim izni ister.</string>
+    <key>GOOGLE_APP_ID</key>
+    <string>1:9143554156:ios:b7600322fd925fef1e0849</string>
 
-    <key>NSCameraUsageDescription</key>
-    <string>Uygulama, video çekebilmeniz için kameraya erişim izni ister.</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Uygulama, sesli video kaydı için mikrofona erişim izni ister.</string>
-    <key>NSAppTransportSecurity</key>
-<dict>
-    <key>NSAllowsArbitraryLoads</key>
-    <true/>
-    <key>NSAllowsArbitraryLoadsInWebContent</key>
-    <true/>
-</dict>
+
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+      <string>https</string>
+      <string>http</string>
+      <string>mailto</string>
+      <string>tel</string>
+      <string>sms</string>
+    </array>
 </dict>
 </plist>

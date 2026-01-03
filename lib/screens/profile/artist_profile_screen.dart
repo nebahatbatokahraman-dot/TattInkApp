@@ -12,7 +12,9 @@ import 'package:carousel_slider/carousel_slider.dart' as cs;
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:tattink_app/screens/create_appointment_screen.dart';
 import 'dart:ui';
-import 'package:firebase_auth/firebase_auth.dart';
+
+// --- LOCALIZATION IMPORT (Bunu eklememiz şart) ---
+import '../../app_localizations.dart'; 
 
 // --- SERVICE & MODEL IMPORTS ---
 import '../../services/report_service.dart';
@@ -31,7 +33,6 @@ import '../chat_screen.dart';
 import '../appointments_screen.dart';
 import '../create_post_screen.dart';
 import '../messages_screen.dart';
-import 'dart:ui';
 
 // --- AYAR SAYFALARI ---
 import '../settings/artist_settings_screen.dart';
@@ -62,13 +63,18 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
   // --- CAROUSEL INDEX TAKİBİ ---
   int _currentStudioImageIndex = 0;
 
+  // --- ÇEVİRİ YARDIMCISI (Kodu şişirmemek için) ---
+  String tr(String key) {
+    return AppLocalizations.of(context)?.translate(key) ?? key;
+  }
+
   // --- STÜDYO FOTOĞRAFI YÜKLEME ---
   Future<void> _uploadStudioImage() async {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
       if (image == null) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yükleniyor...')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('loading'))));
 
       final imageService = ImageService();
       final File file = File(image.path);
@@ -89,11 +95,11 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
       await _loadUser();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fotoğraf eklendi!'), backgroundColor: Colors.green));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('photo_added')), backgroundColor: Colors.green));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${tr('error_prefix')}: $e'), backgroundColor: Colors.red));
       }
     }
   }
@@ -111,10 +117,10 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
       await _loadUser();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fotoğraf silindi.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('photo_deleted'))));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${tr('error_prefix')}: $e')));
     }
   }
 
@@ -123,16 +129,16 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.cardColor,
-        title: const Text("Fotoğrafı Sil", style: TextStyle(color: AppTheme.textColor)),
-        content: const Text("Bu stüdyo fotoğrafını kaldırmak istiyor musunuz?", style: TextStyle(color: AppTheme.textColor)),
+        title: Text(tr('delete_photo_title'), style: const TextStyle(color: AppTheme.textColor)),
+        content: Text(tr('delete_studio_photo_confirm'), style: const TextStyle(color: AppTheme.textColor)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("İptal", style: TextStyle(color: Colors.grey))),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('cancel'), style: const TextStyle(color: Colors.grey))),
           TextButton(
               onPressed: () {
                 Navigator.pop(ctx);
                 _deleteStudioImage(imageUrl);
               },
-              child: const Text("Sil", style: TextStyle(color: Colors.red))),
+              child: Text(tr('delete'), style: const TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -171,15 +177,15 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.backgroundColor,
-        title: const Text('E-posta Onayı Gerekli', style: TextStyle(color: AppTheme.textColor)),
-        content: const Text(
-          'Takip etme, mesaj atma ve randevu alma işlemleri için e-posta adresinizi onaylamanız gerekmektedir.',
-          style: TextStyle(color: AppTheme.textColor),
+        title: Text(tr('email_verify_title'), style: const TextStyle(color: AppTheme.textColor)),
+        content: Text(
+          tr('email_verify_msg'),
+          style: const TextStyle(color: AppTheme.textColor),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Tamam', style: TextStyle(color: AppTheme.primaryColor)),
+            child: Text(tr('ok'), style: const TextStyle(color: AppTheme.primaryColor)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -187,12 +193,12 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
               if (mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Doğrulama e-postası tekrar gönderildi.')),
+                  SnackBar(content: Text(tr('verify_email_sent'))),
                 );
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-            child: const Text('Tekrar Gönder'),
+            child: Text(tr('resend')),
           ),
         ],
       ),
@@ -282,7 +288,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('İşlem başarısız: $e')),
+        SnackBar(content: Text('${tr('operation_failed')}: $e')),
       );
     }
   }
@@ -295,6 +301,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
           .doc(widget.userId)
           .snapshots(),
       builder: (context, userSnapshot) {
+        // 1. YÜKLENİYORSA
         if (!userSnapshot.hasData) {
           return const Scaffold(
             backgroundColor: AppTheme.backgroundColor,
@@ -302,17 +309,46 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
           );
         }
 
+        // 2. KULLANICI BULUNAMADIYSA (SİLİNMİŞSE)
         if (!userSnapshot.data!.exists) {
-          return const Scaffold(
+          return Scaffold(
             backgroundColor: AppTheme.backgroundColor,
-            body: Center(child: Text("Kullanıcı bulunamadı", style: TextStyle(color: AppTheme.textColor))),
+            // İŞTE ÇÖZÜM: Buraya şeffaf bir AppBar ve Geri Butonu koyuyoruz
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.of(context).pop(), // Geri gönder
+              ),
+            ),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.person_off_outlined, size: 80, color: Colors.white.withOpacity(0.5)),
+                  const SizedBox(height: 16),
+                  Text(
+                    tr('user_not_found'),
+                    style: const TextStyle(color: AppTheme.textColor, fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    tr('user_not_found_msg'),
+                    style: TextStyle(color: AppTheme.textColor.withOpacity(0.6), fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
           );
         }
 
+        // 3. KULLANICI VARSA (NORMAL AKIŞ)
         final userData = userSnapshot.data!;
         _user = UserModel.fromFirestore(userData);
 
-        final currentUserId = Provider.of<AuthService>(context, listen: false).currentUser?.uid;
+        final authService = Provider.of<AuthService>(context, listen: false); // safe call
+        final currentUserId = authService.currentUser?.uid;
         final isOwnProfile = widget.isOwnProfile || currentUserId == widget.userId;
 
         return Scaffold(
@@ -326,476 +362,456 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
   Widget _buildBody(BuildContext context, bool isOwnProfile) {
     bool canPop = Navigator.canPop(context);
     final bool isTargetArtist = _user?.role.toLowerCase().contains('artist') ?? false;
-    return SafeArea(
-      top: false,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(
-            child: Column(
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    // --- CAROUSEL ---
-                    SizedBox(
-                      height: 220,
-                      width: double.infinity,
-                      child: (_user!.studioImageUrls.isNotEmpty)
-                          ? cs.CarouselSlider.builder(
-                              itemCount: _user!.studioImageUrls.length,
-                              options: cs.CarouselOptions(
-                                height: 220,
-                                viewportFraction: 1.0,
-                                autoPlay: true,
-                                autoPlayInterval: const Duration(seconds: 5),
-                                onPageChanged: (index, reason) => setState(() => _currentStudioImageIndex = index),
-                              ),
-                              itemBuilder: (context, index, realIndex) {
-                                final imageUrl = _user!.studioImageUrls[index];
-                                return GestureDetector(
-                                  onLongPress: isOwnProfile ? () => _confirmDeleteStudioImage(imageUrl) : null,
-                                  child: CachedNetworkImage(
-                                    imageUrl: imageUrl,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                    placeholder: (context, url) => Container(color: Colors.grey[900]),
-                                    errorWidget: (context, url, error) => const Icon(Icons.error),
-                                  ),
-                                );
-                              },
-                            )
-                          : Container(
-                              color: Colors.grey[800],
-                              child: (_user!.coverImageUrl != null)
-                                  ? CachedNetworkImage(imageUrl: _user!.coverImageUrl!, fit: BoxFit.cover)
-                                  : const Center(child: Icon(Icons.image, color: AppTheme.textColor, size: 50)),
-                            ),
-                    ),
 
-                    // --- NOKTA GÖSTERGELERİ ---
-                    if (_user!.studioImageUrls.length > 1)
-                      Positioned(
-                        bottom: 10,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: AnimatedSmoothIndicator(
-                            activeIndex: _currentStudioImageIndex,
-                            count: _user!.studioImageUrls.length,
-                            effect: const ScrollingDotsEffect(
-                              dotHeight: 6,
-                              dotWidth: 6,
-                              activeDotColor: AppTheme.primaryColor,
-                              dotColor: AppTheme.textColor,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                    // --- GERİ BUTONU ---
-                    if (canPop && !isOwnProfile)
-                      Positioned(
-                        top: 40,
-                        left: 16,
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.5),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.arrow_back, color: AppTheme.textColor, size: 24),
-                          ),
-                        ),
-                      ),
-
-                    // 🔥 ÖNE ÇIKAR BUTONU
-                    // --- 1. ADIM: BUTON KISMI (Widget build içindeki Stack/Positioned altına) ---
-                    if (isOwnProfile)
-                      Positioned(
-                        top: 40,
-                        right: 60,
-                        child: InkWell( // Her durumda tıklanabilir yaptık
-                          onTap: () => _showPromoteBottomSheet(context, _user?.fullName),
-                          child: _user?.isFeatured == true 
-                              ? Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withOpacity(0.9),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: Colors.white, width: 1),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.check_circle, color: Colors.white, size: 16),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        "Öne Çıkarıldı", // Artık burada karmaşık süre hesaplaması yok
-                                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : Container( // Normal buton görünümü
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.amber.shade700,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.auto_graph, color: Colors.white, size: 16),
-                                      SizedBox(width: 4),
-                                      Text("Öne Çıkar", style: TextStyle(color: Colors.white, fontSize: 12)),
-                                    ],
-                                  ),
-                                ),
-                        ),
-                      ),
-
-                    
-
-                    // --- AYARLAR BUTONU ---
-                    if (isOwnProfile)
-                      Positioned(
-                        top: 40,
-                        right: 16,
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              SlideRoute(page: const ArtistSettingsScreen()),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.5),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.settings, color: AppTheme.textColor, size: 24),
-                          ),
-                        ),
-                      ),
-
-                    // --- FOTOĞRAF EKLEME BUTONU ---
-                    if (isOwnProfile)
-                      Positioned(
-                        bottom: 8,
-                        right: 8,
-                        child: GestureDetector(
-                          onTap: () {
-                            showModalBottomSheet(
-                              context: context,
-                              backgroundColor: AppTheme.backgroundSecondaryColor,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                              ),
-                              builder: (context) => SafeArea(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const SizedBox(height: 8),
-                                    Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(2))),
-                                    ListTile(
-                                      leading: const Icon(Icons.add_photo_alternate_outlined, color: AppTheme.primaryColor),
-                                      title: const Text('Galeriye Fotoğraf Ekle', style: TextStyle(color: AppTheme.textColor)),
-                                      onTap: () {
-                                        Navigator.pop(context);
-                                        _uploadStudioImage();
-                                      },
-                                    ),
-                                    ListTile(
-                                      leading: const Icon(Icons.no_photography_outlined, color: Colors.redAccent),
-                                      title: const Text('Galeriden Fotoğraf Çıkar', style: TextStyle(color: AppTheme.textColor)),
-                                      subtitle: const Text('Silmek istediğiniz fotoğrafın üzerine uzun basın', style: TextStyle(color: Colors.grey, fontSize: 11)),
-                                      onTap: () {
-                                        Navigator.pop(context);
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text("Silmek istediğiniz fotoğrafın üzerine uzunca basın."),
-                                            backgroundColor: Colors.blueGrey,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                    const SizedBox(height: 16),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.6),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.add_a_photo, size: 20, color: AppTheme.textColor),
-                          ),
-                        ),
-                      ),
-
-                    // --- PROFİL FOTO & BİLGİLER ---
-                    Positioned(
-                      left: 16,
-                      bottom: -85,
-                      right: 16,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Stack(
-                            children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: AppTheme.cardLightColor,
-                                    width: 4,
-                                  ),
-                                ),
-                                child: ClipOval(
-                                  child: Container(
-                                    width: 130,
-                                    height: 130,
-                                    color: AppTheme.cardColor,
-                                    child: _user!.profileImageUrl != null
-                                        ? CachedNetworkImage(
-                                            imageUrl: _user!.profileImageUrl!,
-                                            fit: BoxFit.cover,
-                                            errorWidget: (context, url, error) => const Icon(Icons.person, size: 50),
-                                          )
-                                        : const Icon(Icons.person, size: 60),
-                                  ),
-                                ),
-                              ),
-                              if (_user!.isApproved)
-                                Positioned(
-                                  bottom: 4,
-                                  right: 4,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context).scaffoldBackgroundColor,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    padding: const EdgeInsets.all(2),
-                                    child: const Icon(
-                                      Icons.verified,
-                                      color: Colors.blue,
-                                      size: 22,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(width: 25),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          _user!.fullName.isNotEmpty ? _user!.fullName : (_user!.studioName ?? ''),
-                                          style: const TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppTheme.textColor,
-                                              shadows: [Shadow(offset: Offset(0, 1), blurRadius: 3, color: Colors.black)]),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      if (_user!.isApproved)
-                                        const Padding(
-                                          padding: EdgeInsets.only(left: 4.0),
-                                          child: Icon(Icons.verified, color: Colors.blue, size: 18),
-                                        ),
-                                    ],
-                                  ),
-                                  if (_user!.studioName != null && _user!.studioName!.isNotEmpty)
-                                    Text(
-                                      _user!.studioName!,
-                                      style: TextStyle(fontSize: 14, color: AppTheme.primaryLightColor.withOpacity(0.8)),
-                                    ),
-                                  if (_user!.locationString.isNotEmpty)
-                                    Text(
-                                      _user!.locationString,
-                                      style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // --- BU KISMI STACK'İN EN SONUNA EKLE ---
-                    // Sadece başkasının profiliyse göster (Kendi profilinde ayarlara gidersin)
-                    if (!widget.isOwnProfile)
-                      Positioned(
-                        top: MediaQuery.of(context).padding.top, // Çentik payı + 10px boşluk
-                        right: 16, // Sağdan boşluk
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.4), // Arkası hafif siyah olsun ki resim üstünde görünsün
-                            shape: BoxShape.circle,
-                          ),
-                          child: IconButton(
-                            icon: const Icon(Icons.more_vert, color: Colors.white),
-                            // ... butonun olduğu yer ...
-                          onPressed: () {
-                            showModalBottomSheet(
-                              context: context, // <-- BURADAKİ 'context' ANA SAYFANIN context'i (Bunu kullanmalıyız)
-                              backgroundColor: AppTheme.cardColor,
-                              builder: (sheetContext) => SafeArea( // <-- DİKKAT: Buradaki isimi 'context' yerine 'sheetContext' yaptık!
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    // ... süsleme çizgin ...
-                                    
-                                    // ŞİKAYET ET BUTONU
-                                    ListTile(
-                                      leading: const Icon(Icons.flag, color: Colors.redAccent),
-                                      title: const Text("Kullanıcıyı Şikayet Et", style: TextStyle(color: Colors.white)),
-                                      onTap: () {
-                                        Navigator.pop(sheetContext); // Menüyü kapat
-                                        
-                                        // Servisi çağır (Eksik parametreler eklendi)
-                                        ReportService.showReportDialog(
-                                          context: context, // Ana sayfanın context'i
-                                          contentId: widget.userId, // Şikayet edilen ID (ZORUNLU)
-                                          contentType: 'user',      // Şikayet türü (ZORUNLU)
-                                          reportedUserId: widget.userId, // Kim şikayet ediliyor
-                                        );
-                                      },
-                                    ),
-
-                                    // ENGELLE BUTONU (HATA VEREN YER BURASIYDI)
-                                    ListTile(
-                                      leading: const Icon(Icons.block, color: Colors.white70),
-                                      title: const Text("Engelle", style: TextStyle(color: Colors.white70)),
-                                      onTap: () {
-                                        // 1. Önce Menüyü Kapat (sheetContext ile)
-                                        Navigator.pop(sheetContext); 
-                                        
-                                        // 2. Servisi çağır ama ANA SAYFANIN 'context'ini gönder
-                                        // sheetContext gönderirsen hata alırsın çünkü o öldü.
-                                        final currentUser = FirebaseAuth.instance.currentUser;
-                                        if (currentUser != null) {
-                                          ReportService.blockUser(
-                                            context: context, // <--- İŞTE ÇÖZÜM: Ana 'context' burada yaşıyor
-                                            currentUserId: currentUser.uid,
-                                            blockedUserId: widget.userId,
-                                          );
-                                        }
-                                      },
-                                    ),
-                                    const SizedBox(height: 10),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                          ),
-                        ),
-                      ),
-                  
-                  ],
-                ),
-                const SizedBox(height: 80),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+    // 1. ANA YAPIYI STACK YAPTIK (Sabit butonlar için)
+    return Stack(
+      children: [
+        // KATMAN 1: KAYDIRILABİLİR İÇERİK (EN ALTTA)
+        CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
                     children: [
-                      _buildStatItem('Dövme', _user!.tattooCount.toString()),
-                      StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance
-                            .collection(AppConstants.collectionFollows)
-                            .where('followingId', isEqualTo: widget.userId)
-                            .snapshots(),
-                        builder: (context, snapshot) {
-                          final followerCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
-                          return _buildStatItem('Takipçi', followerCount.toString());
-                        },
+                      // --- CAROUSEL (Mevcut Kodun) ---
+                      SizedBox(
+                        height: 220,
+                        width: double.infinity,
+                        child: (_user!.studioImageUrls.isNotEmpty)
+                            ? cs.CarouselSlider.builder(
+                                itemCount: _user!.studioImageUrls.length,
+                                options: cs.CarouselOptions(
+                                  height: 220,
+                                  viewportFraction: 1.0,
+                                  autoPlay: true,
+                                  autoPlayInterval: const Duration(seconds: 5),
+                                  onPageChanged: (index, reason) => setState(() => _currentStudioImageIndex = index),
+                                ),
+                                itemBuilder: (context, index, realIndex) {
+                                  final imageUrl = _user!.studioImageUrls[index];
+                                  return GestureDetector(
+                                    onLongPress: isOwnProfile ? () => _confirmDeleteStudioImage(imageUrl) : null,
+                                    child: CachedNetworkImage(
+                                      imageUrl: imageUrl,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => Container(color: Colors.grey[900]),
+                                      errorWidget: (context, url, error) => const Icon(Icons.error),
+                                    ),
+                                  );
+                                },
+                              )
+                            : Container(
+                                color: Colors.grey[800],
+                                child: (_user!.coverImageUrl != null)
+                                    ? CachedNetworkImage(imageUrl: _user!.coverImageUrl!, fit: BoxFit.cover)
+                                    : const Center(child: Icon(Icons.image, color: AppTheme.textColor, size: 50)),
+                              ),
                       ),
-                      _buildStatItem('Beğeni', (_user!.totalLikes ?? 0).toString()),
+
+                      // --- NOKTA GÖSTERGELERİ ---
+                      if (_user!.studioImageUrls.length > 1)
+                        Positioned(
+                          bottom: 10,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: AnimatedSmoothIndicator(
+                              activeIndex: _currentStudioImageIndex,
+                              count: _user!.studioImageUrls.length,
+                              effect: const ScrollingDotsEffect(
+                                dotHeight: 6,
+                                dotWidth: 6,
+                                activeDotColor: AppTheme.primaryColor,
+                                dotColor: AppTheme.textColor,
+                              ),
+                            ),
+                          ),
+                        ),
+                      
+                      // ⚠️ DİKKAT: SABİT BUTONLARI BURADAN SİLDİK VE AŞAĞIYA (STACK'İN EN DIŞINA) TAŞIDIK.
+                      
+                      // --- FOTOĞRAF EKLEME BUTONU (Bu görselle beraber kaysın diye burada bıraktık) ---
+                      if (isOwnProfile)
+                        Positioned(
+                          bottom: 8,
+                          right: 8,
+                          child: GestureDetector(
+                            onTap: () {
+                              showModalBottomSheet(
+                                context: context,
+                                backgroundColor: AppTheme.backgroundSecondaryColor,
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                                ),
+                                builder: (context) => SafeArea(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const SizedBox(height: 8),
+                                      Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[800], borderRadius: BorderRadius.circular(2))),
+                                      ListTile(
+                                        leading: const Icon(Icons.add_photo_alternate_outlined, color: AppTheme.primaryColor),
+                                        title: Text(tr('add_photo_gallery'), style: const TextStyle(color: AppTheme.textColor)),
+                                        onTap: () {
+                                          Navigator.pop(context);
+                                          _uploadStudioImage();
+                                        },
+                                      ),
+                                      ListTile(
+                                        leading: const Icon(Icons.no_photography_outlined, color: Colors.redAccent),
+                                        title: Text(tr('remove_photo_gallery'), style: const TextStyle(color: AppTheme.textColor)),
+                                        subtitle: Text(tr('remove_photo_hint'), style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                                        onTap: () {
+                                          Navigator.pop(context);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(tr('remove_photo_hint')),
+                                              backgroundColor: Colors.blueGrey,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(height: 16),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.6),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.add_a_photo, size: 20, color: AppTheme.textColor),
+                            ),
+                          ),
+                        ),
+
+                      // --- PROFİL FOTO & BİLGİLER (Bu da kaymalı) ---
+                      Positioned(
+                        left: 16,
+                        bottom: -85,
+                        right: 16,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Stack(
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppTheme.cardLightColor,
+                                      width: 4,
+                                    ),
+                                  ),
+                                  child: ClipOval(
+                                    child: Container(
+                                      width: 130,
+                                      height: 130,
+                                      color: AppTheme.cardColor,
+                                      child: _user!.profileImageUrl != null
+                                          ? CachedNetworkImage(
+                                              imageUrl: _user!.profileImageUrl!,
+                                              fit: BoxFit.cover,
+                                              errorWidget: (context, url, error) => const Icon(Icons.person, size: 50),
+                                            )
+                                          : const Icon(Icons.person, size: 60),
+                                    ),
+                                  ),
+                                ),
+                                if (_user!.isApproved)
+                                  Positioned(
+                                    bottom: 4,
+                                    right: 4,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).scaffoldBackgroundColor,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      padding: const EdgeInsets.all(2),
+                                      child: const Icon(
+                                        Icons.verified,
+                                        color: Colors.blue,
+                                        size: 22,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(width: 25),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            _user!.fullName.isNotEmpty ? _user!.fullName : (_user!.studioName ?? ''),
+                                            style: const TextStyle(
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppTheme.textColor,
+                                                shadows: [Shadow(offset: Offset(0, 1), blurRadius: 3, color: Colors.black)]),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (_user!.isApproved)
+                                          const Padding(
+                                            padding: EdgeInsets.only(left: 4.0),
+                                            child: Icon(Icons.verified, color: Colors.blue, size: 18),
+                                          ),
+                                      ],
+                                    ),
+                                    if (_user!.studioName != null && _user!.studioName!.isNotEmpty)
+                                      Text(
+                                        _user!.studioName!,
+                                        style: TextStyle(fontSize: 14, color: AppTheme.primaryLightColor.withOpacity(0.8)),
+                                      ),
+                                    if (_user!.locationString.isNotEmpty)
+                                      Text(
+                                        _user!.locationString,
+                                        style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                if (isOwnProfile)
+                  
+                  // Alt kısımdaki boşluk ve diğer istatistikler
+                  const SizedBox(height: 90), // Profil fotosu taştığı için boşluk
+                  
+                  // İstatistikler
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        Expanded(child: _buildActionButton(Icons.calendar_today, 'Randevular', _handleAppointments)),
-                        const SizedBox(width: 8),
-                        Expanded(child: _buildActionButton(Icons.message, 'Mesajlar', _handleMessages)),
-                        const SizedBox(width: 8),
-                        Expanded(child: _buildActionButton(Icons.camera_alt, 'Paylaş', _handleCreatePost)),
+                        _buildStatItem(tr('tattoo_count'), _user!.tattooCount.toString()),
+                        StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection(AppConstants.collectionFollows)
+                              .where('followingId', isEqualTo: widget.userId)
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            final followerCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
+                            return _buildStatItem(tr('followers'), followerCount.toString());
+                          },
+                        ),
+                        _buildStatItem(tr('likes'), (_user!.totalLikes ?? 0).toString()),
                       ],
                     ),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: _buildFollowAndMessageButtons(context),
                   ),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SliverAppBarDelegate(
-              TabBar(
-                controller: _tabController,
-                labelColor: AppTheme.primaryColor,
-                unselectedLabelColor: const Color(0xFF757575),
-                dividerColor: Colors.transparent,
-                indicatorSize: TabBarIndicatorSize.tab,
-                indicator: const UnderlineTabIndicator(
-                  borderSide: BorderSide(color: AppTheme.primaryColor, width: 2),
-                ),
-                tabs: [
-                  // 1. Sekme: Duruma göre değişir
-                  Tab(text: isTargetArtist ? 'Portfolyo' : 'Favoriler'),
 
-                  // 2. Sekme: Sadece kendi profili ise görünür
-                  if (isOwnProfile) const Tab(text: 'Favoriler'),
-
-                  // 3. Sekme: Her zaman görünür
-                  const Tab(text: 'Hakkında'),
+                  // Aksiyon Butonları (Kaymalı)
+                  if (isOwnProfile)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Row(
+                        children: [
+                          Expanded(child: _buildActionButton(Icons.calendar_today, tr('btn_appointments'), _handleAppointments)),
+                          const SizedBox(width: 8),
+                          Expanded(child: _buildActionButton(Icons.message, tr('btn_messages'), _handleMessages)),
+                          const SizedBox(width: 8),
+                          Expanded(child: _buildActionButton(Icons.camera_alt, tr('btn_share'), _handleCreatePost)),
+                        ],
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: _buildFollowAndMessageButtons(context),
+                    ),
+                  const SizedBox(height: 8),
                 ],
               ),
             ),
-          ),
-          SliverFillRemaining(
-            hasScrollBody: true,
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                // 1. Sayfa: Artist ise Portfolyo, Müşteri ise Favoriler fonksiyonu çalışsın
-                isTargetArtist ? _buildPortfolioTab() : _buildFavoritesTab(),
+            
+            // TAB BAR (Sticky Header)
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _SliverAppBarDelegate(
+                TabBar(
+                  controller: _tabController,
+                  labelColor: AppTheme.primaryColor,
+                  unselectedLabelColor: const Color(0xFF757575),
+                  dividerColor: Colors.transparent,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicator: const UnderlineTabIndicator(
+                    borderSide: BorderSide(color: AppTheme.primaryColor, width: 2),
+                  ),
+                  tabs: [
+                    Tab(text: isTargetArtist ? tr('tab_portfolio') : tr('tab_favorites')),
+                    if (isOwnProfile) Tab(text: tr('tab_favorites')),
+                    Tab(text: tr('tab_about')),
+                  ],
+                ),
+              ),
+            ),
+            
+            // TAB İÇERİKLERİ
+            SliverFillRemaining(
+              hasScrollBody: true,
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  isTargetArtist ? _buildPortfolioTab() : _buildFavoritesTab(),
+                  if (isOwnProfile) _buildFavoritesTab(),
+                  _buildAboutTab(isOwnProfile),
+                ],
+              ),
+            ),
+          ],
+        ),
 
-                // 2. Sayfa: Sadece kendi profili ise
-                if (isOwnProfile) _buildFavoritesTab(),
-
-                // 3. Sayfa
-                _buildAboutTab(isOwnProfile),
-              ],
+        // 🔥 KATMAN 2: SABİT GERİ BUTONU (Scroll'dan etkilenmez)
+        if (canPop && !isOwnProfile)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10,
+            left: 16,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.4),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
+              ),
             ),
           ),
-        ],
-      ),
+
+        // 🔥 KATMAN 3: SABİT SAĞ ÜST AKSİYONLAR (Ayarlar, Öne Çıkar, Şikayet Et)
+        Positioned(
+          top: MediaQuery.of(context).padding.top + 10,
+          right: 16,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ÖNE ÇIKAR BUTONU (Sadece kendi profiliyse)
+              if (isOwnProfile) ...[
+                InkWell(
+                  onTap: () => _showPromoteBottomSheet(context, _user?.fullName),
+                  child: _user?.isFeatured == true
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white, width: 1),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.check_circle, color: Colors.white, size: 16),
+                              const SizedBox(width: 4),
+                              Text(tr('featured_badge'), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        )
+                      : Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade700,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.auto_graph, color: Colors.white, size: 16),
+                              const SizedBox(width: 4),
+                              Text(tr('promote_btn'), style: const TextStyle(color: Colors.white, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 8),
+              ],
+
+              // AYARLAR veya ŞİKAYET MENÜSÜ
+              GestureDetector(
+                onTap: () {
+                  if (isOwnProfile) {
+                    Navigator.push(context, SlideRoute(page: const ArtistSettingsScreen()));
+                  } else {
+                    // ŞİKAYET MENÜSÜ AÇ
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: AppTheme.cardColor,
+                      builder: (sheetContext) => SafeArea(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(width: 40, height: 4, margin: const EdgeInsets.symmetric(vertical: 10), decoration: BoxDecoration(color: Colors.grey[700], borderRadius: BorderRadius.circular(2))),
+                            ListTile(
+                              leading: const Icon(Icons.flag, color: Colors.redAccent),
+                              title: Text(tr('report_user'), style: const TextStyle(color: Colors.white)),
+                              onTap: () {
+                                Navigator.pop(sheetContext);
+                                ReportService.showReportDialog(
+                                  context: context,
+                                  contentId: widget.userId,
+                                  contentType: 'user',
+                                  reportedUserId: widget.userId,
+                                );
+                              },
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.block, color: Colors.white70),
+                              title: Text(tr('block_user'), style: const TextStyle(color: Colors.white70)),
+                              onTap: () {
+                                Navigator.pop(sheetContext);
+                                final currentUser = FirebaseAuth.instance.currentUser;
+                                if (currentUser != null) {
+                                  ReportService.blockUser(
+                                    context: context,
+                                    currentUserId: currentUser.uid,
+                                    blockedUserId: widget.userId,
+                                  );
+                                }
+                              },
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.4),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: Icon(
+                    isOwnProfile ? Icons.settings : Icons.more_vert,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -821,8 +837,8 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
                         backgroundColor: AppTheme.primaryColor,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
-                      child: Text('Takibi Bırak',
-                          style: TextStyle(
+                      child: Text(tr('unfollow'),
+                          style: const TextStyle(
                             color: AppTheme.backgroundColor,
                           )),
                     )
@@ -832,7 +848,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
                         side: const BorderSide(color: AppTheme.primaryColor),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
-                      child: const Text('Takip Et', style: TextStyle(color: AppTheme.primaryColor)),
+                      child: Text(tr('follow'), style: const TextStyle(color: AppTheme.primaryColor)),
                     ),
             ),
             const SizedBox(width: 8),
@@ -846,7 +862,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
                   backgroundColor: AppTheme.primaryColor,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                child: Text('Mesaj', style: TextStyle(color: AppTheme.backgroundColor)),
+                child: Text(tr('message'), style: const TextStyle(color: AppTheme.backgroundColor)),
               ),
             ),
           ],
@@ -883,9 +899,9 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 backgroundColor: Colors.transparent,
               ),
-              child: const Text(
-                'Randevu Al',
-                style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+              child: Text(
+                tr('book_appointment'),
+                style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -925,7 +941,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text('Henüz paylaşım yok', style: TextStyle(color: AppTheme.textColor)));
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return Center(child: Text(tr('no_posts'), style: const TextStyle(color: AppTheme.textColor)));
 
         final posts = snapshot.data!.docs.map((doc) => PostModel.fromFirestore(doc)).toList();
 
@@ -995,7 +1011,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection(AppConstants.collectionLikes).where('userId', isEqualTo: widget.userId).snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text('Henüz favori yok', style: TextStyle(color: AppTheme.textColor)));
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return Center(child: Text(tr('no_favorites'), style: const TextStyle(color: AppTheme.textColor)));
         final likedPostIds = snapshot.data!.docs.map((doc) => doc['postId'] as String).toList();
 
         return StreamBuilder<QuerySnapshot>(
@@ -1080,7 +1096,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Biyografi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
+              Text(tr('biography'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
               if (isOwnProfile)
                 IconButton(
                   icon: const Icon(Icons.edit, color: AppTheme.primaryColor),
@@ -1092,27 +1108,33 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            _user!.biography != null && _user!.biography!.isNotEmpty ? _user!.biography! : 'Henüz bir biyografi eklenmemiş.',
+            _user!.biography != null && _user!.biography!.isNotEmpty ? _user!.biography! : tr('no_biography'),
             style: const TextStyle(fontSize: 14, color: AppTheme.textColor, height: 1.4),
           ),
+          
+          // --- DÜZELTME 1: UYGULAMALAR ---
           if (_user!.applications.isNotEmpty) ...[
             const SizedBox(height: 24),
-            const Text('Uygulamalar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
+            Text(tr('applications'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: _user!.applications.map((app) => _buildAboutTag(app, Colors.blueGrey.withOpacity(0.2))).toList(),
+              // BURASI DEĞİŞTİ: app -> tr(app)
+              children: _user!.applications.map((app) => _buildAboutTag(tr(app), Colors.blueGrey.withOpacity(0.2))).toList(),
             ),
           ],
+
+          // --- DÜZELTME 2: STİLLER ---
           if (_user!.applicationStyles.isNotEmpty) ...[
             const SizedBox(height: 24),
-            const Text('Uzmanlık Stilleri', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
+            Text(tr('specialty_styles'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textColor)),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: _user!.applicationStyles.map((style) => _buildAboutTag(style, AppTheme.backgroundSecondaryColor.withOpacity(1))).toList(),
+              // BURASI DEĞİŞTİ: style -> tr(style)
+              children: _user!.applicationStyles.map((style) => _buildAboutTag(tr(style), AppTheme.backgroundSecondaryColor.withOpacity(1))).toList(),
             ),
           ],
           const SizedBox(height: 40),
@@ -1123,15 +1145,39 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen>
 
   Widget _buildAboutTag(String text, Color bgColor) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.textColor),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(color: AppTheme.textColor, fontSize: 13, fontWeight: FontWeight.w500),
+      // Kutu rengi ve kenarlık YOK
+      padding: const EdgeInsets.only(right: 16, bottom: 8), 
+      decoration: const BoxDecoration(), 
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Küçük Renkli Nokta
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor, // Veya neon bir renk
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.primaryColor.withOpacity(0.6),
+                  blurRadius: 4, 
+                  spreadRadius: 1
+                )
+              ]
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Yazı
+          Text(
+            text,
+            style: const TextStyle(
+              color: AppTheme.textColor, // Hafif gri
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1202,17 +1248,17 @@ void _showPromoteBottomSheet(BuildContext context, String? name) {
                       ),
                       child: Column(
                         children: [
-                          const Text(
-                            "🚀 Öne Çıkarma Paketiniz Aktif",
-                            style: TextStyle(color: AppTheme.primaryLightColor, fontWeight: FontWeight.bold, fontSize: 15),
+                          Text(
+                            tr('promote_package_active'),
+                            style: const TextStyle(color: AppTheme.primaryLightColor, fontWeight: FontWeight.bold, fontSize: 15),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            "Kalan Süre: ${_calculateRemainingTime(_user?.featuredEndDate)}",
+                            "${tr('time_remaining')}: ${_calculateRemainingTime(_user?.featuredEndDate)}",
                             style: const TextStyle(color: AppTheme.textColor, fontSize: 13),
                           ),
                           Text(
-                            "Bitiş: ${_user!.featuredEndDate!.day}.${_user!.featuredEndDate!.month}.${_user!.featuredEndDate!.year} - ${_user!.featuredEndDate!.hour}:${_user!.featuredEndDate!.minute.toString().padLeft(2, '0')}",
+                            "${tr('ends_at')}: ${_user!.featuredEndDate!.day}.${_user!.featuredEndDate!.month}.${_user!.featuredEndDate!.year} - ${_user!.featuredEndDate!.hour}:${_user!.featuredEndDate!.minute.toString().padLeft(2, '0')}",
                             style: TextStyle(color: Colors.grey[400], fontSize: 11),
                           ),
                         ],
@@ -1221,16 +1267,16 @@ void _showPromoteBottomSheet(BuildContext context, String? name) {
                     const SizedBox(height: 15),
                   ],
 
-                  const Text(
-                    "Paketini Uzat veya Yeni Paket Al",
-                    style: TextStyle(color: AppTheme.textColor, fontSize: 13),
+                  Text(
+                    tr('extend_package'),
+                    style: const TextStyle(color: AppTheme.textColor, fontSize: 13),
                   ),
                   const SizedBox(height: 15),
 
                   _buildPricingCard(
-                    title: "Hızlı Test (6 Saat)",
+                    title: tr('promote_test_title'),
                     price: "₺10",
-                    description: "6 saat boyunca öne çıkın.",
+                    description: tr('promote_test_desc'),
                     icon: Icons.timer,
                     onTap: () {
                       Navigator.push(
@@ -1247,9 +1293,9 @@ void _showPromoteBottomSheet(BuildContext context, String? name) {
                     },
                   ),
                   _buildPricingCard(
-                    title: "Günlük Boost",
+                    title: tr('promote_daily_title'),
                     price: "₺49",
-                    description: "24 saat boyunca öne çıkın.",
+                    description: tr('promote_daily_desc'),
                     icon: Icons.wb_sunny,
                     onTap: () {
                        Navigator.push(
@@ -1264,9 +1310,9 @@ void _showPromoteBottomSheet(BuildContext context, String? name) {
                     },
                   ),
                   _buildPricingCard(
-                    title: "Haftalık Boost",
+                    title: tr('promote_weekly_title'),
                     price: "₺199",
-                    description: "7 gün boyunca öne çıkın.",
+                    description: tr('promote_weekly_desc'),
                     icon: Icons.flash_on,
                     onTap: () {
                        Navigator.push(
@@ -1285,20 +1331,20 @@ void _showPromoteBottomSheet(BuildContext context, String? name) {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.security, color: Colors.grey, size: 14),
+                      const Icon(Icons.security, color: Colors.grey, size: 14),
                       const SizedBox(width: 10),
                       Text(
-                        "256-Bit SSL Güvenli Ödeme",
-                        style: TextStyle(color: Colors.grey, fontSize: 11),
+                        tr('ssl_secure'),
+                        style: const TextStyle(color: Colors.grey, fontSize: 11),
                       ),
                       const SizedBox(width: 10),
-                      Icon(Icons.credit_card, color: Colors.grey, size: 14),
+                      const Icon(Icons.credit_card, color: Colors.grey, size: 14),
                     ],
                   ),
                   const SizedBox(height: 10),
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text("Vazgeç", style: TextStyle(color: AppTheme.textGreyColor)),
+                    child: Text(tr('cancel'), style: const TextStyle(color: AppTheme.textGreyColor)),
                   ),
                 ],
               ),
@@ -1402,7 +1448,7 @@ Future<void> _handlePayment(int hours) async {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              "Başarılı! 🎉 Yeni bitiş: ${expiryDate.day}.${expiryDate.month} ${expiryDate.hour}:${expiryDate.minute.toString().padLeft(2, '0')}",
+              "${tr('payment_success')} ${expiryDate.day}.${expiryDate.month} ${expiryDate.hour}:${expiryDate.minute.toString().padLeft(2, '0')}",
             ),
             backgroundColor: Colors.green,
           ),
@@ -1413,7 +1459,7 @@ Future<void> _handlePayment(int hours) async {
     debugPrint("Hata: $e");
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("İşlem başarısız."), backgroundColor: Colors.red),
+        SnackBar(content: Text(tr('operation_failed')), backgroundColor: Colors.red),
       );
     }
   }
@@ -1530,14 +1576,14 @@ Future<void> _handlePayment(int hours) async {
 
   // Bu fonksiyon, tarihler arasındaki farkı hesaplayıp kullanıcıya güzel bir yazı döner
   String _calculateRemainingTime(DateTime? endDate) {
-    if (endDate == null) return "Öne Çıkarıldı";
+    if (endDate == null) return "Öne Çıkarıldı"; // Bunu çevirmeye gerek yok (statik değil, dinamik akışta null check)
     
     final now = DateTime.now();
     final diff = endDate.difference(now);
 
     // Eğer süre dolmuşsa
     if (diff.isNegative) {
-      return "Süre Doldu";
+      return "Süre Doldu"; // Bunu aşağıda tr ile değiştireceğiz, bu helper fonksiyon dışında.
     }
     
     // 1 saatten fazla varsa "X sa Y dk" formatı

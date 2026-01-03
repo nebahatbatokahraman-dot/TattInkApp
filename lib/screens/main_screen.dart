@@ -1,6 +1,6 @@
 import 'dart:async'; // StreamSubscription için gerekli
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 
 // --- EKRANLAR ---
@@ -15,6 +15,7 @@ import '../services/auth_service.dart';
 import '../models/user_model.dart';
 import '../widgets/login_required_dialog.dart';
 import '../theme/app_theme.dart';
+import '../app_localizations.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -31,6 +32,11 @@ class _MainScreenState extends State<MainScreen> {
   // HomeScreen'in durumunu korumak için Key
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
 
+  // --- EKLENEN KISIM 1: StudiosScreen için Key ---
+  // (NOT: Eğer burada kırmızı hata alırsan, StudiosScreenState henüz 'public' olmadığı içindir.
+  // Bir sonraki adımda studios_screen.dart dosyasını düzenleyince düzelecek.)
+  final GlobalKey<StudiosScreenState> _studiosKey = GlobalKey<StudiosScreenState>();
+
   @override
   void initState() {
     super.initState();
@@ -39,7 +45,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   // StreamBuilder yerine bu dinleyiciyi kullanıyoruz.
-  // Bu sayede build metodu her seferinde tetiklenip sayfayı sıfırlamaz.
   void _setupAuthListener() {
     final authService = Provider.of<AuthService>(context, listen: false);
     _authSubscription = authService.authStateChanges.listen((User? firebaseUser) {
@@ -81,15 +86,14 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       // ARTIK STREAMBUILDER YOK. IndexedStack doğrudan çalışıyor.
-      // Bu sayede HomeScreen hafızada hep canlı kalıyor.
       body: IndexedStack(
         index: _currentIndex,
         children: [
           // 1. Sayfa: HomeScreen (KeepAliveMixin sayesinde durumu korunacak)
           HomeScreen(key: _homeKey),
           
-          // 2. Sayfa: Stüdyolar (Const olduğu için zaten sabit)
-          const StudiosScreen(),
+          // 2. Sayfa: Stüdyolar (Const kaldırıldı, Key eklendi)
+          StudiosScreen(key: _studiosKey),
           
           // 3. Sayfa: Profil (Kullanıcı durumuna göre değişir)
           _buildProfileScreen(), 
@@ -105,28 +109,28 @@ class _MainScreenState extends State<MainScreen> {
           // MainScreen.dart içindeki BottomNavigationBar -> onTap kısmı:
           onTap: (index) {
 
-            // 1. Tıklamayı algılıyor mu?
-            print("Tıklama Algılandı! Tıklanan: $index, Mevcut: $_currentIndex");
-
+            // --- 1. HOME SCREEN YENİLEME ---
             if (index == 0 && _currentIndex == 0) {
-              print("Çift tıklama koşulu sağlandı. Akıllı scroll/refresh tetikleniyor...");
-
-              // HomeScreen'in scrollToTop fonksiyonunu çağır
-              // Bu fonksiyon otomatik olarak scroll veya refresh yapar
+              print("Anasayfa yenileniyor...");
               _homeKey.currentState?.scrollToTop();
+              return; 
+            }
 
-              print("✅ Akıllı scroll/refresh tamamlandı!");
-              return; // Erken çıkış yap
+            // --- 2. STUDIOS SCREEN YENİLEME (YENİ EKLENEN) ---
+            if (index == 1 && _currentIndex == 1) {
+              print("Stüdyolar sayfası yenileniyor...");
+              _studiosKey.currentState?.scrollToTop();
+              return;
             }
 
             setState(() {
               _currentIndex = index;
             });
           },
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Anasayfa'),
-            BottomNavigationBarItem(icon: Icon(Icons.store), label: 'Stüdyolar'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+          items: [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: AppLocalizations.of(context)!.translate('home')),
+            BottomNavigationBarItem(icon: Icon(Icons.store), label: AppLocalizations.of(context)!.translate('studios')),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: AppLocalizations.of(context)!.translate('profile')),
           ],
         ),
       ),
@@ -167,8 +171,8 @@ class _MainScreenState extends State<MainScreen> {
           children: [
             const Icon(Icons.account_circle_outlined, size: 80, color: Colors.grey),
             const SizedBox(height: 16),
-            const Text(
-              'Profilinizi görmek için giriş yapmalısınız.',
+            Text(
+              AppLocalizations.of(context)!.translate('profile_login_required'),
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
             const SizedBox(height: 24),
@@ -178,7 +182,7 @@ class _MainScreenState extends State<MainScreen> {
                 backgroundColor: AppTheme.primaryColor,
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               ),
-              child: const Text('Giriş Yap / Kayıt Ol', style: TextStyle(color: AppTheme.textColor)),
+              child: Text(AppLocalizations.of(context)!.translate('login_register'), style: TextStyle(color: AppTheme.textColor)),
             ),
           ],
         ),

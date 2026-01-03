@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../services/auth_service.dart';
 import '../../utils/constants.dart';
+import '../../app_localizations.dart'; // Çeviri sınıfını ekledik
 
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
@@ -13,10 +14,8 @@ class NotificationSettingsScreen extends StatefulWidget {
 }
 
 class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
-  // Başlangıçta yükleniyor durumu
   bool _isLoading = true;
 
-  // Varsayılan ayarlar (Firebase'den gelecek)
   bool _messages = true;
   bool _likes = true;
   bool _follows = true;
@@ -25,10 +24,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   @override
   void initState() {
     super.initState();
-    _loadSettings(); // Sayfa açılırken ayarları yükle
+    _loadSettings(); 
   }
 
-  // --- 1. AYARLARI FİREBASE'DEN ÇEK ---
   Future<void> _loadSettings() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     final uid = authService.currentUser?.uid;
@@ -42,7 +40,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
         if (doc.exists && doc.data() != null) {
           final data = doc.data()!;
-          // Eğer veritabanında bu alanlar yoksa varsayılan değerleri kullanır
           setState(() {
             _messages = data['notifMessages'] ?? true;
             _likes = data['notifLikes'] ?? true;
@@ -58,7 +55,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     }
   }
 
-  // --- 2. AYARLARI FİREBASE'E KAYDET ---
   Future<void> _updateSetting(String field, bool value) async {
     final authService = Provider.of<AuthService>(context, listen: false);
     final uid = authService.currentUser?.uid;
@@ -87,7 +83,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Bildirim Ayarları', style: TextStyle(color: AppTheme.textColor)),
+        title: Text(
+          AppLocalizations.of(context)!.translate('notification_settings_title'), 
+          style: const TextStyle(color: AppTheme.textColor)
+        ),
         backgroundColor: AppTheme.backgroundColor,
         elevation: 0,
         centerTitle: true,
@@ -100,10 +99,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildHeader("Sohbet"),
+          _buildHeader(AppLocalizations.of(context)!.translate('notif_header_chat')),
           _buildSwitch(
-            "Yeni Mesajlar", 
-            "Mesaj aldığında bildir", 
+            AppLocalizations.of(context)!.translate('notif_new_messages'), 
+            AppLocalizations.of(context)!.translate('notif_new_messages_sub'), 
             _messages, 
             (v) {
               setState(() => _messages = v);
@@ -113,10 +112,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
           const SizedBox(height: 24),
 
-          _buildHeader("Etkileşimler"),
+          _buildHeader(AppLocalizations.of(context)!.translate('notif_header_interactions')),
           _buildSwitch(
-            "Beğeniler", 
-            "Biri gönderini beğendiğinde", 
+            AppLocalizations.of(context)!.translate('notif_likes'), 
+            AppLocalizations.of(context)!.translate('notif_likes_sub'), 
             _likes, 
             (v) {
               setState(() => _likes = v);
@@ -124,8 +123,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             }
           ),
           _buildSwitch(
-            "Yeni Takipçiler", 
-            "Biri seni takip ettiğinde", 
+            AppLocalizations.of(context)!.translate('notif_follows'), 
+            AppLocalizations.of(context)!.translate('notif_follows_sub'), 
             _follows, 
             (v) {
               setState(() => _follows = v);
@@ -135,10 +134,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
           const SizedBox(height: 24),
 
-          _buildHeader("Diğer"),
+          _buildHeader(AppLocalizations.of(context)!.translate('notif_header_other')),
           _buildSwitch(
-            "Kampanyalar", 
-            "Duyuru ve yenilikler", 
+            AppLocalizations.of(context)!.translate('notif_campaigns'), 
+            AppLocalizations.of(context)!.translate('notif_campaigns_sub'), 
             _campaigns, 
             (v) {
               setState(() => _campaigns = v);

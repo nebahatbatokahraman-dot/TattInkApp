@@ -5,6 +5,7 @@ import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/constants.dart';
 import '../../utils/slide_route.dart';
+import '../../app_localizations.dart'; // Çeviri sınıfını import ettik
 import '../auth/login_screen.dart';
 import 'customer_edit_profile_screen.dart'; 
 import 'email_password_screen.dart';
@@ -12,7 +13,7 @@ import 'language_screen.dart';
 import 'help_screen.dart';
 import 'legal_documents_screen.dart';
 import 'notification_settings_screen.dart';
-import 'blocked_users_screen.dart'; // <-- UNUTMA: Bunu import etmelisin
+import 'blocked_users_screen.dart';
 
 class CustomerSettingsScreen extends StatelessWidget {
   const CustomerSettingsScreen({super.key});
@@ -27,19 +28,29 @@ class CustomerSettingsScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.cardColor,
-        title: const Text('Hesabı Sil', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-        content: const Text(
-            'Hesabınızı silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve tüm randevularınız, mesajlarınız ve profil verileriniz kalıcı olarak silinecektir.',
-            style: TextStyle(color: Colors.white70)),
+        title: Text(
+          AppLocalizations.of(context)!.translate('delete_account'), 
+          style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)
+        ),
+        content: Text(
+          AppLocalizations.of(context)!.translate('delete_account_warning'), 
+          style: const TextStyle(color: Colors.white70)
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Vazgeç', style: TextStyle(color: Colors.grey)),
+            child: Text(
+              AppLocalizations.of(context)!.translate('cancel'), 
+              style: const TextStyle(color: Colors.grey)
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Evet, Kalıcı Olarak Sil', style: TextStyle(color: Colors.white)),
+            child: Text(
+              AppLocalizations.of(context)!.translate('delete_permanently'), 
+              style: const TextStyle(color: Colors.white)
+            ),
           ),
         ],
       ),
@@ -51,9 +62,7 @@ class CustomerSettingsScreen extends StatelessWidget {
             .collection(AppConstants.collectionUsers)
             .doc(user.uid)
             .delete();
-
         await user.delete();
-
         if (context.mounted) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -63,8 +72,8 @@ class CustomerSettingsScreen extends StatelessWidget {
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Güvenlik nedeniyle, bu işlemden önce tekrar giriş yapmalısınız.'),
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.translate('relogin_required')),
               backgroundColor: Colors.red,
             ),
           );
@@ -78,7 +87,10 @@ class CustomerSettingsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Ayarlar', style: TextStyle(color: AppTheme.textColor)),
+        title: Text(
+          AppLocalizations.of(context)!.translate('settings'), 
+          style: const TextStyle(color: AppTheme.textColor)
+        ),
         backgroundColor: AppTheme.cardColor,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppTheme.textColor),
@@ -88,97 +100,78 @@ class CustomerSettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          _buildSectionHeader('Hesap'),
+          // HESAP BÖLÜMÜ
+          _buildSectionHeader(context, AppLocalizations.of(context)!.translate('account')),
           _buildSettingsTile(
             context,
             icon: Icons.person,
-            title: 'Profil Bilgileri',
-            subtitle: 'Ad, soyad ve profil fotoğrafınızı düzenleyin',
+            title: AppLocalizations.of(context)!.translate('profile_info'),
+            subtitle: AppLocalizations.of(context)!.translate('profile_info_sub'),
             onTap: () {
-              Navigator.push(
-                context,
-                SlideRoute(page: const CustomerEditProfileScreen()),
-              );
+              Navigator.push(context, SlideRoute(page: const CustomerEditProfileScreen()));
             },
           ),
           _buildSettingsTile(
             context,
             icon: Icons.security,
-            title: 'Email ve Şifre',
-            subtitle: 'Email adresinizi ve şifrenizi değiştirin',
+            title: AppLocalizations.of(context)!.translate('email_password'),
+            subtitle: AppLocalizations.of(context)!.translate('email_password_sub'),
             onTap: () {
-              Navigator.push(
-                context,
-                SlideRoute(page: const EmailPasswordScreen()),
-              );
+              Navigator.push(context, SlideRoute(page: const EmailPasswordScreen()));
             },
           ),
           
-          _buildSectionHeader('Tercihler'),
+          // TERCİHLER BÖLÜMÜ
+          _buildSectionHeader(context, AppLocalizations.of(context)!.translate('preferences')),
           _buildSettingsTile(
             context,
             icon: Icons.notifications,
-            title: 'Bildirimler',
-            subtitle: 'Bildirim ayarlarınızı yönetin',
+            title: AppLocalizations.of(context)!.translate('notifications'),
+            subtitle: AppLocalizations.of(context)!.translate('notifications_sub'),
             onTap: () {
-              Navigator.push(
-                context,
-                SlideRoute(page: const NotificationSettingsScreen()),
-              );
+              Navigator.push(context, SlideRoute(page: const NotificationSettingsScreen()));
             },
           ),
           _buildSettingsTile(
             context,
             icon: Icons.language,
-            title: 'Dil',
-            subtitle: 'Uygulama dilini seçin',
+            title: AppLocalizations.of(context)!.translate('language'),
+            subtitle: AppLocalizations.of(context)!.translate('language_sub'),
             onTap: () {
-              Navigator.push(
-                context,
-                SlideRoute(page: const LanguageScreen()),
-              );
+              Navigator.push(context, SlideRoute(page: const LanguageScreen()));
             },
           ),
 
-          // --- YENİ EKLENEN: GİZLİLİK BÖLÜMÜ ---
-          _buildSectionHeader('Gizlilik'),
+          // GİZLİLİK BÖLÜMÜ
+          _buildSectionHeader(context, AppLocalizations.of(context)!.translate('privacy')),
           _buildSettingsTile(
             context,
             icon: Icons.block,
-            title: 'Engellenen Kullanıcılar',
-            subtitle: 'Engellediğiniz kişileri yönetin',
+            title: AppLocalizations.of(context)!.translate('blocked_users'),
+            subtitle: AppLocalizations.of(context)!.translate('blocked_users_sub'),
             onTap: () {
-              Navigator.push(
-                context,
-                SlideRoute(page: const BlockedUsersScreen()),
-              );
+              Navigator.push(context, SlideRoute(page: const BlockedUsersScreen()));
             },
           ),
-          // ------------------------------------
 
-          _buildSectionHeader('Destek'),
+          // DESTEK BÖLÜMÜ
+          _buildSectionHeader(context, AppLocalizations.of(context)!.translate('support')),
           _buildSettingsTile(
             context,
             icon: Icons.help_outline,
-            title: 'Yardım',
-            subtitle: 'Sık sorulan sorular ve yardım',
+            title: AppLocalizations.of(context)!.translate('help'),
+            subtitle: AppLocalizations.of(context)!.translate('help_sub'),
             onTap: () {
-              Navigator.push(
-                context,
-                SlideRoute(page: const HelpScreen()),
-              );
+              Navigator.push(context, SlideRoute(page: const HelpScreen()));
             },
           ),
           _buildSettingsTile(
             context,
             icon: Icons.gavel_rounded,
-            title: 'Hukuki Metinler',
-            subtitle: 'Kullanım şartları ve gizlilik politikası',
+            title: AppLocalizations.of(context)!.translate('legal'),
+            subtitle: AppLocalizations.of(context)!.translate('legal_sub'),
             onTap: () {
-              Navigator.push(
-                context,
-                SlideRoute(page: const LegalDocumentsScreen()),
-              );
+              Navigator.push(context, SlideRoute(page: const LegalDocumentsScreen()));
             },
           ),
           
@@ -190,7 +183,7 @@ class CustomerSettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0, top: 16.0),
       child: Text(
@@ -223,69 +216,78 @@ class CustomerSettingsScreen extends StatelessWidget {
 
   Widget _buildLogoutButton(BuildContext context) {
     final authService = Provider.of<AuthService>(context, listen: false);
-    return Theme(
-      data: Theme.of(context).copyWith(
-        splashColor: AppTheme.backgroundColor.withOpacity(0.6),
-        highlightColor: AppTheme.backgroundColor.withOpacity(0.1),
-      ),
-      child: Card(
-        color: AppTheme.cardColor,
-        margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
-          leading: const Icon(Icons.logout, color: AppTheme.primaryColor),
-          title: const Text('Çıkış Yap', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
-          onTap: () async {
-            final shouldLogout = await showDialog<bool>(
-              context: context,
-              builder: (context) => AlertDialog(
-                backgroundColor: AppTheme.cardColor,
-                title: const Text('Çıkış Yap', style: TextStyle(color: AppTheme.textColor)),
-                content: const Text('Çıkış yapmak istediğinize emin misiniz?', style: TextStyle(color: Colors.white70)),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('İptal', style: TextStyle(color: Colors.grey)),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-                    child: const Text('Çıkış Yap', style: TextStyle(color: AppTheme.backgroundColor)),
-                  ),
-                ],
-              ),
-            );
-
-            if (shouldLogout == true && context.mounted) {
-              await authService.signOut();
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false,
-                );
-              }
-            }
-          },
+    return Card(
+      color: AppTheme.cardColor,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: const Icon(Icons.logout, color: AppTheme.primaryColor),
+        title: Text(
+          AppLocalizations.of(context)!.translate('logout'), 
+          style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)
         ),
+        onTap: () async {
+          final shouldLogout = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              backgroundColor: AppTheme.cardColor,
+              title: Text(
+                AppLocalizations.of(context)!.translate('logout'), 
+                style: const TextStyle(color: AppTheme.textColor)
+              ),
+              content: Text(
+                AppLocalizations.of(context)!.translate('logout_confirm'), 
+                style: const TextStyle(color: Colors.white70)
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(
+                    AppLocalizations.of(context)!.translate('cancel'), 
+                    style: const TextStyle(color: Colors.grey)
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                  child: Text(
+                    AppLocalizations.of(context)!.translate('logout'), 
+                    style: const TextStyle(color: AppTheme.backgroundColor)
+                  ),
+                ),
+              ],
+            ),
+          );
+
+          if (shouldLogout == true && context.mounted) {
+            await authService.signOut();
+            if (context.mounted) {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                (route) => false,
+              );
+            }
+          }
+        },
       ),
     );
   }
 
   Widget _buildDeleteAccountButton(BuildContext context) {
-    return Theme(
-      data: Theme.of(context).copyWith(
-        splashColor: Colors.red.withOpacity(0.2),
-        highlightColor: Colors.red.withOpacity(0.1),
-      ),
-      child: Card(
-        color: Colors.redAccent.withOpacity(0.1),
-        elevation: 0,
-        margin: const EdgeInsets.only(top: 8),
-        child: ListTile(
-          leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
-          title: const Text('Hesabımı Sil', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-          subtitle: const Text('Tüm verileriniz kalıcı olarak kaldırılır', style: TextStyle(fontSize: 12, color: Colors.grey)),
-          onTap: () => _handleDeleteAccount(context),
+    return Card(
+      color: Colors.redAccent.withOpacity(0.1),
+      elevation: 0,
+      margin: const EdgeInsets.only(top: 8),
+      child: ListTile(
+        leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
+        title: Text(
+          AppLocalizations.of(context)!.translate('delete_account'), 
+          style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)
         ),
+        subtitle: Text(
+          AppLocalizations.of(context)!.translate('delete_account_sub'), 
+          style: const TextStyle(fontSize: 12, color: Colors.grey)
+        ),
+        onTap: () => _handleDeleteAccount(context),
       ),
     );
   }
